@@ -1,1 +1,64 @@
 
+# Dependencies
+node_modules/
+
+# Build files
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Uploads
+uploads/
+temp/
+tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+
+# ESLint cache
+.eslintcache
+
+# Parcel cache
+.cache/
+
+# MongoDB local files (if any)
+*.mongodb
+
+# PM2
+.pm2/
+
+# Misc
+*.tgz
+
+# Generated files
+dist-ssr/
