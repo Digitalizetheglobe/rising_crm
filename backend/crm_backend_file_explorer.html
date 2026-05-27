@@ -1,0 +1,250 @@
+<h2 class="sr-only">Rising Spaces CRM — complete backend file and folder structure</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-mono);font-size:12px}
+.explorer{display:flex;gap:0;border:1px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;min-height:520px}
+.tree{width:52%;overflow-y:auto;border-right:1px solid var(--color-border-tertiary);padding:8px 0}
+.detail{width:48%;padding:16px;overflow-y:auto;background:var(--color-background-secondary)}
+.row{display:flex;align-items:center;gap:4px;padding:2px 8px;cursor:pointer;border-radius:4px;user-select:none;line-height:1.6}
+.row:hover{background:var(--color-background-secondary)}
+.row.active{background:var(--color-background-secondary);color:var(--color-text-primary)}
+.row.active .fname{color:var(--color-text-info)}
+.indent0{padding-left:8px}.indent1{padding-left:20px}.indent2{padding-left:36px}.indent3{padding-left:52px}.indent4{padding-left:68px}
+.icon{font-size:11px;opacity:.6;min-width:12px;flex-shrink:0}
+.folder-icon{color:#EF9F27}
+.file-icon{color:var(--color-text-secondary)}
+.fname{font-size:11px;color:var(--color-text-secondary);white-space:nowrap}
+.fname.isdir{color:var(--color-text-primary);font-weight:500}
+.toggle{font-size:9px;opacity:.5;min-width:10px}
+.detail-title{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px}
+.detail-path{font-size:10px;color:var(--color-text-tertiary);font-family:var(--font-mono);margin-bottom:12px;word-break:break-all}
+.detail-desc{font-size:12px;color:var(--color-text-secondary);line-height:1.7;margin-bottom:12px}
+.detail-exports{margin-top:10px}
+.detail-exports .label{font-size:10px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.chip{display:inline-block;font-size:10px;font-family:var(--font-mono);padding:1px 6px;border-radius:4px;margin:2px 3px 2px 0;border:1px solid var(--color-border-secondary);color:var(--color-text-secondary)}
+.placeholder{padding:24px;color:var(--color-text-tertiary);font-family:var(--font-sans);font-size:12px;text-align:center;line-height:1.7}
+</style>
+
+<div class="explorer">
+<div class="tree" id="tree"></div>
+<div class="detail" id="detail"><div class="placeholder">Click any file to see what it contains and what it exports.</div></div>
+</div>
+
+<script>
+const FILES = [
+ {n:"crm-backend/",d:true,l:0},
+ {n:".env",l:1,desc:"Environment variables — MONGO_URI, JWT_SECRET, PORT, Cloudinary keys, SMTP config. Never commit to git.",exports:[]},
+ {n:".env.example",l:1,desc:"Template of .env with empty values. Safe to commit. New devs copy this to .env and fill in their values.",exports:[]},
+ {n:".gitignore",l:1,desc:"Tells git to ignore node_modules/, dist/, .env, uploads/, logs/.",exports:[]},
+ {n:"package.json",l:1,desc:"Project metadata, npm scripts (dev, build, start), and all dependency declarations.",exports:[]},
+ {n:"tsconfig.json",l:1,desc:"TypeScript compiler config — rootDir: src, outDir: dist, strict: true, esModuleInterop: true.",exports:[]},
+ {n:"README.md",l:1,desc:"Project documentation — setup instructions, env variables, API overview, module descriptions.",exports:[]},
+
+ {n:"src/",d:true,l:1},
+
+ {n:"src/app.ts",l:2,desc:"Creates and configures the Express app — registers helmet, cors, morgan, body-parser, mounts all routes from routes/index.ts, attaches the global error handler.",exports:["app (default)"]},
+ {n:"src/server.ts",l:2,desc:"Entry point — calls connectDB(), starts the HTTP server on ENV.PORT, imports and initialises all cron jobs.",exports:[]},
+
+ {n:"src/config/",d:true,l:2},
+ {n:"src/config/db.ts",l:3,desc:"Mongoose connection — connects to MONGO_URI, logs success or exits process on failure.",exports:["connectDB"]},
+ {n:"src/config/env.ts",l:3,desc:"Single source of truth for all environment variables. Import ENV everywhere instead of reading process.env directly.",exports:["ENV"]},
+ {n:"src/config/jwt.ts",l:3,desc:"JWT helper — signs tokens with ENV.JWT_SECRET and expiry, verifies and decodes tokens.",exports:["signToken","verifyToken"]},
+ {n:"src/config/cloudinary.ts",l:3,desc:"Configures the Cloudinary SDK with credentials from ENV. Used by the upload service for document and image storage.",exports:["cloudinary (configured instance)"]},
+ {n:"src/config/logger.ts",l:3,desc:"Winston logger instance — writes to console in dev, to logs/error.log and logs/combined.log in production.",exports:["logger"]},
+
+ {n:"src/middleware/",d:true,l:2},
+ {n:"src/middleware/auth.middleware.ts",l:3,desc:"protect() — extracts JWT from Authorization header, verifies it, attaches decoded user to req.user.",exports:["protect"]},
+ {n:"src/middleware/role.middleware.ts",l:3,desc:"allowRoles(...roles) — checks req.user.role.name against allowed roles. Throws 403 if not authorised.",exports:["allowRoles"]},
+ {n:"src/middleware/error.middleware.ts",l:3,desc:"Global Express error handler. Reads err.statusCode, returns JSON error response, includes stack in development.",exports:["errorHandler"]},
+ {n:"src/middleware/upload.middleware.ts",l:3,desc:"Multer config — diskStorage for local temp uploads, fileFilter for allowed types (images, PDFs), 10MB size limit.",exports:["upload (multer instance)"]},
+ {n:"src/middleware/validate.middleware.ts",l:3,desc:"validate(schema) — wraps Joi schemas into Express middleware. Validates req.body and throws 400 with error details.",exports:["validate"]},
+
+ {n:"src/utils/",d:true,l:2},
+ {n:"src/utils/ApiError.ts",l:3,desc:"Custom error class that extends Error. Adds statusCode property. Thrown in services, caught by errorHandler.",exports:["ApiError"]},
+ {n:"src/utils/ApiResponse.ts",l:3,desc:"Standardised success response shape: { success: true, message, data }. Used in all controllers.",exports:["ApiResponse"]},
+ {n:"src/utils/asyncHandler.ts",l:3,desc:"Wraps async route handlers to auto-forward errors to next(). Eliminates try/catch boilerplate in every controller.",exports:["asyncHandler"]},
+ {n:"src/utils/pagination.ts",l:3,desc:"paginate(model, query, page, limit) — returns { data, total, page, totalPages }. Used by all list endpoints.",exports:["paginate"]},
+ {n:"src/utils/generateToken.ts",l:3,desc:"Convenience wrapper around signToken() for user login and refresh flows.",exports:["generateToken"]},
+ {n:"src/utils/sendMail.ts",l:3,desc:"Nodemailer transporter config + sendMail({ to, subject, text, html }) function for email notifications.",exports:["sendMail"]},
+
+ {n:"src/routes/",d:true,l:2},
+ {n:"src/routes/index.ts",l:3,desc:"Master router — imports all module routers and mounts them under /api/v1/. E.g. router.use('/leads', leadRoutes).",exports:["router (default)"]},
+
+ {n:"src/jobs/",d:true,l:2},
+ {n:"src/jobs/followupReminder.job.ts",l:3,desc:"Cron: runs daily at 8 AM. Finds leads with nextFollowUp = today, emails the assigned employee for each one.",exports:[]},
+ {n:"src/jobs/paymentReminder.job.ts",l:3,desc:"Cron: runs daily at 9 AM. Finds instalments due in the next 3 days, notifies both client and sales staff.",exports:[]},
+ {n:"src/jobs/siteVisitReminder.job.ts",l:3,desc:"Cron: runs daily at 7 AM. Finds scheduled site visits for tomorrow, sends reminder to client and assigned employee.",exports:[]},
+
+ {n:"src/modules/",d:true,l:2},
+
+ {n:"src/modules/auth/",d:true,l:3},
+ {n:"src/modules/auth/auth.model.ts",l:4,desc:"User model (doubles as auth model) — name, email, password (hashed), role ref, isActive. Pre-save hook hashes password. comparePassword() instance method.",exports:["User","IUser"]},
+ {n:"src/modules/auth/auth.service.ts",l:4,desc:"loginService(email, password) — finds user, compares password, returns JWT + user object. registerService() creates new user.",exports:["loginService","registerService"]},
+ {n:"src/modules/auth/auth.controller.ts",l:4,desc:"POST /login and POST /register handlers. Calls auth service, returns token in response.",exports:["login","register"]},
+ {n:"src/modules/auth/auth.routes.ts",l:4,desc:"Express router for /auth — POST /login, POST /register. No auth middleware (public routes).",exports:["router (default)"]},
+ {n:"src/modules/auth/auth.validation.ts",l:4,desc:"Joi schemas for login (email + password) and register (name, email, password, roleId).",exports:["loginSchema","registerSchema"]},
+
+ {n:"src/modules/users/",d:true,l:3},
+ {n:"src/modules/users/user.model.ts",l:4,desc:"Same as auth.model.ts — can share or re-export. Defines the IUser interface and User mongoose model.",exports:["User","IUser"]},
+ {n:"src/modules/users/user.service.ts",l:4,desc:"getAllUsers(), getUserById(), updateUser(), deactivateUser(). Admin-only operations.",exports:["getAllUsers","getUserById","updateUser","deactivateUser"]},
+ {n:"src/modules/users/user.controller.ts",l:4,desc:"CRUD handlers for user management by admins.",exports:["getUsers","getUser","updateUser","deleteUser"]},
+ {n:"src/modules/users/user.routes.ts",l:4,desc:"GET /, GET /:id, PUT /:id, DELETE /:id — all protected + Admin only.",exports:["router (default)"]},
+ {n:"src/modules/users/user.validation.ts",l:4,desc:"Joi schema for updating user profile and password change.",exports:["updateUserSchema"]},
+
+ {n:"src/modules/roles/",d:true,l:3},
+ {n:"src/modules/roles/role.model.ts",l:4,desc:"Role model — name (Admin, Manager, SalesExecutive), permissions array. Seeded on first startup.",exports:["Role","IRole"]},
+ {n:"src/modules/roles/role.service.ts",l:4,desc:"getAllRoles(), createRole(), updateRole() — admin operations to manage system roles.",exports:["getAllRoles","createRole","updateRole"]},
+ {n:"src/modules/roles/role.controller.ts",l:4,desc:"CRUD controllers for role management.",exports:["getRoles","createRole","updateRole"]},
+ {n:"src/modules/roles/role.routes.ts",l:4,desc:"GET /, POST /, PUT /:id — Admin only.",exports:["router (default)"]},
+
+ {n:"src/modules/leads/",d:true,l:3},
+ {n:"src/modules/leads/lead.model.ts",l:4,desc:"Lead model — name, phone, email, source (Website/Ad/Referral/Walk-In), status (New→Closed Won/Lost), project ref, assignedTo ref, notes, nextFollowUp date.",exports:["Lead","ILead"]},
+ {n:"src/modules/leads/lead.service.ts",l:4,desc:"createLead(), getAllLeads(filters), getLeadById(), updateLead(), assignLead(), updateLeadStatus(), deleteLead(). Triggers notification on assignment.",exports:["createLead","getAllLeads","getLeadById","updateLead","assignLead","updateLeadStatus","deleteLead"]},
+ {n:"src/modules/leads/lead.controller.ts",l:4,desc:"Full CRUD + assignLead + updateStatus controllers.",exports:["createLead","getLeads","getLead","updateLead","assignLead","updateStatus","deleteLead"]},
+ {n:"src/modules/leads/lead.routes.ts",l:4,desc:"POST /, GET /, GET /:id, PUT /:id, PATCH /:id/assign, PATCH /:id/status, DELETE /:id.",exports:["router (default)"]},
+ {n:"src/modules/leads/lead.validation.ts",l:4,desc:"Joi schemas for create and update — validates source enum, phone format, status transitions.",exports:["createLeadSchema","updateLeadSchema"]},
+ {n:"src/modules/leads/lead.constants.ts",l:4,desc:"LEAD_SOURCES and LEAD_STATUSES arrays — single source of truth for all enum values used in model and validation.",exports:["LEAD_SOURCES","LEAD_STATUSES"]},
+
+ {n:"src/modules/enquiries/",d:true,l:3},
+ {n:"src/modules/enquiries/enquiry.model.ts",l:4,desc:"Enquiry model — name, phone, email, channel (Website/WhatsApp/Phone/Walk-In), message, status (Pending/Converted/Rejected), convertedLeadId ref.",exports:["Enquiry","IEnquiry"]},
+ {n:"src/modules/enquiries/enquiry.service.ts",l:4,desc:"createEnquiry(), getAllEnquiries(), convertToLead(enquiryId) — one-click conversion that creates a Lead and links it back.",exports:["createEnquiry","getAllEnquiries","convertToLead"]},
+ {n:"src/modules/enquiries/enquiry.controller.ts",l:4,desc:"CRUD + convert controller.",exports:["createEnquiry","getEnquiries","convertToLead"]},
+ {n:"src/modules/enquiries/enquiry.routes.ts",l:4,desc:"POST /, GET /, POST /:id/convert.",exports:["router (default)"]},
+
+ {n:"src/modules/followups/",d:true,l:3},
+ {n:"src/modules/followups/followup.model.ts",l:4,desc:"FollowUp model — lead ref, doneBy (user) ref, type (Call/Email/Visit/WhatsApp), scheduledAt, completedAt, notes, outcome.",exports:["FollowUp","IFollowUp"]},
+ {n:"src/modules/followups/followup.service.ts",l:4,desc:"createFollowUp(), getFollowUpsByLead(), markComplete(), getUpcomingFollowUps().",exports:["createFollowUp","getFollowUpsByLead","markComplete","getUpcomingFollowUps"]},
+ {n:"src/modules/followups/followup.controller.ts",l:4,desc:"Controllers for follow-up management.",exports:["createFollowUp","getFollowUps","markComplete"]},
+ {n:"src/modules/followups/followup.routes.ts",l:4,desc:"POST /, GET /?leadId=, PATCH /:id/complete.",exports:["router (default)"]},
+
+ {n:"src/modules/clients/",d:true,l:3},
+ {n:"src/modules/clients/client.model.ts",l:4,desc:"Client model — created from a converted lead. name, phone, email, address, aadhaar, PAN, bookings array ref.",exports:["Client","IClient"]},
+ {n:"src/modules/clients/client.service.ts",l:4,desc:"createClient(), getAllClients(), getClientById(), updateClient(), getClientWithBookings().",exports:["createClient","getAllClients","getClientById","updateClient","getClientWithBookings"]},
+ {n:"src/modules/clients/client.controller.ts",l:4,desc:"CRUD controllers for client profiles.",exports:["createClient","getClients","getClient","updateClient"]},
+ {n:"src/modules/clients/client.routes.ts",l:4,desc:"POST /, GET /, GET /:id, PUT /:id, GET /:id/bookings.",exports:["router (default)"]},
+
+ {n:"src/modules/calls/",d:true,l:3},
+ {n:"src/modules/calls/call.model.ts",l:4,desc:"Call log model — client ref, loggedBy ref, callDate, duration, outcome, notes, nextCallDate.",exports:["Call","ICall"]},
+ {n:"src/modules/calls/call.service.ts",l:4,desc:"logCall(), getCallsByClient(), scheduleNextCall().",exports:["logCall","getCallsByClient","scheduleNextCall"]},
+ {n:"src/modules/calls/call.controller.ts",l:4,desc:"Controllers for call logging and retrieval.",exports:["logCall","getCalls"]},
+ {n:"src/modules/calls/call.routes.ts",l:4,desc:"POST /, GET /?clientId=.",exports:["router (default)"]},
+
+ {n:"src/modules/feedbacks/",d:true,l:3},
+ {n:"src/modules/feedbacks/feedback.model.ts",l:4,desc:"Feedback model — client ref, rating (1-5), comment, category (Service/Property/Staff), submittedAt.",exports:["Feedback","IFeedback"]},
+ {n:"src/modules/feedbacks/feedback.service.ts",l:4,desc:"submitFeedback(), getFeedbackByClient(), getAverageRating(), getAllFeedbacks(filters).",exports:["submitFeedback","getFeedbackByClient","getAverageRating","getAllFeedbacks"]},
+ {n:"src/modules/feedbacks/feedback.controller.ts",l:4,desc:"Submit and retrieve feedback controllers.",exports:["submitFeedback","getFeedbacks"]},
+ {n:"src/modules/feedbacks/feedback.routes.ts",l:4,desc:"POST /, GET /, GET /stats.",exports:["router (default)"]},
+
+ {n:"src/modules/projects/",d:true,l:3},
+ {n:"src/modules/projects/project.model.ts",l:4,desc:"Project model — name, description, location, amenities[], totalUnits, launchDate, status (Upcoming/Active/Completed), images[].",exports:["Project","IProject"]},
+ {n:"src/modules/projects/project.service.ts",l:4,desc:"createProject(), getAllProjects(), getProjectById(), updateProject(), getProjectWithUnits().",exports:["createProject","getAllProjects","getProjectById","updateProject","getProjectWithUnits"]},
+ {n:"src/modules/projects/project.controller.ts",l:4,desc:"CRUD controllers for real estate projects.",exports:["createProject","getProjects","getProject","updateProject"]},
+ {n:"src/modules/projects/project.routes.ts",l:4,desc:"POST /, GET /, GET /:id, PUT /:id, GET /:id/units.",exports:["router (default)"]},
+ {n:"src/modules/projects/project.validation.ts",l:4,desc:"Joi schemas for project creation and update.",exports:["createProjectSchema","updateProjectSchema"]},
+
+ {n:"src/modules/units/",d:true,l:3},
+ {n:"src/modules/units/unit.model.ts",l:4,desc:"Unit model — project ref, unitNumber, type (1BHK/2BHK/3BHK/Plot/Shop), floor, area, price, status (Available/Booked/Sold), facing.",exports:["Unit","IUnit"]},
+ {n:"src/modules/units/unit.service.ts",l:4,desc:"createUnit(), getUnitsByProject(), getAvailableUnits(), updateUnitStatus(), bulkCreateUnits().",exports:["createUnit","getUnitsByProject","getAvailableUnits","updateUnitStatus","bulkCreateUnits"]},
+ {n:"src/modules/units/unit.controller.ts",l:4,desc:"CRUD + availability controllers.",exports:["createUnit","getUnits","updateStatus"]},
+ {n:"src/modules/units/unit.routes.ts",l:4,desc:"POST /, GET /?projectId=, GET /available, PATCH /:id/status.",exports:["router (default)"]},
+
+ {n:"src/modules/bookings/",d:true,l:3},
+ {n:"src/modules/bookings/booking.model.ts",l:4,desc:"Booking model — client ref, unit ref, project ref, paymentType (Full/Instalment/Loan), bookingAmount, totalAmount, status (Pending/Active/Cancelled/Completed), bookingDate, documents[].",exports:["Booking","IBooking"]},
+ {n:"src/modules/bookings/booking.service.ts",l:4,desc:"createBooking() — marks unit as Booked, creates payment schedule if instalment. getBookingById(), updateBookingStatus(), cancelBooking().",exports:["createBooking","getBookingById","updateBookingStatus","cancelBooking","getAllBookings"]},
+ {n:"src/modules/bookings/booking.controller.ts",l:4,desc:"Booking CRUD + status update controllers.",exports:["createBooking","getBookings","getBooking","updateStatus","cancelBooking"]},
+ {n:"src/modules/bookings/booking.routes.ts",l:4,desc:"POST /, GET /, GET /:id, PATCH /:id/status, DELETE /:id.",exports:["router (default)"]},
+
+ {n:"src/modules/payments/",d:true,l:3},
+ {n:"src/modules/payments/payment.model.ts",l:4,desc:"Payment model — booking ref, client ref, amount, dueDate, paidDate, status (Pending/Paid/Overdue), paymentMode (Cash/Cheque/NEFT/UPI), receiptNumber.",exports:["Payment","IPayment"]},
+ {n:"src/modules/payments/payment.service.ts",l:4,desc:"recordPayment(), getPaymentsByBooking(), getOverduePayments(), generateInstalmentsSchedule(bookingId, totalAmount, months).",exports:["recordPayment","getPaymentsByBooking","getOverduePayments","generateInstalmentsSchedule"]},
+ {n:"src/modules/payments/payment.controller.ts",l:4,desc:"Record payment, list payments, get overdue report.",exports:["recordPayment","getPayments","getOverdue"]},
+ {n:"src/modules/payments/payment.routes.ts",l:4,desc:"POST /, GET /?bookingId=, GET /overdue.",exports:["router (default)"]},
+
+ {n:"src/modules/loans/",d:true,l:3},
+ {n:"src/modules/loans/loan.model.ts",l:4,desc:"Loan model — booking ref, client ref, bankName, loanAmount, applicationDate, status (Applied/Approved/Rejected/Disbursed), sanctionedAmount, disbursementDate, bankContactName, bankContactPhone.",exports:["Loan","ILoan"]},
+ {n:"src/modules/loans/loan.service.ts",l:4,desc:"createLoan(), updateLoanStatus(), getLoansByClient(), getLoansByBooking().",exports:["createLoan","updateLoanStatus","getLoansByClient","getLoansByBooking"]},
+ {n:"src/modules/loans/loan.controller.ts",l:4,desc:"Loan CRUD + status update controllers.",exports:["createLoan","getLoans","updateStatus"]},
+ {n:"src/modules/loans/loan.routes.ts",l:4,desc:"POST /, GET /?clientId=, PATCH /:id/status.",exports:["router (default)"]},
+
+ {n:"src/modules/notifications/",d:true,l:3},
+ {n:"src/modules/notifications/notification.model.ts",l:4,desc:"Notification model — userId ref, title, message, type (Lead/Payment/FollowUp/SiteVisit/General), isRead, createdAt.",exports:["Notification","INotification"]},
+ {n:"src/modules/notifications/notification.service.ts",l:4,desc:"createNotification(), getNotificationsForUser(), markAsRead(), markAllRead(), deleteOldNotifications().",exports:["createNotification","getNotificationsForUser","markAsRead","markAllRead"]},
+ {n:"src/modules/notifications/notification.controller.ts",l:4,desc:"Get, mark read, clear notifications for logged-in user.",exports:["getNotifications","markRead","markAllRead"]},
+ {n:"src/modules/notifications/notification.routes.ts",l:4,desc:"GET /, PATCH /:id/read, PATCH /read-all.",exports:["router (default)"]},
+
+ {n:"src/modules/dashboard/",d:true,l:3},
+ {n:"src/modules/dashboard/dashboard.service.ts",l:4,desc:"getSummary() — aggregate query returning: total leads, leads by status, bookings this month, revenue collected, overdue payments, top performing employees.",exports:["getSummary","getLeadFunnel","getRevenueChart"]},
+ {n:"src/modules/dashboard/dashboard.controller.ts",l:4,desc:"GET /summary, GET /lead-funnel, GET /revenue.",exports:["getSummary","getLeadFunnel","getRevenue"]},
+ {n:"src/modules/dashboard/dashboard.routes.ts",l:4,desc:"GET /summary, GET /funnel, GET /revenue — Manager and Admin only.",exports:["router (default)"]},
+
+ {n:"src/modules/reports/",d:true,l:3},
+ {n:"src/modules/reports/report.service.ts",l:4,desc:"generateLeadReport(filters), generateSalesReport(dateRange), generatePaymentReport(), generateEmployeeReport().",exports:["generateLeadReport","generateSalesReport","generatePaymentReport","generateEmployeeReport"]},
+ {n:"src/modules/reports/report.controller.ts",l:4,desc:"GET /leads, GET /sales, GET /payments, GET /employees — returns data or triggers CSV download.",exports:["leadReport","salesReport","paymentReport","employeeReport"]},
+ {n:"src/modules/reports/report.routes.ts",l:4,desc:"GET /leads, GET /sales, GET /payments, GET /employees.",exports:["router (default)"]},
+
+ {n:"src/modules/uploads/",d:true,l:3},
+ {n:"src/modules/uploads/upload.service.ts",l:4,desc:"uploadToCloudinary(file) — streams file to Cloudinary, returns secure_url and public_id. deleteFromCloudinary(publicId).",exports:["uploadToCloudinary","deleteFromCloudinary"]},
+ {n:"src/modules/uploads/upload.controller.ts",l:4,desc:"POST /single and POST /multiple — uses upload.middleware, calls upload service, returns URL.",exports:["uploadSingle","uploadMultiple"]},
+ {n:"src/modules/uploads/upload.routes.ts",l:4,desc:"POST /single (1 file), POST /multiple (up to 10 files).",exports:["router (default)"]},
+
+ {n:"uploads/",d:true,l:1},
+ {n:"logs/",d:true,l:1},
+];
+
+let open = new Set([0]);
+let active = -1;
+
+function toggle(i) {
+  if (FILES[i].d) {
+    if (open.has(i)) open.delete(i); else open.add(i);
+    render();
+  } else {
+    active = i;
+    render();
+    showDetail(FILES[i]);
+  }
+}
+
+function isVisible(i) {
+  if (i === 0) return true;
+  let level = FILES[i].l;
+  for (let j = i-1; j >= 0; j--) {
+    if (FILES[j].l < level) {
+      if (!FILES[j].d || !open.has(j)) return false;
+      level = FILES[j].l;
+      if (level === 0) return true;
+    }
+  }
+  return true;
+}
+
+function render() {
+  const tree = document.getElementById('tree');
+  tree.innerHTML = FILES.map((f, i) => {
+    if (!isVisible(i)) return '';
+    const isDir = f.d;
+    const isOpen = isDir && open.has(i);
+    const indentClass = 'indent' + f.l;
+    const activeClass = !isDir && i === active ? ' active' : '';
+    const toggle = isDir ? `<span class="toggle">${isOpen ? '▾' : '▸'}</span>` : '<span class="toggle"> </span>';
+    const icon = isDir ? '<span class="icon folder-icon">⬡</span>' : '<span class="icon file-icon">·</span>';
+    const nameClass = isDir ? 'fname isdir' : 'fname';
+    return `<div class="row ${indentClass}${activeClass}" onclick="toggle(${i})">${toggle}${icon}<span class="${nameClass}">${f.n}</span></div>`;
+  }).join('');
+}
+
+function showDetail(f) {
+  const detail = document.getElementById('detail');
+  const exportsHtml = f.exports && f.exports.length
+    ? `<div class="detail-exports"><div class="label">Exports</div>${f.exports.map(e => `<span class="chip">${e}</span>`).join('')}</div>`
+    : '';
+  detail.innerHTML = `
+    <div class="detail-title">${f.n}</div>
+    <div class="detail-path">${f.n}</div>
+    <div class="detail-desc">${f.desc || ''}</div>
+    ${exportsHtml}
+  `;
+}
+
+render();
+</script>
