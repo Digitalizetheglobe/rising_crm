@@ -122,15 +122,18 @@ export const importLeads = async (
     }
 
     await Lead.create({
-      name:         row.name,
-      phone:        row.phone,
-      email:        row.email || undefined,
-      source:       row.source,
-      status:       row.status || 'New',
-      notes:        row.notes || undefined,
-      nextFollowUp: row.nextFollowUp || undefined,
-      project:      projectId,
+      name:             row.name,
+      phone:            row.phone,
+      email:            row.email || undefined,
+      source:           row.source,
+      status:           row.status || 'NEW',
+      notes:            row.notes || undefined,
+      nextFollowUpDate: row.nextFollowUp || undefined,
+      interestedProject: projectId,
       assignedTo,
+      assignedBy:  new Types.ObjectId(uploaderId),
+      assignedAt:  new Date(),
+      createdBy:   new Types.ObjectId(uploaderId),
     });
 
     inserted++;

@@ -4,8 +4,10 @@ import { ApiError } from '../utils/ApiError';
 
 export interface AuthRequest extends Request {
     user?: {
-        id: string;
-        role?: string;
+        // id: string;
+        // role?: string;
+        UserId: string;
+        role: string;
     };
 }
 
@@ -20,7 +22,8 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction): vo
 
     try {
         const decoded = verifyToken(token);
-        req.user = { id: decoded.id, role: decoded.role };
+        // req.user = { id: decoded.id, role: decoded.role };
+        req.user = { UserId: decoded.userId, role: decoded.role };
         next();
     } catch {
         next(new ApiError(401, 'Token is invalid or has expired.'));

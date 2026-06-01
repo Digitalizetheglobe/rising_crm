@@ -4,7 +4,7 @@
 // import { logger } from './config/logger';
 
 // // import cron jobs here once built
-// // import './jobs/followupReminder.job';
+import { initFollowUpJobs } from './jobs/followupReminder.job';
 // // import './jobs/paymentReminder.job';
 // // import './jobs/siteVisitReminder.job';
 
@@ -35,6 +35,7 @@ mongoose
             console.log(
                 `Server running on port ${PORT}`
             );
+            initFollowUpJobs();
         });
     })
     .catch((error) => {

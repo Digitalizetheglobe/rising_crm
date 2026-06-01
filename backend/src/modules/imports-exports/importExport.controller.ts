@@ -15,7 +15,8 @@ export const handleImportLeads = asyncHandler(async (req: AuthRequest, res: Resp
   if (!req.file) throw new ApiError(400, 'Please upload an Excel or CSV file.');
   const result = await importLeads(
     req.file.buffer,
-    req.user!.id,
+    // req.user!.id,
+    req.user!.UserId,
     req.body.agentId  // admin can pass agentId to override
   );
   res.status(200).json(new ApiResponse('Leads import complete', result));
@@ -23,13 +24,15 @@ export const handleImportLeads = asyncHandler(async (req: AuthRequest, res: Resp
 
 export const handleImportClients = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!req.file) throw new ApiError(400, 'Please upload an Excel or CSV file.');
-  const result = await importClients(req.file.buffer, req.user!.id, req.body.agentId);
+//   const result = await importClients(req.file.buffer, req.user!.id, req.body.agentId);
+  const result = await importClients(req.file.buffer, req.user!.UserId, req.body.agentId);
   res.status(200).json(new ApiResponse('Clients import complete', result));
 });
 
 export const handleImportPayments = asyncHandler(async (req: AuthRequest, res: Response) => {
   if (!req.file) throw new ApiError(400, 'Please upload an Excel or CSV file.');
-  const result = await importPayments(req.file.buffer, req.user!.id, req.body.agentId);
+//   const result = await importPayments(req.file.buffer, req.user!.id, req.body.agentId);
+  const result = await importPayments(req.file.buffer, req.user!.UserId, req.body.agentId);
   res.status(200).json(new ApiResponse('Payments import complete', result));
 });
 
