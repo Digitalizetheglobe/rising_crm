@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 
 // Interface definitions
 interface Task {
@@ -222,11 +223,9 @@ export default function Home() {
   const renderSidebarContent = () => (
     <div className="flex flex-col h-full bg-[#FAF5F5] border-r border-red-100/50 p-6 overflow-y-auto">
       {/* Logo Capsule */}
-      <div className="flex items-center mb-8">
-        <div className="w-[100px] h-[44px] rounded-full border-[3px] border-blue-500 bg-white flex items-center justify-center p-[2px] shadow-sm transform hover:scale-105 transition-transform duration-200 cursor-pointer">
-          <div className="bg-[#EB3539] text-white w-full h-full rounded-full flex items-center justify-center font-extrabold text-[16px] tracking-wider">
-            Logo
-          </div>
+      <div className="flex items-center justify-center  mb-12">
+        <div className="w-[100px] h-[44px]   ">
+          <Image src="/logo/logo_rising.png" alt="Logo" width={100} height={44} />
         </div>
       </div>
 

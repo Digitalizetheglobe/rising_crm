@@ -350,10 +350,11 @@ export default function EnquiryPage() {
                 setIsSidebarOpen(false);
                 addToast(`Loaded ${item.name} Panel`, "info");
               }}
-              className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${isActive
-                ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
-                : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
-                }`}
+              className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${
+                isActive
+                  ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
+                  : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
+              }`}
             >
               <span className={`transition-colors duration-300 ${isActive ? "text-white" : "text-slate-400 group-hover:text-brand"}`}>
                 {item.icon}
