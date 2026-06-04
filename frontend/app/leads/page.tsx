@@ -2,14 +2,23 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { API_URL } from "../../config/api.config";
+import LeadDetailModule from "../../Components/leadDetailModule";
 
 // Interfaces
 interface Lead {
   id: string;
   name: string;
   source: string;
+  phone: string;
   status: "Hot Lead" | "Closed" | "New lead";
   lastContacted: string;
+  email?: string;
+  budgetRange?: string;
+  propertyType?: string;
+  preferredLocation?: string;
+  notes?: string;
+  createdAt?: string;
 }
 
 export default function LeadsPage() {
@@ -38,22 +47,99 @@ export default function LeadsPage() {
   const [newLeadSource, setNewLeadSource] = useState("Google Ads");
   const [newLeadStatus, setNewLeadStatus] = useState<"Hot Lead" | "Closed" | "New lead">("New lead");
 
+  // Detail Modal State
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
   // Row Action Dropdown state
   const [activeRowActionId, setActiveRowActionId] = useState<string | null>(null);
 
-  // Initial Leads list (exactly matching the user screenshot names and categories)
-  const [leads, setLeads] = useState<Lead[]>([
-    { id: "1", name: "Aniket patil", source: "Google Ads", status: "Hot Lead", lastContacted: "2hr ago" },
-    { id: "2", name: "Aniket patil", source: "Direct Mail", status: "Closed", lastContacted: "5hr ago" },
-    { id: "3", name: "Aniket patil", source: "Referral", status: "New lead", lastContacted: "6hr ago" },
-    { id: "4", name: "Aniket patil", source: "Direct Mail", status: "Closed", lastContacted: "6hr ago" },
-    { id: "5", name: "Aniket patil", source: "Referral", status: "New lead", lastContacted: "6hr ago" },
-    { id: "6", name: "Aniket patil", source: "Referral", status: "New lead", lastContacted: "6hr ago" },
-    { id: "7", name: "Aniket patil", source: "Direct Mail", status: "Closed", lastContacted: "6hr ago" },
-    { id: "8", name: "Aniket patil", source: "Google Ads", status: "Hot Lead", lastContacted: "6hr ago" },
-    { id: "9", name: "Aniket patil", source: "Google Ads", status: "Hot Lead", lastContacted: "7hr ago" },
-    { id: "10", name: "Aniket patil", source: "Direct Mail", status: "Closed", lastContacted: "7hr ago" }
-  ]);
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  // Initial Leads list (starts empty and is populated from backend)
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [stats, setStats] = useState({ total: 0, hot: 0, new: 0, closed: 0 });
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("crm_token");
+    return {
+      "Content-Type": "application/json",
+      "Authorization": token ? (token.startsWith("Bearer ") ? token : `Bearer ${token}`) : "",
+    };
+  };
+
+  const fetchLeads = async () => {
+    setLoading(true);
+    try {
+      let url = `${API_URL}/v1/leads?page=${currentPage}&limit=10`;
+      if (searchQuery) {
+        url += `&search=${encodeURIComponent(searchQuery)}`;
+      }
+      if (statusFilter !== "All status") {
+        url += `&status=${statusFilter}`;
+      }
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const mapped = (json.data.leads || []).map((l: any) => ({
+          id: l._id,
+          name: l.name || (l.enquiryId ? l.enquiryId.name : "Unknown"),
+          source: l.source || (l.enquiryId ? l.enquiryId.source : "Unknown"),
+          phone: l.phone || (l.enquiryId ? l.enquiryId.phone : "Unknown"),
+          email: l.email || "Not provided",
+          budgetRange: l.budgetRange || "Not specified",
+          propertyType: l.propertyType || "Not specified",
+          preferredLocation: l.preferredLocation || "Not specified",
+          notes: l.notes || "",
+          status: l.status,
+          createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "Unknown",
+          lastContacted: l.lastContactedAt ? new Date(l.lastContactedAt).toLocaleDateString() : (l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "Never")
+        }));
+        setLeads(mapped);
+        setTotalPages(json.data.totalPages || 1);
+      } else {
+        addToast(json.message || "Failed to load leads", "info");
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error connecting to server", "info");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`${API_URL}/v1/leads/stats`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const hotCount = (json.data.byStatus || []).find((s: any) => s._id === "Hot Lead")?.count || 0;
+        const newCount = (json.data.byStatus || []).find((s: any) => s._id === "New lead")?.count || 0;
+        const closedCount = (json.data.byStatus || []).find((s: any) => s._id === "Closed")?.count || 0;
+        setStats({
+          total: json.data.total,
+          hot: hotCount,
+          new: newCount,
+          closed: closedCount
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load stats", err);
+    }
+  };
+
+  // Sync token and load data
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!localStorage.getItem("crm_token")) {
+        localStorage.setItem("crm_token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VySWQiOiI2YTE5OGYxY2E5MmQyZGViMGM2NGE3Y2QiLCJyb2xlIjoiU1VQRVJfQURNSU4iLCJpYXQiOjE3ODA1NjU3NTUsImV4cCI6MTgxMjEwMTc1NX0._QWpjMR0kNPIQtgzGZYJg3ESfU4ZRY3yI4dNbMQdMP4");
+      }
+    }
+    fetchLeads();
+    fetchStats();
+  }, [currentPage, searchQuery, statusFilter]);
 
   // Load username from localStorage if exists
   useEffect(() => {
@@ -82,62 +168,107 @@ export default function LeadsPage() {
     }, 3000);
   };
 
-  // KPI Computations based on current leads array
-  const totalHotLeads = leads.filter((l) => l.status === "Hot Lead").length * 10 + 28; // offset to match high mockup figures (128)
-  const followUpsToday = leads.filter((l) => l.status === "New lead").length * 5 + 8; // offset to match mockup figures (28)
-  const closedThisMonth = leads.filter((l) => l.status === "Closed").length * 2 + 4; // offset to match mockup figures (12)
+  // KPI Computations based on dynamic stats state
+  const totalHotLeads = stats.hot;
+  const followUpsToday = stats.new;
+  const closedThisMonth = stats.closed;
 
   // Dynamic search and filter logic
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
-      lead.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.source.toLowerCase().includes(searchQuery.toLowerCase());
-    
+      (lead.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (lead.source || "").toLowerCase().includes(searchQuery.toLowerCase());
+
     const matchesStatus =
       statusFilter === "All status" ||
-      lead.status.toLowerCase() === statusFilter.toLowerCase();
+      (lead.status || "").toLowerCase() === statusFilter.toLowerCase();
 
     return matchesSearch && matchesStatus;
   });
 
   // Action handlers
-  const handleDeleteLead = (id: string) => {
-    setLeads((prev) => prev.filter((lead) => lead.id !== id));
-    addToast("Lead deleted successfully!", "info");
+  const handleDeleteLead = async (id: string) => {
+    try {
+      const res = await fetch(`${API_URL}/v1/leads/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        addToast("Lead deleted successfully!", "success");
+        fetchLeads();
+        fetchStats();
+      } else {
+        addToast(json.message || "Failed to delete lead", "info");
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error deleting lead", "info");
+    }
     setActiveRowActionId(null);
   };
 
-  const handleChangeLeadStatus = (id: string, newStatus: "Hot Lead" | "Closed" | "New lead") => {
-    setLeads((prev) =>
-      prev.map((lead) => (lead.id === id ? { ...lead, status: newStatus } : lead))
-    );
-    addToast(`Lead status updated to ${newStatus}`, "success");
+  const handleChangeLeadStatus = async (id: string, newStatus: "Hot Lead" | "Closed" | "New lead") => {
+    try {
+      // Backend expects statuses like NEW, CONTACTED, QUALIFIED, NEGOTIATION, WON, LOST
+      // Let's map it roughly. New lead -> NEW, Hot Lead -> QUALIFIED, Closed -> WON
+      let mappedStatus = "NEW";
+      if (newStatus === "Hot Lead") mappedStatus = "QUALIFIED";
+      if (newStatus === "Closed") mappedStatus = "WON";
+
+      const res = await fetch(`${API_URL}/v1/leads/${id}/status`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: mappedStatus }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        addToast(`Lead status updated successfully`, "success");
+        fetchLeads();
+        fetchStats();
+      } else {
+        addToast(json.message || "Failed to update status", "info");
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error updating lead status", "info");
+    }
     setActiveRowActionId(null);
   };
 
-  const handleAddLead = (e: React.FormEvent) => {
+  const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLeadName.trim()) {
       addToast("Please enter a lead name", "info");
       return;
     }
 
-    const newLead: Lead = {
-      id: Date.now().toString(),
-      name: newLeadName.trim(),
-      source: newLeadSource,
-      status: newLeadStatus,
-      lastContacted: "Just now"
-    };
+    try {
+      const payload = {
+        name: newLeadName.trim(),
+        phone: "9999999999", // Dummy phone as backend requires it
+        source: newLeadSource,
+      };
 
-    setLeads((prev) => [newLead, ...prev]);
-    addToast(`Successfully added "${newLead.name}"!`, "success");
-    
-    // Reset form
-    setNewLeadName("");
-    setNewLeadSource("Google Ads");
-    setNewLeadStatus("New lead");
-    setIsAddModalOpen(false);
+      const res = await fetch(`${API_URL}/v1/leads`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        addToast(`Successfully added "${newLeadName}"!`, "success");
+        setNewLeadName("");
+        setNewLeadSource("Google Ads");
+        setNewLeadStatus("New lead");
+        setIsAddModalOpen(false);
+        fetchLeads();
+        fetchStats();
+      } else {
+        addToast(json.message || "Failed to add lead", "info");
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error submitting lead", "info");
+    }
   };
 
   const handleExportFile = () => {
@@ -197,11 +328,10 @@ export default function LeadsPage() {
                 setIsSidebarOpen(false);
                 addToast(`Loaded ${item.name} Panel`, "info");
               }}
-              className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${
-                isActive
-                  ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
-                  : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
-              }`}
+              className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${isActive
+                ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
+                : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
+                }`}
             >
               <span className={`transition-colors duration-300 ${isActive ? "text-white" : "text-slate-400 group-hover:text-brand"}`}>
                 {item.icon}
@@ -222,11 +352,10 @@ export default function LeadsPage() {
             setIsSidebarOpen(false);
             addToast("Loaded configuration setting", "info");
           }}
-          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${
-            activeTab === "Setting"
-              ? "bg-brand text-white shadow-lg shadow-brand/25"
-              : "text-slate-500 hover:bg-white hover:text-brand hover:translate-x-1"
-          }`}
+          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${activeTab === "Setting"
+            ? "bg-brand text-white shadow-lg shadow-brand/25"
+            : "text-slate-500 hover:bg-white hover:text-brand hover:translate-x-1"
+            }`}
         >
           <span className="text-slate-400">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -256,7 +385,7 @@ export default function LeadsPage() {
 
   return (
     <div className="flex h-screen bg-[#FDFCFB] text-slate-800 overflow-hidden font-sans relative">
-      
+
       {/* Toast popup alerts */}
       <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         {toasts.map((toast) => (
@@ -293,9 +422,8 @@ export default function LeadsPage() {
 
       {/* Mobile Left Sidebar Drawer */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 w-[270px] z-50 lg:hidden bg-[#FAF5F5] shadow-2xl transition-transform duration-300 ease-out transform ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed top-0 bottom-0 left-0 w-[270px] z-50 lg:hidden bg-[#FAF5F5] shadow-2xl transition-transform duration-300 ease-out transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         {renderSidebarContent()}
         <button
@@ -308,7 +436,7 @@ export default function LeadsPage() {
 
       {/* Right Content Canvas */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
-        
+
         {/* Top Header */}
         <header className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-30">
           <div className="flex items-center gap-3">
@@ -356,11 +484,11 @@ export default function LeadsPage() {
                   <div className="absolute right-0 mt-2.5 w-80 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-4 animate-scale-up">
                     <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100">
                       <h4 className="font-bold text-[15px] text-slate-800">Notifications</h4>
-                      <button 
+                      <button
                         onClick={() => {
                           setShowNotifications(false);
                           addToast("All notifications read!", "success");
-                        }} 
+                        }}
                         className="text-[12px] font-bold text-brand hover:underline"
                       >
                         Read All
@@ -467,7 +595,7 @@ export default function LeadsPage() {
 
         {/* Scrollable Dashboard Body */}
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
-          
+
           {/* Main Title & Action Row */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -499,12 +627,12 @@ export default function LeadsPage() {
 
           {/* 3 KPI Metric Cards - Styled exactly like the user mockup */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
+
             {/* Card 1: Total Hotleads (Red top border) */}
             <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
               {/* Highlight red accent top bar */}
               <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#EB3539] rounded-t-full" />
-              
+
               <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total Hotleads</span>
               <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{totalHotLeads}</h3>
               <div className="flex items-center gap-1.5 mt-2">
@@ -520,7 +648,7 @@ export default function LeadsPage() {
             <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
               {/* Highlight blue accent top bar */}
               <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#3b82f6] rounded-t-full" />
-              
+
               <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Follow - ups - today</span>
               <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{followUpsToday}</h3>
               <div className="flex items-center gap-1.5 mt-2">
@@ -536,7 +664,7 @@ export default function LeadsPage() {
             <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
               {/* Highlight orange accent top bar */}
               <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#f59e0b] rounded-t-full" />
-              
+
               <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Closed this month</span>
               <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{closedThisMonth}</h3>
               <div className="flex items-center gap-1.5 mt-2">
@@ -568,7 +696,7 @@ export default function LeadsPage() {
 
             {/* Dropdown Filters Action Group */}
             <div className="flex flex-wrap items-center gap-3">
-              
+
               {/* Status Select dropdown */}
               <div className="relative">
                 <button
@@ -656,13 +784,14 @@ export default function LeadsPage() {
           </div>
 
           {/* Dynamic Table Card Grid Container */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-            
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-visible">
+
             {/* Desktop and Tablet table presentation */}
-            <div className="hidden sm:block overflow-x-auto">
+            <div className="hidden sm:block overflow-visible">
               <table className="w-full min-w-[700px] border-collapse text-left">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/50">
+                    <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Name</th>
                     <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Property interest</th>
                     <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Sourse</th>
                     <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Status</th>
@@ -673,15 +802,16 @@ export default function LeadsPage() {
                 <tbody className="divide-y divide-slate-100 font-semibold text-[14.5px] text-slate-700">
                   {filteredLeads.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
+                      <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
                         No leads matched your filters.
                       </td>
                     </tr>
                   ) : (
                     filteredLeads.map((lead) => (
-                      <tr key={lead.id} className="hover:bg-slate-50/50 transition-colors group">
-                        <td className="py-4 px-6 text-slate-800 font-bold">{lead.name}</td>
-                        <td className="py-4 px-6 text-slate-600">{lead.source}</td>
+                      <tr key={lead.id} className={`hover:bg-slate-50/50 transition-colors group ${activeRowActionId === lead.id ? 'relative z-50' : 'relative z-0'}`}>
+                        <td className="py-4 px-6 text-slate-800 font-bold hover:text-brand cursor-pointer" onClick={() => { setSelectedLead(lead); setIsDetailModalOpen(true); }}>{lead.name}</td>
+                        <td className="py-4 px-6 text-slate-800 font-semibold">{lead.propertyType !== "Not specified" ? lead.propertyType : "-"}</td>
+                        <td className="py-4 px-6 text-slate-600">{lead.source !== "Not specified" ? lead.source : "Unknown"}</td>
                         <td className="py-4 px-6">
                           {lead.status === "Hot Lead" && (
                             <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-extrabold bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-sm animate-pulse-subtle">
@@ -710,38 +840,79 @@ export default function LeadsPage() {
                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
                           </button>
 
-                          {/* Row Actions Menu overlay */}
                           {activeRowActionId === lead.id && (
                             <>
                               <div className="fixed inset-0 z-40" onClick={() => setActiveRowActionId(null)} />
-                              <div className="absolute right-6 mt-1 w-44 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-semibold text-[13px] text-left">
+                              <div className="absolute right-6 mt-1 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-semibold text-[13px] text-left">
+
+                                {/* ── View ── */}
+                                <span className="block px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Details</span>
+                                <button
+                                  onClick={() => { setSelectedLead(lead); setIsDetailModalOpen(true); setActiveRowActionId(null); }}
+                                  className="w-full text-left px-3 py-1.5 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer flex items-center gap-2"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                  View Details
+                                </button>
+
+                                <div className="my-1 border-t border-slate-100" />
+
+                                {/* ── Schedule Follow-up ── */}
+                                <span className="block px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Follow Up</span>
+                                <button
+                                  onClick={() => { addToast("Follow-up scheduler opened", "info"); setActiveRowActionId(null); }}
+                                  className="w-full text-left px-3 py-1.5 rounded-xl text-violet-600 hover:bg-violet-50 cursor-pointer flex items-center gap-2"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                  Schedule Follow-up
+                                </button>
+
+                                <div className="my-1 border-t border-slate-100" />
+
+                                {/* ── Convert to Client ── */}
+                                <span className="block px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Convert</span>
+                                <button
+                                  onClick={() => { addToast(`Converting ${lead.name} to client...`, "success"); setActiveRowActionId(null); }}
+                                  className="w-full text-left px-3 py-1.5 rounded-xl text-emerald-600 hover:bg-emerald-50 cursor-pointer flex items-center gap-2"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                  Convert to Client
+                                </button>
+
+                                <div className="my-1 border-t border-slate-100" />
+
+                                {/* ── Update Status ── */}
                                 <span className="block px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Update Status</span>
                                 <button
                                   onClick={() => handleChangeLeadStatus(lead.id, "Hot Lead")}
-                                  className="w-full text-left px-3 py-1.5 rounded-xl text-[#EB3539] hover:bg-red-50 cursor-pointer"
+                                  className="w-full text-left px-3 py-1.5 rounded-xl text-[#EB3539] hover:bg-red-50 cursor-pointer flex items-center gap-2"
                                 >
-                                  Hot Lead
+                                  <span className="w-2 h-2 rounded-full bg-[#EB3539]" /> Hot Lead
                                 </button>
                                 <button
                                   onClick={() => handleChangeLeadStatus(lead.id, "New lead")}
-                                  className="w-full text-left px-3 py-1.5 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer"
+                                  className="w-full text-left px-3 py-1.5 rounded-xl text-[#1d4ed8] hover:bg-blue-50 cursor-pointer flex items-center gap-2"
                                 >
-                                  New Lead
+                                  <span className="w-2 h-2 rounded-full bg-[#1d4ed8]" /> New Lead
                                 </button>
                                 <button
                                   onClick={() => handleChangeLeadStatus(lead.id, "Closed")}
-                                  className="w-full text-left px-3 py-1.5 rounded-xl text-emerald-600 hover:bg-emerald-50 cursor-pointer"
+                                  className="w-full text-left px-3 py-1.5 rounded-xl text-[#15803d] hover:bg-emerald-50 cursor-pointer flex items-center gap-2"
                                 >
-                                  Closed
+                                  <span className="w-2 h-2 rounded-full bg-[#15803d]" /> Closed
                                 </button>
-                                <div className="border-t border-slate-100 my-1" />
+
+                                <div className="my-1 border-t border-slate-100" />
+
+                                {/* ── Danger ── */}
                                 <button
                                   onClick={() => handleDeleteLead(lead.id)}
-                                  className="w-full text-left px-3 py-1.5 rounded-xl text-rose-500 hover:bg-rose-50 flex items-center gap-1.5 cursor-pointer"
+                                  className="w-full text-left px-3 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 cursor-pointer flex items-center gap-2"
                                 >
-                                  <svg className="w-3.8 h-3.8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                   Delete Lead
                                 </button>
+
                               </div>
                             </>
                           )}
@@ -761,10 +932,10 @@ export default function LeadsPage() {
                 </div>
               ) : (
                 filteredLeads.map((lead) => (
-                  <div key={lead.id} className="p-4 hover:bg-slate-50/50 transition-colors relative flex flex-col gap-2 font-semibold">
+                  <div key={lead.id} className={`p-4 hover:bg-slate-50/50 transition-colors relative flex flex-col gap-2 font-semibold ${activeRowActionId === lead.id ? 'relative z-50' : 'relative z-0'}`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-[16px] text-slate-800 font-bold">{lead.name}</span>
-                      
+                      <span className="text-[16px] text-slate-800 font-bold" onClick={() => { setSelectedLead(lead); setIsDetailModalOpen(true); }}>{lead.name}</span>
+
                       {/* Interactive row trigger */}
                       <div className="relative">
                         <button
@@ -775,11 +946,23 @@ export default function LeadsPage() {
                         >
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
                         </button>
-                        
+
                         {activeRowActionId === lead.id && (
                           <>
                             <div className="fixed inset-0 z-40" onClick={() => setActiveRowActionId(null)} />
                             <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-semibold text-[13px] text-left">
+                              <span className="block px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Actions</span>
+                              <button
+                                onClick={() => {
+                                  setSelectedLead(lead);
+                                  setIsDetailModalOpen(true);
+                                  setActiveRowActionId(null);
+                                }}
+                                className="w-full text-left px-3 py-1.5 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer"
+                              >
+                                View Details
+                              </button>
+                              <div className="my-1 border-t border-slate-100"></div>
                               <span className="block px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Update Status</span>
                               <button
                                 onClick={() => handleChangeLeadStatus(lead.id, "Hot Lead")}
@@ -893,11 +1076,10 @@ export default function LeadsPage() {
                       key={status}
                       type="button"
                       onClick={() => setNewLeadStatus(status)}
-                      className={`py-2 px-3 rounded-xl border-2 transition-all font-extrabold text-[12.5px] cursor-pointer ${
-                        newLeadStatus === status
-                          ? "border-brand bg-brand-light text-brand shadow-sm"
-                          : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                      }`}
+                      className={`py-2 px-3 rounded-xl border-2 transition-all font-extrabold text-[12.5px] cursor-pointer ${newLeadStatus === status
+                        ? "border-brand bg-brand-light text-brand shadow-sm"
+                        : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
                     >
                       {status}
                     </button>
@@ -955,6 +1137,15 @@ export default function LeadsPage() {
           </div>
         </div>
       )}
+      <LeadDetailModule
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedLead(null);
+        }}
+        lead={selectedLead}
+      />
+
     </div>
   );
 }
