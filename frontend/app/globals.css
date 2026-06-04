@@ -1,26 +1,190 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --font-sans: var(--font-sans), sans-serif;
+  
+  --color-brand: #EB3539;
+  --color-brand-hover: #c9292d;
+  --color-brand-light: #fef2f2;
+  --color-brand-pink: #ffb8ba;
+  
+  --animate-pulse-subtle: pulse-subtle 2s infinite ease-in-out;
+  --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-in-right: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-scale-up: scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-up {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
+
+/* ==========================================================================
+   GLOBAL TYPOGRAPHY & ELEMENT SIZING FRAMEWORK
+   Unifies h1, h2, h3, p, buttons, and inputs across the entire CRM Workspace
+   ========================================================================== */
+
+/* Unified Headings */
+h1, .crm-h1 {
+  font-size: 1.5rem; /* 24px */
+  line-height: 2rem;
+  font-weight: 800;
+  color: #0f172a; /* Slate 900 */
+  letter-spacing: -0.025em;
+}
+
+h2, .crm-h2 {
+  font-size: 1.25rem; /* 20px */
+  line-height: 1.75rem;
+  font-weight: 700;
+  color: #1e293b; /* Slate 800 */
+  letter-spacing: -0.02em;
+}
+
+h3, .crm-h3 {
+  font-size: 1.125rem; /* 18px */
+  line-height: 1.625rem;
+  font-weight: 700;
+  color: #1e293b; /* Slate 800 */
+  letter-spacing: -0.01em;
+}
+
+h4, .crm-h4 {
+  font-size: 1rem; /* 16px */
+  line-height: 1.5rem;
+  font-weight: 600;
+  color: #334155; /* Slate 700 */
+}
+
+/* Unified Paragraph & Descriptions */
+p, .crm-p {
+  font-size: 0.875rem; /* 14px - perfect compact dashboard scale */
+  line-height: 1.5;
+  font-weight: 500;
+  color: #64748b; /* Slate 500 */
+  letter-spacing: -0.01em;
+}
+
+/* Global Button Interactive Standards */
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+}
+
+/* Optional base class button overrides */
+.crm-btn {
+  font-family: var(--font-sans);
+  font-size: 0.875rem; /* 14px */
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Instant tactile scale active click feedback globally */
+button:active, .crm-btn:active {
+  transform: scale(0.97) !important;
+}
+
+/* Unified Inputs & Select Standardizer */
+input, select, textarea {
+  font-family: var(--font-sans);
+  font-size: 0.875rem; /* 14px */
+  color: #334155;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+input::placeholder {
+  color: #94a3b8;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Glassmorphism utility */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.dark .glass-effect {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
