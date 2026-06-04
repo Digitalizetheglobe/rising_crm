@@ -7,12 +7,12 @@
 
 @theme {
   --font-sans: var(--font-sans), sans-serif;
-  
+
   --color-brand: #EB3539;
   --color-brand-hover: #c9292d;
   --color-brand-light: #fef2f2;
   --color-brand-pink: #ffb8ba;
-  
+
   --animate-pulse-subtle: pulse-subtle 2s infinite ease-in-out;
   --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-slide-in-right: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -20,10 +20,13 @@
 }
 
 @keyframes pulse-subtle {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.95;
     transform: scale(0.98);
@@ -35,6 +38,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -46,6 +50,7 @@
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -57,6 +62,7 @@
     transform: scale(0.95);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;
@@ -78,43 +84,55 @@ body {
    ========================================================================== */
 
 /* Unified Headings */
-h1, .crm-h1 {
-  font-size: 1.5rem; /* 24px */
+/* h1, .crm-h1 {
+  font-size: 1.5rem; 
   line-height: 2rem;
   font-weight: 800;
-  color: #0f172a; /* Slate 900 */
+  color: #0f172a;
   letter-spacing: -0.025em;
-}
+} */
 
-h2, .crm-h2 {
-  font-size: 1.25rem; /* 20px */
+h2,
+.crm-h2 {
+  font-size: 1.25rem;
+  /* 20px */
   line-height: 1.75rem;
   font-weight: 700;
-  color: #1e293b; /* Slate 800 */
+  color: #1e293b;
+  /* Slate 800 */
   letter-spacing: -0.02em;
 }
 
-h3, .crm-h3 {
-  font-size: 1.125rem; /* 18px */
+h3,
+.crm-h3 {
+  font-size: 1.125rem;
+  /* 18px */
   line-height: 1.625rem;
   font-weight: 700;
-  color: #1e293b; /* Slate 800 */
+  color: #1e293b;
+  /* Slate 800 */
   letter-spacing: -0.01em;
 }
 
-h4, .crm-h4 {
-  font-size: 1rem; /* 16px */
+h4,
+.crm-h4 {
+  font-size: 1rem;
+  /* 16px */
   line-height: 1.5rem;
   font-weight: 600;
-  color: #334155; /* Slate 700 */
+  color: #334155;
+  /* Slate 700 */
 }
 
 /* Unified Paragraph & Descriptions */
-p, .crm-p {
-  font-size: 0.875rem; /* 14px - perfect compact dashboard scale */
+p,
+.crm-p {
+  font-size: 0.875rem;
+  /* 14px - perfect compact dashboard scale */
   line-height: 1.5;
   font-weight: 500;
-  color: #64748b; /* Slate 500 */
+  color: #64748b;
+  /* Slate 500 */
   letter-spacing: -0.01em;
 }
 
@@ -127,7 +145,8 @@ button {
 /* Optional base class button overrides */
 .crm-btn {
   font-family: var(--font-sans);
-  font-size: 0.875rem; /* 14px */
+  font-size: 0.875rem;
+  /* 14px */
   font-weight: 700;
   cursor: pointer;
   border: none;
@@ -140,14 +159,18 @@ button {
 }
 
 /* Instant tactile scale active click feedback globally */
-button:active, .crm-btn:active {
+button:active,
+.crm-btn:active {
   transform: scale(0.97) !important;
 }
 
 /* Unified Inputs & Select Standardizer */
-input, select, textarea {
+input,
+select,
+textarea {
   font-family: var(--font-sans);
-  font-size: 0.875rem; /* 14px */
+  font-size: 0.875rem;
+  /* 14px */
   color: #334155;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -187,4 +210,3 @@ input::placeholder {
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
-

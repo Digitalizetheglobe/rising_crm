@@ -625,14 +625,14 @@ export default function EnquiryPage() {
           {/* Main Title & Action Row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Enquiries</h1>
+              <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Enquiries</h1>
               <p className="text-slate-500 mt-1 text-[15px] font-semibold">Capture and convert enquiries into leads</p>
             </div>
 
             {/* Quick Action Button to Add Enquiry */}
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="bg-brand hover:bg-brand-hover text-white text-[14px] font-bold px-5 py-2.5 rounded-xl shadow-md shadow-brand/10 flex items-center gap-2 self-start sm:self-auto transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer font-sans"
+              className="bg-brand hover:bg-brand-hover text-white text-[14px] font-semibold px-5 py-2.5 rounded-xl shadow-md shadow-brand/10 flex items-center gap-2 self-start sm:self-auto transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer font-sans"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
               Add Enquiry
@@ -645,10 +645,10 @@ export default function EnquiryPage() {
             {/* Card 1: Total Enquiries (Dark Gray top border) */}
             <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#1e293b] rounded-t-full" />
-              <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total Enquiries</span>
+              <span className="text-slate-700 font-bold text-[14.5px] uppercase tracking-wider block">Total Enquiries</span>
               <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{totalEnquiriesCount}</h3>
               <div className="flex items-center gap-1.5 mt-2">
-                <span className="text-slate-500 font-extrabold text-[14px] flex items-center bg-slate-50 px-2 py-0.5 rounded-full">
+                <span className="text-slate-500 font-semibold text-[14px] flex items-center bg-slate-50 px-2 py-0.5 rounded-full">
                   <svg className="w-4 h-4 mr-0.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   2hr ago
                 </span>
@@ -658,10 +658,10 @@ export default function EnquiryPage() {
             {/* Card 2: Pending (Orange top border) */}
             <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#f59e0b] rounded-t-full" />
-              <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Pending</span>
+              <span className="text-slate-700 font-semibold text-[14.5px] uppercase tracking-wider block">Pending</span>
               <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{pendingCount}</h3>
               <div className="flex items-center gap-1.5 mt-2">
-                <span className="text-slate-500 font-extrabold text-[14px] flex items-center bg-amber-50/50 px-2 py-0.5 rounded-full">
+                <span className="text-slate-500 font-semibold text-[14px] flex items-center bg-amber-50/50 px-2 py-0.5 rounded-full">
                   <svg className="w-4 h-4 mr-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.725l.548 2.2a1 1 0 01-.321.988l-1.305.98a10.582 10.582 0 004.872 4.872l.98-1.305a1 1 0 01.988-.321l2.2.548a1 1 0 01.725.94V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                   Called : yesterday
                 </span>
@@ -671,10 +671,10 @@ export default function EnquiryPage() {
             {/* Card 3: Converted to lead (Blue top border) */}
             <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#3b82f6] rounded-t-full" />
-              <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Converted to lead</span>
+              <span className="text-slate-700 font-semibold text-[14.5px] uppercase tracking-wider block">Converted to lead</span>
               <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{convertedCount}</h3>
               <div className="flex items-center gap-1.5 mt-2">
-                <span className="text-slate-500 font-extrabold text-[14px] flex items-center bg-blue-50/50 px-2 py-0.5 rounded-full">
+                <span className="text-slate-500 font-semibold text-[14px] flex items-center bg-blue-50/50 px-2 py-0.5 rounded-full">
                   <svg className="w-4 h-4 mr-0.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
                   Tour booked : 14 may
                 </span>
@@ -684,10 +684,10 @@ export default function EnquiryPage() {
             {/* Card 4: Total leads (Green top border) */}
             <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#10b981] rounded-t-full" />
-              <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total leads</span>
+              <span className="text-slate-700 font-semibold text-[14.5px] uppercase tracking-wider block">Total leads</span>
               <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{totalLeadsCount}</h3>
               <div className="flex items-center gap-1.5 mt-2">
-                <span className="text-slate-500 font-extrabold text-[14px] flex items-center bg-emerald-50/50 px-2 py-0.5 rounded-full">
+                <span className="text-slate-500 font-semibold text-[14px] flex items-center bg-emerald-50/50 px-2 py-0.5 rounded-full">
                   <svg className="w-4 h-4 mr-0.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
                   Tour booked : 14 may
                 </span>
@@ -744,7 +744,7 @@ export default function EnquiryPage() {
                             setCurrentPage(1);
                             addToast(`Filter status changed to "${status}"`, "info");
                           }}
-                          className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center justify-between ${statusFilter === status ? "bg-brand-light text-brand font-bold" : "text-slate-600 hover:bg-slate-50"
+                          className={`w-full text-left px-3.5 py-2.5 rounded-xl font-[400] transition-colors cursor-pointer flex items-center justify-between ${statusFilter === status ? "bg-brand-light text-brand font-semibold" : "text-slate-600 hover:bg-slate-50"
                             }`}
                         >
                           {status}
@@ -816,13 +816,13 @@ export default function EnquiryPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 bg-[#FCFBFB]">
-                    <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Name</th>
-                    <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Sourse</th>
-                    <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Contact no</th>
-                    <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Status</th>
-                    <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Message</th>
-                    <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Last contacted</th>
-                    <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider text-right">Action</th>
+                    <th className="py-4.5 px-6 font-semibold text-[12px] text-brand uppercase tracking-wider text-center">Name</th>
+                    <th className="py-4.5 px-6 font-semibold text-[12px] text-brand uppercase tracking-wider text-center">Sourse</th>
+                    <th className="py-4.5 px-6 font-semibold text-[12px] text-brand uppercase tracking-wider text-center">Contact no</th>
+                    <th className="py-4.5 px-6 font-semibold text-[12px] text-brand uppercase tracking-wider text-center">Status</th>
+                    <th className="py-4.5 px-6 font-semibold text-[12px] text-brand uppercase tracking-wider text-center">Message</th>
+                    <th className="py-4.5 px-6 font-semibold text-[12px] text-brand uppercase tracking-wider text-center">Last contacted</th>
+                    <th className="py-4.5 px-6 font-semibold text-[12px] text-brand uppercase tracking-wider text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-semibold text-[14.5px] text-slate-700">
@@ -837,37 +837,37 @@ export default function EnquiryPage() {
                       <tr
                         key={enq.id}
                         // onClick={() => { setSelectedEnquiry(enq); setIsDetailModalOpen(true); }}
-                        className={`hover:bg-slate-50/50 transition-colors group ${activeRowActionId === enq.id ? 'relative z-50' : 'relative z-0'}`}
+                        className={`hover:bg-slate-50/50 text-center transition-colors group ${activeRowActionId === enq.id ? 'relative z-50' : 'relative z-0'}`}
                       >
                         {/* Name column */}
-                        <td className="py-4 px-6 text-slate-800 font-bold">{enq.name}</td>
+                        <td className="py-4 px-6 text-slate-800 font-semibold">{enq.name}</td>
 
                         {/* Source column */}
                         <td className="py-4 px-6 text-slate-500 font-medium">{enq.source}</td>
 
                         {/* Contact no column */}
-                        <td className="py-4 px-6 text-slate-600 font-bold">{enq.contactNo}</td>
+                        <td className="py-4 px-6 text-slate-600 font-semibold">{enq.contactNo}</td>
 
                         {/* Status badge pill */}
                         <td className="py-4 px-6">
                           {enq.status === "Pending" ? (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-extrabold bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-sm animate-pulse-subtle">
+                            <span className="inline-flex items-center px-3 py-1 rounded-md text-[12px] font-semibold bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-sm animate-pulse-subtle">
                               Pending
                             </span>
                           ) : (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-extrabold bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-sm">
+                            <span className="inline-flex items-center px-3 py-1 rounded-md text-[12px] font-semibold bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-sm">
                               Converted lead
                             </span>
                           )}
                         </td>
 
                         {/* Message column */}
-                        <td className="py-4 px-6 text-slate-500 max-w-xs truncate font-medium" title={enq.message}>
+                        <td className="py-4 px-6 text-slate-500 max-w-xs truncate font-[400]" title={enq.message}>
                           {enq.message}
                         </td>
 
                         {/* Last contacted column */}
-                        <td className="py-4 px-6 text-slate-400 font-semibold">{enq.lastContacted}</td>
+                        <td className="py-4 px-6 text-slate-400 font-[400]">{enq.lastContacted}</td>
 
                         {/* Action three dots menu */}
                         <td className="py-4 px-6 text-right relative">
