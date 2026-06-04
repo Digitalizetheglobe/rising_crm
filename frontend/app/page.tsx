@@ -246,6 +246,14 @@ export default function Home() {
                   window.location.href = "/enquiry";
                   return;
                 }
+                if (item.name === "Booking") {
+                  window.location.href = "/booking";
+                  return;
+                }
+                if (item.name === "Units") {
+                  window.location.href = "/units";
+                  return;
+                }
                 setActiveTab(item.name);
                 setIsSidebarOpen(false);
                 addToast(`Navigated to ${item.name}`, "info");
