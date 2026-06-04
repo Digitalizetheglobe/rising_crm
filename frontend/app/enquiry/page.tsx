@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import EnquiryDetailModule from "../../Components/enquiryDetailModule";
 
 // Interfaces
 interface Enquiry {
@@ -12,6 +13,12 @@ interface Enquiry {
   status: "Pending" | "Converted lead";
   message: string;
   lastContacted: string;
+  email?: string;
+  budgetRange?: string;
+  propertyType?: string;
+  preferredLocation?: string;
+  notes?: string;
+  createdAt?: string;
 }
 
 export default function EnquiryPage() {
@@ -43,24 +50,101 @@ export default function EnquiryPage() {
   // Add Enquiry modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newEnquiryName, setNewEnquiryName] = useState("");
-  const [newEnquirySource, setNewEnquirySource] = useState("Google Ads");
+  const [newEnquirySource, setNewEnquirySource] = useState("Website");
   const [newEnquiryContact, setNewEnquiryContact] = useState("");
   const [newEnquiryMessage, setNewEnquiryMessage] = useState("");
   const [newEnquiryStatus, setNewEnquiryStatus] = useState<"Pending" | "Converted lead">("Pending");
 
-  // Initial Enquiries list (exactly matching the user screenshot names, contact, status and categories)
-  const [enquiries, setEnquiries] = useState<Enquiry[]>([
-    { id: "1", name: "Aniket patil", source: "Google Ads", contactNo: "9445625435", status: "Pending", message: "inserted in 3 bhk", lastContacted: "2hr ago" },
-    { id: "2", name: "Aniket patil", source: "Direct Mail", contactNo: "9445825435", status: "Converted lead", message: "inserted in 3 bhk", lastContacted: "5hr ago" },
-    { id: "3", name: "Aniket patil", source: "Referral", contactNo: "9445625435", status: "Pending", message: "inserted in 3 bhk", lastContacted: "6hr ago" },
-    { id: "4", name: "Aniket patil", source: "Direct Mail", contactNo: "9445625435", status: "Converted lead", message: "inserted in 3 bhk", lastContacted: "6hr ago" },
-    { id: "5", name: "Aniket patil", source: "Referral", contactNo: "9445625435", status: "Pending", message: "inserted in 3 bhk", lastContacted: "6hr ago" },
-    { id: "6", name: "Aniket patil", source: "Referral", contactNo: "9445625435", status: "Pending", message: "inserted in 3 bhk", lastContacted: "6hr ago" },
-    { id: "7", name: "Aniket patil", source: "Direct Mail", contactNo: "9445625435", status: "Converted lead", message: "inserted in 3 bhk", lastContacted: "6hr ago" },
-    { id: "8", name: "Aniket patil", source: "Google Ads", contactNo: "9445625435", status: "Pending", message: "inserted in 3 bhk", lastContacted: "6hr ago" },
-    { id: "9", name: "Aniket patil", source: "Google Ads", contactNo: "9445625435", status: "Converted lead", message: "inserted in 3 bhk", lastContacted: "7hr ago" },
-    { id: "10", name: "Aniket patil", source: "Direct Mail", contactNo: "9445625435", status: "Converted lead", message: "inserted in 3 bhk", lastContacted: "7hr ago" }
-  ]);
+  // Detail Enquiry modal state
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedEnquiry, setSelectedEnquiry] = useState<Enquiry | null>(null);
+
+  // Initial Enquiries list (starts empty and is populated from backend)
+  const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, pending: 0, converted: 0 });
+
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("crm_token");
+    return {
+      "Content-Type": "application/json",
+      "Authorization": token ? (token.startsWith("Bearer ") ? token : `Bearer ${token}`) : "",
+    };
+  };
+
+  const fetchEnquiries = async () => {
+    setLoading(true);
+    try {
+      let url = `http://localhost:5000/api/v1/enquiries?page=${currentPage}&limit=10`;
+      if (searchQuery) {
+        url += `&search=${encodeURIComponent(searchQuery)}`;
+      }
+      if (statusFilter !== "All status") {
+        const mappedStatus = statusFilter === "Converted lead" ? "Converted" : statusFilter;
+        url += `&status=${mappedStatus}`;
+      }
+      const res = await fetch(url, {
+        headers: getAuthHeaders()
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const mapped = (json.data.enquiries || []).map((e: any) => ({
+          id: e._id,
+          name: e.name,
+          source: e.source,
+          contactNo: e.phone,
+          status: e.status === "Converted" ? "Converted lead" : "Pending",
+          message: e.message || "",
+          lastContacted: e.lastContactedAt ? new Date(e.lastContactedAt).toLocaleDateString() : (e.createdAt ? new Date(e.createdAt).toLocaleDateString() : "Never"),
+          email: e.email || "Not provided",
+          budgetRange: e.budgetRange || "Not specified",
+          propertyType: e.propertyType || "Not specified",
+          preferredLocation: e.preferredLocation || "Not specified",
+          notes: e.notes || "",
+          createdAt: e.createdAt ? new Date(e.createdAt).toLocaleDateString() : "Unknown",
+        }));
+        setEnquiries(mapped);
+        setTotalPages(json.data.totalPages || 1);
+      } else {
+        addToast(json.message || "Failed to load enquiries", "info");
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error connecting to server", "info");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/enquiries/stats`, {
+        headers: getAuthHeaders()
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const pendingCount = (json.data.byStatus || []).find((s: any) => s._id === "Pending")?.count || 0;
+        setStats({
+          total: json.data.total,
+          pending: pendingCount,
+          converted: json.data.converted
+        });
+      }
+    } catch (err) {
+      console.error("Failed to load stats", err);
+    }
+  };
+
+  // Sync token and load data
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!localStorage.getItem("crm_token")) {
+        localStorage.setItem("crm_token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VySWQiOiI2YTE5OGYxY2E5MmQyZGViMGM2NGE3Y2QiLCJyb2xlIjoiU1VQRVJfQURNSU4iLCJpYXQiOjE3ODA1NjU3NTUsImV4cCI6MTgxMjEwMTc1NX0._QWpjMR0kNPIQtgzGZYJg3ESfU4ZRY3yI4dNbMQdMP4");
+      }
+    }
+    fetchEnquiries();
+    fetchStats();
+  }, [currentPage, searchQuery, statusFilter]);
 
   // Load username from localStorage if exists
   useEffect(() => {
@@ -89,69 +173,143 @@ export default function EnquiryPage() {
     }, 3000);
   };
 
-  // KPI Computations based on current enquiries array
-  const totalEnquiriesCount = enquiries.length * 10 + 28; // offset to match screenshot (128)
-  const pendingCount = enquiries.filter((e) => e.status === "Pending").length * 4 + 4; // offset to match screenshot (28)
-  const convertedCount = enquiries.filter((e) => e.status === "Converted lead").length * 2 + 4; // offset to match screenshot (12)
-  const totalLeadsCount = convertedCount; // matching screenshot (12)
+  // KPI Computations based on dynamic stats state
+  const totalEnquiriesCount = stats.total;
+  const pendingCount = stats.pending;
+  const convertedCount = stats.converted;
+  const totalLeadsCount = convertedCount;
 
   // Handle adding new enquiry
-  const handleAddEnquiry = (e: React.FormEvent) => {
+  const handleAddEnquiry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEnquiryName.trim() || !newEnquiryContact.trim()) {
       addToast("Please fill out name and contact details!", "info");
       return;
     }
 
-    const newEnq: Enquiry = {
-      id: Date.now().toString(),
-      name: newEnquiryName,
-      source: newEnquirySource,
-      contactNo: newEnquiryContact,
-      status: newEnquiryStatus,
-      message: newEnquiryMessage.trim() || "interested in 3 bhk",
-      lastContacted: "Just now"
-    };
+    if (!/^[6-9]\d{9}$/.test(newEnquiryContact.trim())) {
+      addToast("Enter a valid 10-digit Indian mobile number", "info");
+      return;
+    }
 
-    setEnquiries((prev) => [newEnq, ...prev]);
-    setIsAddModalOpen(false);
-    setNewEnquiryName("");
-    setNewEnquiryContact("");
-    setNewEnquiryMessage("");
-    addToast(`Successfully added Enquiry for "${newEnq.name}"`, "success");
-  };
+    try {
+      const payload = {
+        name: newEnquiryName.trim(),
+        phone: newEnquiryContact.trim(),
+        source: newEnquirySource,
+        message: newEnquiryMessage.trim(),
+      };
 
-  // Delete Enquiry
-  const handleDeleteEnquiry = (id: string) => {
-    const target = enquiries.find((e) => e.id === id);
-    setEnquiries((prev) => prev.filter((e) => e.id !== id));
-    setActiveRowActionId(null);
-    if (target) {
-      addToast(`Deleted Enquiry for "${target.name}"`, "success");
+      const res = await fetch("http://localhost:5000/api/v1/enquiries", {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        addToast(`Successfully added Enquiry for "${payload.name}"`, "success");
+        setIsAddModalOpen(false);
+        setNewEnquiryName("");
+        setNewEnquiryContact("");
+        setNewEnquiryMessage("");
+        fetchEnquiries();
+        fetchStats();
+      } else {
+        addToast(json.message || "Failed to create enquiry", "info");
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error submitting enquiry", "info");
     }
   };
 
-  // Toggle/Change Status
-  const handleChangeStatus = (id: string, nextStatus: "Pending" | "Converted lead") => {
-    setEnquiries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, status: nextStatus, lastContacted: "Just now" } : e))
-    );
+  // Delete Enquiry
+  const handleDeleteEnquiry = async (id: string) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/enquiries/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        addToast("Deleted Enquiry successfully", "success");
+        fetchEnquiries();
+        fetchStats();
+      } else {
+        addToast(json.message || "Failed to delete enquiry", "info");
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error deleting enquiry", "info");
+    }
     setActiveRowActionId(null);
-    addToast(`Updated status to "${nextStatus}"`, "success");
+  };
+
+  // Toggle/Change Status
+  const handleChangeStatus = async (id: string, nextStatus: "Pending" | "Converted lead") => {
+    try {
+      if (nextStatus === "Converted lead") {
+        // 1. Update status to Qualified first (requirement of convertToLeadService)
+        const statusRes = await fetch(`http://localhost:5000/api/v1/enquiries/${id}/status`, {
+          method: "PATCH",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ status: "Qualified" }),
+        });
+        const statusJson = await statusRes.json();
+        if (!statusJson.success) {
+          addToast(statusJson.message || "Failed to qualify enquiry", "info");
+          setActiveRowActionId(null);
+          return;
+        }
+
+        // 2. Convert to Lead
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const convertPayload = {
+          assignedTo: "6a198f1ca92d2deb0c64a7cd", // SUPER_ADMIN ID
+          followUpDate: tomorrow.toISOString(),
+          followUpNotes: "Enquiry qualified and converted automatically from frontend.",
+          priority: "Medium"
+        };
+
+        const convertRes = await fetch(`http://localhost:5000/api/v1/enquiries/${id}/convert`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+          body: JSON.stringify(convertPayload),
+        });
+
+        const convertJson = await convertRes.json();
+        if (convertJson.success) {
+          addToast("Enquiry successfully converted to lead!", "success");
+          fetchEnquiries();
+          fetchStats();
+        } else {
+          addToast(convertJson.message || "Failed to convert to lead", "info");
+        }
+      } else {
+        // Mark as Pending
+        const res = await fetch(`http://localhost:5000/api/v1/enquiries/${id}/status`, {
+          method: "PATCH",
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ status: "Pending" }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          addToast("Updated status to Pending", "success");
+          fetchEnquiries();
+          fetchStats();
+        } else {
+          addToast(json.message || "Failed to update status", "info");
+        }
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error updating status", "info");
+    }
+    setActiveRowActionId(null);
   };
 
   // Filtered Enquiries
-  const filteredEnquiries = enquiries.filter((enq) => {
-    const matchesSearch =
-      enq.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      enq.contactNo.includes(searchQuery) ||
-      enq.message.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "All status" || enq.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
+  const filteredEnquiries = enquiries;
 
   // Sidebar Menu Items
   const menuItems = [
@@ -192,11 +350,10 @@ export default function EnquiryPage() {
                 setIsSidebarOpen(false);
                 addToast(`Loaded ${item.name} Panel`, "info");
               }}
-              className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${
-                isActive
-                  ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
-                  : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
-              }`}
+              className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${isActive
+                ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
+                : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
+                }`}
             >
               <span className={`transition-colors duration-300 ${isActive ? "text-white" : "text-slate-400 group-hover:text-brand"}`}>
                 {item.icon}
@@ -217,11 +374,10 @@ export default function EnquiryPage() {
             setIsSidebarOpen(false);
             addToast("Loaded configuration setting", "info");
           }}
-          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${
-            activeTab === "Setting"
-              ? "bg-brand text-white shadow-lg shadow-brand/25"
-              : "text-slate-500 hover:bg-white hover:text-brand hover:translate-x-1"
-          }`}
+          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 ${activeTab === "Setting"
+            ? "bg-brand text-white shadow-lg shadow-brand/25"
+            : "text-slate-500 hover:bg-white hover:text-brand hover:translate-x-1"
+            }`}
         >
           <span className="text-slate-400">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -251,7 +407,7 @@ export default function EnquiryPage() {
 
   return (
     <div className="flex h-screen bg-[#FDFCFB] text-slate-800 overflow-hidden font-sans relative">
-      
+
       {/* 1. Desktop Sticky Left Sidebar (Hidden on Mobile/Tablet) */}
       <aside className="hidden lg:block w-72 h-full flex-shrink-0">
         {renderSidebarContent()}
@@ -302,7 +458,7 @@ export default function EnquiryPage() {
 
       {/* 4. Right CRM Workspace Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
-        
+
         {/* Top Header */}
         <header className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-30">
           <div className="flex items-center gap-3">
@@ -330,7 +486,7 @@ export default function EnquiryPage() {
           </div>
 
           <div className="flex items-center gap-4 relative">
-            
+
             {/* Notification Bell */}
             <div className="relative">
               <button
@@ -352,11 +508,11 @@ export default function EnquiryPage() {
                   <div className="absolute right-0 mt-2.5 w-80 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-4 animate-scale-up font-semibold">
                     <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 font-bold">
                       <h4 className="font-bold text-[15px] text-slate-800">Notifications</h4>
-                      <button 
+                      <button
                         onClick={() => {
                           setShowNotifications(false);
                           addToast("Cleared all notifications", "success");
-                        }} 
+                        }}
                         className="text-[12px] font-bold text-brand hover:underline cursor-pointer"
                       >
                         Clear All
@@ -465,14 +621,14 @@ export default function EnquiryPage() {
 
         {/* Scrollable Dashboard Body */}
         <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6 bg-[#FDFCFB]">
-          
+
           {/* Main Title & Action Row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Enquiries</h1>
               <p className="text-slate-500 mt-1 text-[15px] font-semibold">Capture and convert enquiries into leads</p>
             </div>
-            
+
             {/* Quick Action Button to Add Enquiry */}
             <button
               onClick={() => setIsAddModalOpen(true)}
@@ -485,7 +641,7 @@ export default function EnquiryPage() {
 
           {/* 4 KPI Metric Cards - Visual representation of the 4 card blocks */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            
+
             {/* Card 1: Total Enquiries (Dark Gray top border) */}
             <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#1e293b] rounded-t-full" />
@@ -561,7 +717,7 @@ export default function EnquiryPage() {
 
             {/* Right side dropdown options */}
             <div className="flex flex-wrap items-center gap-3">
-              
+
               {/* Status dropdown selector */}
               <div className="relative">
                 <button
@@ -588,9 +744,8 @@ export default function EnquiryPage() {
                             setCurrentPage(1);
                             addToast(`Filter status changed to "${status}"`, "info");
                           }}
-                          className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center justify-between ${
-                            statusFilter === status ? "bg-brand-light text-brand font-bold" : "text-slate-600 hover:bg-slate-50"
-                          }`}
+                          className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center justify-between ${statusFilter === status ? "bg-brand-light text-brand font-bold" : "text-slate-600 hover:bg-slate-50"
+                            }`}
                         >
                           {status}
                         </button>
@@ -625,9 +780,8 @@ export default function EnquiryPage() {
                             setShowTimeDropdown(false);
                             addToast(`Date range set to ${range}`, "info");
                           }}
-                          className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer ${
-                            timeRange === range ? "bg-brand-light text-brand font-bold" : "text-slate-600 hover:bg-slate-50"
-                          }`}
+                          className={`w-full text-left px-3.5 py-2.5 rounded-xl transition-colors cursor-pointer ${timeRange === range ? "bg-brand-light text-brand font-bold" : "text-slate-600 hover:bg-slate-50"
+                            }`}
                         >
                           {range}
                         </button>
@@ -655,10 +809,10 @@ export default function EnquiryPage() {
           </div>
 
           {/* 5. Main Enquiries Interactive List Container */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm ">
+
             {/* Desktop and Tablet Responsive Data Table */}
-            <div className="hidden sm:block overflow-x-auto">
+            <div className="hidden sm:block overflow-visible">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 bg-[#FCFBFB]">
@@ -680,16 +834,20 @@ export default function EnquiryPage() {
                     </tr>
                   ) : (
                     filteredEnquiries.map((enq) => (
-                      <tr key={enq.id} className="hover:bg-slate-50/50 transition-colors group">
+                      <tr
+                        key={enq.id}
+                        // onClick={() => { setSelectedEnquiry(enq); setIsDetailModalOpen(true); }}
+                        className={`hover:bg-slate-50/50 transition-colors group ${activeRowActionId === enq.id ? 'relative z-50' : 'relative z-0'}`}
+                      >
                         {/* Name column */}
                         <td className="py-4 px-6 text-slate-800 font-bold">{enq.name}</td>
-                        
+
                         {/* Source column */}
                         <td className="py-4 px-6 text-slate-500 font-medium">{enq.source}</td>
-                        
+
                         {/* Contact no column */}
                         <td className="py-4 px-6 text-slate-600 font-bold">{enq.contactNo}</td>
-                        
+
                         {/* Status badge pill */}
                         <td className="py-4 px-6">
                           {enq.status === "Pending" ? (
@@ -702,15 +860,15 @@ export default function EnquiryPage() {
                             </span>
                           )}
                         </td>
-                        
+
                         {/* Message column */}
                         <td className="py-4 px-6 text-slate-500 max-w-xs truncate font-medium" title={enq.message}>
                           {enq.message}
                         </td>
-                        
+
                         {/* Last contacted column */}
                         <td className="py-4 px-6 text-slate-400 font-semibold">{enq.lastContacted}</td>
-                        
+
                         {/* Action three dots menu */}
                         <td className="py-4 px-6 text-right relative">
                           <button
@@ -744,12 +902,13 @@ export default function EnquiryPage() {
                                 <button
                                   onClick={() => {
                                     setActiveRowActionId(null);
-                                    addToast(`Enquiry Message: "${enq.message}"`, "info");
+                                    setSelectedEnquiry(enq);
+                                    setIsDetailModalOpen(true);
                                   }}
                                   className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-slate-50 text-slate-600 flex items-center gap-2 cursor-pointer font-sans"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                                  View Message
+                                  View Details
                                 </button>
                                 <button
                                   onClick={() => handleDeleteEnquiry(enq.id)}
@@ -780,7 +939,7 @@ export default function EnquiryPage() {
                   <div key={enq.id} className="p-4 flex flex-col gap-3 bg-white">
                     <div className="flex items-center justify-between">
                       <span className="text-slate-800 font-bold text-[16px]">{enq.name}</span>
-                      
+
                       {/* Status badge */}
                       {enq.status === "Pending" ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-xs">
@@ -833,7 +992,7 @@ export default function EnquiryPage() {
                           Mark Pending
                         </button>
                       )}
-                      
+
                       <button
                         onClick={() => handleDeleteEnquiry(enq.id)}
                         className="bg-rose-50 text-rose-600 hover:bg-rose-100/70 text-[12px] font-bold px-3 py-1.5 rounded-xl flex items-center gap-1 transition-all cursor-pointer font-sans"
@@ -856,58 +1015,39 @@ export default function EnquiryPage() {
                     addToast(`Navigated to page ${currentPage - 1}`, "info");
                   }
                 }}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-slate-500 transition-all ${
-                  currentPage === 1 ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
-                }`}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-slate-500 transition-all ${currentPage === 1 ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
+                  }`}
                 disabled={currentPage === 1}
               >
                 <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
               </button>
 
-              {([1, 2, 3, 4] as const).map((page) => (
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                 <button
                   key={page}
                   onClick={() => {
                     setCurrentPage(page);
                     addToast(`Navigated to page ${page}`, "info");
                   }}
-                  className={`w-9 h-9 rounded-xl font-bold transition-all cursor-pointer ${
-                    currentPage === page
-                      ? "bg-brand text-white shadow-md shadow-brand/20"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
+                  className={`w-9 h-9 rounded-xl font-bold transition-all cursor-pointer ${currentPage === page
+                    ? "bg-brand text-white shadow-md shadow-brand/20"
+                    : "text-slate-600 hover:bg-slate-100"
+                    }`}
                 >
                   {page}
                 </button>
               ))}
 
-              <span className="px-2 text-slate-400 font-bold">...</span>
-
               <button
                 onClick={() => {
-                  setCurrentPage(25);
-                  addToast("Navigated to page 25", "info");
-                }}
-                className={`w-9 h-9 rounded-xl font-bold transition-all cursor-pointer ${
-                  currentPage === 25
-                    ? "bg-brand text-white shadow-md shadow-brand/20"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                25
-              </button>
-
-              <button
-                onClick={() => {
-                  if (currentPage < 25) {
+                  if (currentPage < totalPages) {
                     setCurrentPage(currentPage + 1);
                     addToast(`Navigated to page ${currentPage + 1}`, "info");
                   }
                 }}
-                className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-slate-500 transition-all ${
-                  currentPage === 25 ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
-                }`}
-                disabled={currentPage === 25}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-slate-500 transition-all ${currentPage === totalPages ? "opacity-40 cursor-not-allowed" : "hover:bg-slate-100 hover:text-slate-800 cursor-pointer"
+                  }`}
+                disabled={currentPage === totalPages}
               >
                 <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
               </button>
@@ -922,7 +1062,7 @@ export default function EnquiryPage() {
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
           <div className="bg-white rounded-[32px] w-full max-w-lg border border-slate-100 shadow-2xl p-6 md:p-8 animate-scale-up">
-            
+
             <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-5">
               <h2 className="text-xl font-extrabold text-slate-900">Add New Enquiry</h2>
               <button
@@ -934,7 +1074,7 @@ export default function EnquiryPage() {
             </div>
 
             <form onSubmit={handleAddEnquiry} className="space-y-4 font-semibold text-[13.5px] text-slate-700">
-              
+
               <div>
                 <label className="block text-slate-600 font-bold mb-1.5">Client Full Name</label>
                 <input
@@ -967,11 +1107,15 @@ export default function EnquiryPage() {
                     onChange={(e) => setNewEnquirySource(e.target.value)}
                     className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none text-[14px] font-semibold"
                   >
-                    <option value="Google Ads">Google Ads</option>
-                    <option value="Direct Mail">Direct Mail</option>
+                    <option value="Website">Website</option>
+                    <option value="Advertisement">Advertisement</option>
                     <option value="Referral">Referral</option>
+                    <option value="Walk-In">Walk-In</option>
+                    <option value="Phone">Phone</option>
+                    <option value="WhatsApp">WhatsApp</option>
+                    <option value="Email">Email</option>
                     <option value="Social Media">Social Media</option>
-                    <option value="Organic Search">Organic Search</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
               </div>
@@ -995,11 +1139,10 @@ export default function EnquiryPage() {
                       key={status}
                       type="button"
                       onClick={() => setNewEnquiryStatus(status)}
-                      className={`py-2.5 px-3 rounded-xl border-2 transition-all font-extrabold text-[12.5px] cursor-pointer ${
-                        newEnquiryStatus === status
-                          ? "border-brand bg-brand-light text-brand shadow-xs"
-                          : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
-                      }`}
+                      className={`py-2.5 px-3 rounded-xl border-2 transition-all font-extrabold text-[12.5px] cursor-pointer ${newEnquiryStatus === status
+                        ? "border-brand bg-brand-light text-brand shadow-xs"
+                        : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
                     >
                       {status}
                     </button>
@@ -1057,6 +1200,16 @@ export default function EnquiryPage() {
           </div>
         </div>
       )}
+
+      {/* 8. Enquiry Detail Modal */}
+      <EnquiryDetailModule
+        isOpen={isDetailModalOpen}
+        onClose={() => {
+          setIsDetailModalOpen(false);
+          setSelectedEnquiry(null);
+        }}
+        enquiry={selectedEnquiry}
+      />
 
     </div>
   );
