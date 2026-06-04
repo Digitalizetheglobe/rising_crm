@@ -173,10 +173,11 @@ export const importClients = async (
       name:        row.name,
       phone:       row.phone,
       email:       row.email || undefined,
-      address:     row.address || undefined,
-      aadhaar:     row.aadhaar || undefined,
-      pan:         row.pan || undefined,
+      address:     row.address ? { line1: row.address } : undefined,
+      aadhaarNumber: row.aadhaar || undefined,
+      panNumber:     row.pan || undefined,
       assignedTo,
+      createdBy:   new Types.ObjectId(uploaderId),
     });
 
     inserted++;
@@ -418,9 +419,9 @@ export const exportClients = async (filters: ExportFilters): Promise<ExcelJS.Buf
       name:       c.name,
       phone:      c.phone,
       email:      c.email || '',
-      address:    c.address || '',
-      aadhaar:    c.aadhaar || '',
-      pan:        c.pan || '',
+      address:    c.address?.line1 || '',
+      aadhaar:    c.aadhaarNumber || '',
+      pan:        c.panNumber || '',
       agentEmail: (c.assignedTo as any)?.email || '',
     });
   });

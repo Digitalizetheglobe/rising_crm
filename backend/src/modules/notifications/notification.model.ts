@@ -1,30 +1,66 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
+import {
+  NotificationType,
+  NotificationRefModel,
+  NOTIFICATION_TYPES,
+  NOTIFICATION_REF_MODELS,
+} from './notification.constants';
 
 export interface INotification extends Document {
-    userId:    mongoose.Types.ObjectId;
-    title:     string;
-    message:   string;
-    type:      string;
-    refId?:    mongoose.Types.ObjectId;
-    refModel?: string;
-    isRead:    boolean;
-    createdAt: Date;
+  UserId: mongoose.Types.ObjectId;
+  title: string;
+  message: string;
+  type: NotificationType;
+  isRead: boolean;
+  refId?: mongoose.Types.ObjectId;
+  refModel?: NotificationRefModel;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const NotificationSchema = new Schema<INotification>(
-    {
-        userId:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
-        title:    { type: String, required: true },
-        message:  { type: String, required: true },
-        type:     { type: String, required: true },
-        refId:    { type: Schema.Types.ObjectId },
-        refModel: { type: String },
-        isRead:   { type: Boolean, default: false },
+const notificationSchema = new Schema<INotification>(
+  {
+    UserId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
     },
-    { timestamps: true }
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    message: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    type: {
+      type: String,
+      enum: NOTIFICATION_TYPES,
+      required: true,
+      index: true,
+    },
+    isRead: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    refId: {
+      type: Schema.Types.ObjectId,
+      default: null,
+    },
+    refModel: {
+      type: String,
+      enum: NOTIFICATION_REF_MODELS,
+      default: null,
+    },
+  },
+  { timestamps: true }
 );
 
-NotificationSchema.index({ userId: 1, isRead: 1 });
-NotificationSchema.index({ createdAt: -1 });
+// Primary query: get all notifications for a user, unread first
+notificationSchema.index({ UserId: 1, isRead: 1, createdAt: -1 });
 
-export const Notification = mongoose.model<INotification>('Notification', NotificationSchema);
+export const Notification = mongoose.model<INotification>('Notification', notificationSchema);

@@ -23,7 +23,7 @@ export const protect = (req: AuthRequest, res: Response, next: NextFunction): vo
     try {
         const decoded = verifyToken(token);
         // req.user = { id: decoded.id, role: decoded.role };
-        req.user = { UserId: decoded.userId, role: decoded.role };
+        req.user = { UserId: decoded.UserId, role: decoded.role };
         next();
     } catch {
         next(new ApiError(401, 'Token is invalid or has expired.'));

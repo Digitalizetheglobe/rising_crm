@@ -279,7 +279,7 @@ export const convertToLeadService = async (
         await Notification.create(
             [
                 {
-                    userId:  new mongoose.Types.ObjectId(assignedTo),
+                    UserId:  new mongoose.Types.ObjectId(assignedTo),
                     title:   'New Lead Assigned',
                     message: `A qualified enquiry from ${enquiry.name} (${enquiry.phone}) has been converted and assigned to you. First follow-up scheduled for ${new Date(followUpDate).toLocaleDateString('en-IN')}.`,
                     type:    'Lead',

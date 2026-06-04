@@ -62,7 +62,7 @@ export const sendFollowUpRemindersJob = () => {
 
                 // In-app notification
                 await Notification.create({
-                    userId:   executive._id,
+                    UserId:   executive._id,
                     title:    `Reminder: ${followUp.type} Follow-Up Due Soon`,
                     message:  `You have a ${followUp.type} follow-up with ${lead.name} (${lead.phone}) scheduled at ${new Date(followUp.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}. Don't miss it!`,
                     type:     'FollowUp',
@@ -169,7 +169,7 @@ export const dailyFollowUpSummaryJob = () => {
 
                 // In-app notification
                 await Notification.create({
-                    userId:   executive._id,
+                    UserId:   executive._id,
                     title:    `Good Morning! You have ${count} follow-up${count > 1 ? 's' : ''} today`,
                     message:  `Today's schedule: ${followUps.map((f: any) => `${f.type} with ${(f.lead as any)?.name}`).join(', ')}.`,
                     type:     'FollowUp',

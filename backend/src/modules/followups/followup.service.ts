@@ -79,7 +79,7 @@ export const createFollowUpService = async (
     // Notify the assigned executive
     const { Notification } = await import('../notifications/notification.model');
     await Notification.create({
-        userId:   new mongoose.Types.ObjectId(data.assignedTo),
+        UserId:   new mongoose.Types.ObjectId(data.assignedTo),
         title:    'Follow-Up Scheduled',
         message:  `A ${data.type} follow-up has been scheduled for lead ${lead.name} (${lead.phone}) on ${new Date(data.scheduledAt).toLocaleString('en-IN')}.`,
         type:     'FollowUp',
@@ -241,7 +241,7 @@ export const completeFollowUpService = async (
             await Notification.create(
                 [
                     {
-                        userId:   followUp.assignedTo,
+                        UserId:   followUp.assignedTo,
                         title:    'Next Follow-Up Scheduled',
                         message:  `Your next ${nextFollowUp.type} follow-up has been scheduled for ${new Date(nextFollowUp.scheduledAt).toLocaleString('en-IN')}.`,
                         type:     'FollowUp',
@@ -342,7 +342,7 @@ export const rescheduleFollowUpService = async (
         await Notification.create(
             [
                 {
-                    userId:   original.assignedTo,
+                    UserId:   original.assignedTo,
                     title:    'Follow-Up Rescheduled',
                     message:  `Your ${original.type} follow-up has been rescheduled to ${new Date(newScheduledAt).toLocaleString('en-IN')}. Reason: ${rescheduleReason}`,
                     type:     'FollowUp',

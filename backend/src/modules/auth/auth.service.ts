@@ -22,7 +22,7 @@ export const registerUser = async (
 
     const token = jwt.sign(
         {
-            userId: user._id,
+            UserId: user._id,
             role: user.role,
         },
         process.env.JWT_SECRET as string,
@@ -56,7 +56,7 @@ export const loginUser = async (
 
     const token = jwt.sign(
         {
-            userId: user._id,
+            UserId: user._id,
             role: user.role,
         },
         process.env.JWT_SECRET as string,

@@ -236,11 +236,16 @@ export const updateLeadStatusService = async (
 
     await lead.save();
 
+    if (newStatus === 'BOOKED') {
+        const { createClientFromLeadService } = await import('../clients/client.service');
+        await createClientFromLeadService(lead, updatedBy);
+    }
+
     // Send notification to assigned executive on key milestones
     if (['BOOKED', 'CLOSED', 'LOST'].includes(newStatus) && lead.assignedTo) {
         const { Notification } = await import('../notifications/notification.model');
         await Notification.create({
-            userId:   lead.assignedTo,
+            UserId:   lead.assignedTo,
             title:    `Lead ${newStatus}`,
             message:  `Lead ${lead.name} (${lead.phone}) has been marked as ${newStatus}.`,
             type:     'Lead',
@@ -298,7 +303,7 @@ export const assignLeadService = async (
     // Notify new assignee
     const { Notification } = await import('../notifications/notification.model');
     await Notification.create({
-        userId:   new mongoose.Types.ObjectId(newAssigneeId),
+        UserId:   new mongoose.Types.ObjectId(newAssigneeId),
         title:    'Lead Assigned to You',
         message:  `Lead ${lead.name} (${lead.phone}) has been assigned to you. Current status: ${lead.status}.`,
         type:     'Lead',
