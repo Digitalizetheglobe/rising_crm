@@ -13,6 +13,7 @@ export interface LeadDetail {
   preferredLocation?: string;
   notes?: string;
   createdAt?: string;
+  assignEmployee?: string;
 }
 
 interface LeadDetailModuleProps {
@@ -21,137 +22,422 @@ interface LeadDetailModuleProps {
   lead: LeadDetail | null;
 }
 
+// Rising Spaces — Light Excel palette
+// #ffffff  — modal body / cell background
+// #f5f5f5  — alternate row shade
+// #efefef  — label cell background
+// #e4e4e4  — alternate label cell
+// #C0272D  — brand red (headers, accents, status bar)
+// #8a1a1e  — dark red (red area borders)
+// #1a1a1a  — primary text
+// #555555  — label text
+// #d0d0d0  — grid line borders
+// #f9f9f9  — chrome bars (title, ribbon, formula)
+
+function Row({ label, value, shade }: { label: string; value?: string | React.ReactNode; shade: boolean }) {
+  return (
+    <tr style={{ background: shade ? '#f5f5f5' : '#ffffff' }}>
+      <td
+        style={{
+          fontFamily: 'Calibri, "Segoe UI", sans-serif',
+          fontSize: '12px',
+          color: '#555',
+          fontWeight: 600,
+          padding: '5px 10px',
+          border: '1px solid #d0d0d0',
+          width: '38%',
+          whiteSpace: 'nowrap',
+          background: shade ? '#e4e4e4' : '#efefef',
+          letterSpacing: '0.01em',
+        }}
+      >
+        {label}
+      </td>
+      <td
+        style={{
+          fontFamily: 'Calibri, "Segoe UI", sans-serif',
+          fontSize: '12px',
+          color: '#1a1a1a',
+          padding: '5px 10px',
+          border: '1px solid #d0d0d0',
+        }}
+      >
+        {value || '—'}
+      </td>
+    </tr>
+  );
+}
+
+function SectionHeader({ title, icon }: { title: string; icon: string }) {
+  return (
+    <tr>
+      <td
+        colSpan={2}
+        style={{
+          fontFamily: 'Calibri, "Segoe UI", sans-serif',
+          fontSize: '11px',
+          fontWeight: 700,
+          color: '#ffffff',
+          background: '#C0272D',
+          padding: '5px 10px',
+          border: '1px solid #8a1a1e',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {icon}&nbsp;&nbsp;{title}
+      </td>
+    </tr>
+  );
+}
+
 export default function LeadDetailModule({ isOpen, onClose, lead }: LeadDetailModuleProps) {
   if (!isOpen || !lead) return null;
 
+  const statusCell = (() => {
+    const base: React.CSSProperties = {
+      display: 'inline-block',
+      fontFamily: 'Calibri, "Segoe UI", sans-serif',
+      fontSize: '11px',
+      fontWeight: 700,
+      padding: '1px 8px',
+      letterSpacing: '0.04em',
+    };
+    if (lead.status === 'Hot Lead') return (
+      <span style={{ ...base, background: '#fde8e9', color: '#C0272D', border: '1px solid #C0272D' }}>
+        Hot Lead
+      </span>
+    );
+    if (lead.status === 'Closed') return (
+      <span style={{ ...base, background: '#edfaf2', color: '#15803d', border: '1px solid #86efac' }}>
+        Closed
+      </span>
+    );
+    return (
+      <span style={{ ...base, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+        New Lead
+      </span>
+    );
+  })();
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-      <div className="bg-white rounded-[32px] w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-100 shadow-2xl animate-scale-up">
-        
-        {/* Header (Sticky) */}
-        <div className="flex justify-between items-center px-8 py-5 border-b border-slate-100 flex-shrink-0">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-900">Lead Details</h2>
-            <p className="text-[13px] font-semibold text-slate-400 mt-0.5">ID: {lead.id}</p>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 60,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+        background: 'rgba(0,0,0,0.38)',
+      }}
+    >
+      <div
+        style={{
+          background: '#ffffff',
+          width: '100%',
+          maxWidth: '620px',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 0 0 1px #d0d0d0, 4px 4px 32px rgba(0,0,0,0.15)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Title Bar */}
+        <div
+          style={{
+            background: '#f9f9f9',
+            borderBottom: '2px solid #C0272D',
+            padding: '7px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                background: '#C0272D',
+                color: '#fff',
+                fontFamily: 'Calibri, sans-serif',
+                fontSize: '9px',
+                fontWeight: 900,
+                width: '18px',
+                height: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                letterSpacing: '-0.5px',
+              }}
+            >
+              RS
+            </div>
+            <span
+              style={{
+                fontFamily: 'Calibri, "Segoe UI", sans-serif',
+                fontSize: '12px',
+                color: '#666',
+                letterSpacing: '0.02em',
+              }}
+            >
+              LeadDetail_{lead.id}.xlsx —&nbsp;
+              <span style={{ color: '#C0272D' }}>Read-Only</span>
+            </span>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer transition-colors"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#aaa',
+              cursor: 'pointer',
+              fontSize: '15px',
+              lineHeight: 1,
+              padding: '0 4px',
+              fontFamily: 'Calibri, sans-serif',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#C0272D')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            ✕
           </button>
         </div>
 
-        {/* Scrollable Content Body */}
-        <div className="p-6 md:p-8 space-y-6 font-medium text-[14.5px] text-slate-700 overflow-y-auto flex-1">
-          
-          {/* Section 1: Client Information */}
-          <div>
-            <h3 className="text-[14px] font-bold text-slate-900 mb-3 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-brand"></span>
-              Client Information
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Full Name</span>
-                <span className="font-bold text-slate-800 text-[15px]">{lead.name}</span>
-              </div>
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Contact Number</span>
-                <span className="font-bold text-slate-800 text-[15px]">{lead.phone}</span>
-              </div>
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Email Address</span>
-                <span className="font-bold text-slate-800 text-[15px] truncate block" title={lead.email}>{lead.email}</span>
-              </div>
-            </div>
-          </div>
+        {/* Ribbon */}
+        {/* <div
+          style={{
+            background: '#f2f2f2',
+            borderBottom: '1px solid #e0e0e0',
+            padding: '4px 10px',
+            display: 'flex',
+            gap: '2px',
+            flexShrink: 0,
+          }}
+        >
+          {['File', 'Home', 'Insert', 'View'].map((tab, i) => (
+            <span
+              key={tab}
+              style={{
+                fontFamily: 'Calibri, "Segoe UI", sans-serif',
+                fontSize: '11px',
+                color: i === 1 ? '#fff' : '#777',
+                cursor: 'default',
+                padding: '2px 8px',
+                background: i === 1 ? '#C0272D' : 'transparent',
+                userSelect: 'none',
+              }}
+            >
+              {tab}
+            </span>
+          ))}
+        </div> */}
 
-          {/* Section 2: Preferences & Budget */}
-          <div>
-            <h3 className="text-[14px] font-bold text-slate-900 mb-3 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-              Preferences & Budget
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Property Type</span>
-                <span className="font-bold text-slate-800 text-[15px]">{lead.propertyType}</span>
-              </div>
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Budget Range</span>
-                <span className="font-bold text-slate-800 text-[15px]">{lead.budgetRange}</span>
-              </div>
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Preferred Location</span>
-                <span className="font-bold text-slate-800 text-[15px]">{lead.preferredLocation}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Status & Tracking */}
-          <div>
-            <h3 className="text-[14px] font-bold text-slate-900 mb-3 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Tracking Information
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Status</span>
-                <span className="block mt-0.5">
-                  {lead.status === "Hot Lead" && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-extrabold bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-sm">
-                      Hot Lead
-                    </span>
-                  )}
-                  {lead.status === "Closed" && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-extrabold bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-sm">
-                      Closed
-                    </span>
-                  )}
-                  {lead.status === "New lead" && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[12px] font-extrabold bg-[#EFF6FF] text-[#1d4ed8] border border-blue-200/50 shadow-sm">
-                      New lead
-                    </span>
-                  )}
-                </span>
-              </div>
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Source</span>
-                <span className="font-bold text-slate-800 text-[15px]">{lead.source}</span>
-              </div>
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Created Date</span>
-                <span className="font-bold text-slate-800 text-[15px]">{lead.createdAt}</span>
-              </div>
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">Last Contacted</span>
-                <span className="font-bold text-slate-800 text-[15px]">{lead.lastContacted}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Section 4: Notes */}
-          <div className="grid grid-cols-1 gap-4">
-            {lead.notes && (
-              <div className="bg-[#FAF9F9] rounded-2xl p-4 border border-slate-100 flex flex-col h-full">
-                <span className="block text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">Internal Notes</span>
-                <p className="text-slate-600 leading-relaxed bg-white p-3.5 rounded-xl border border-slate-100 flex-1 whitespace-pre-wrap">
-                  {lead.notes}
-                </p>
-              </div>
-            )}
-          </div>
-
+        {/* Formula bar */}
+        <div
+          style={{
+            background: '#ffffff',
+            borderBottom: '1px solid #e0e0e0',
+            padding: '3px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'Calibri, monospace',
+              fontSize: '11px',
+              color: '#333',
+              background: '#f2f2f2',
+              border: '1px solid #d0d0d0',
+              padding: '1px 8px',
+              minWidth: '52px',
+              textAlign: 'center',
+            }}
+          >
+            A1
+          </span>
+          <span style={{ color: '#C0272D', fontSize: '13px' }}>ƒx</span>
+          <span
+            style={{
+              fontFamily: 'Calibri, monospace',
+              fontSize: '11px',
+              color: '#666',
+              flex: 1,
+            }}
+          >
+            =LEAD("{lead.name}", "{lead.id}")
+          </span>
         </div>
 
-        {/* Footer (Sticky) */}
-        <div className="flex gap-3.5 px-8 py-5 border-t border-slate-100 bg-[#FCFBFB] justify-end flex-shrink-0 rounded-b-[32px]">
+        {/* Column letters header */}
+        <div
+          style={{
+            display: 'flex',
+            borderBottom: '1px solid #d0d0d0',
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ width: '32px', borderRight: '1px solid #d0d0d0', flexShrink: 0, background: '#f2f2f2' }} />
+          <div
+            style={{
+              flex: '0 0 38%',
+              fontFamily: 'Calibri, "Segoe UI", sans-serif',
+              fontSize: '11px',
+              color: '#888',
+              textAlign: 'center',
+              padding: '2px 0',
+              borderRight: '1px solid #d0d0d0',
+              background: '#e8e8e8',
+            }}
+          >
+            A
+          </div>
+          <div
+            style={{
+              flex: 1,
+              fontFamily: 'Calibri, "Segoe UI", sans-serif',
+              fontSize: '11px',
+              color: '#888',
+              textAlign: 'center',
+              padding: '2px 0',
+              background: '#e8e8e8',
+            }}
+          >
+            B
+          </div>
+        </div>
+
+        {/* Spreadsheet body */}
+        <div style={{ overflowY: 'auto', flex: 1, background: '#ffffff' }}>
+          <div style={{ display: 'flex' }}>
+            {/* Row numbers */}
+            <div
+              style={{
+                width: '32px',
+                flexShrink: 0,
+                background: '#f2f2f2',
+                borderRight: '1px solid #d0d0d0',
+              }}
+            >
+              {Array.from({ length: 16 }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    fontFamily: 'Calibri, monospace',
+                    fontSize: '10px',
+                    color: '#aaa',
+                    textAlign: 'center',
+                    padding: '5px 0',
+                    borderBottom: '1px solid #e4e4e4',
+                    minHeight: '27px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {i + 1}
+                </div>
+              ))}
+            </div>
+
+            {/* Table */}
+            <table
+              style={{
+                flex: 1,
+                borderCollapse: 'collapse',
+                tableLayout: 'fixed',
+                width: '100%',
+              }}
+            >
+              <tbody>
+                <SectionHeader title="Client Information" icon="👤" />
+                <Row label="Full Name" value={lead.name} shade={false} />
+                <Row label="Contact Number" value={lead.phone} shade={true} />
+                <Row label="Email Address" value={lead.email} shade={false} />
+
+                <SectionHeader title="Preferences & Budget" icon="🏠" />
+                <Row label="Property Type" value={lead.propertyType} shade={false} />
+                <Row label="Budget Range" value={lead.budgetRange} shade={true} />
+                <Row label="Preferred Location" value={lead.preferredLocation} shade={false} />
+
+                <SectionHeader title="Tracking Information" icon="📋" />
+                <Row label="Assign Employee" value={lead.assignEmployee} shade={true} />
+                <Row label="Status" value={statusCell} shade={false} />
+                <Row label="Source" value={lead.source} shade={true} />
+                <Row label="Created Date" value={lead.createdAt} shade={false} />
+                <Row label="Last Contacted" value={lead.lastContacted} shade={true} />
+
+                {lead.notes && (
+                  <>
+                    <SectionHeader title="Internal Notes" icon="📝" />
+                    <tr style={{ background: '#fff8f8' }}>
+                      <td
+                        colSpan={2}
+                        style={{
+                          fontFamily: 'Calibri, "Segoe UI", sans-serif',
+                          fontSize: '12px',
+                          color: '#333',
+                          padding: '8px 10px',
+                          border: '1px solid #f0d0d0',
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: '1.6',
+                        }}
+                      >
+                        {lead.notes}
+                      </td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Status bar */}
+        <div
+          style={{
+            background: '#f9f9f9',
+            borderTop: '2px solid #C0272D',
+            padding: '4px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: 'Calibri, "Segoe UI", sans-serif',
+              fontSize: '11px',
+              color: '#aaa',
+              letterSpacing: '0.03em',
+            }}
+          >
+            Ready &nbsp;|&nbsp; <span style={{ color: '#C0272D' }}>Sheet1</span>
+          </span>
           <button
             onClick={onClose}
-            className="px-6 py-2.5 rounded-2xl bg-brand hover:bg-brand-hover text-white font-bold shadow-md shadow-brand/10 cursor-pointer transition-colors w-full sm:w-auto"
+            style={{
+              fontFamily: 'Calibri, "Segoe UI", sans-serif',
+              fontSize: '11px',
+              color: '#fff',
+              background: '#C0272D',
+              border: 'none',
+              padding: '3px 16px',
+              cursor: 'pointer',
+              letterSpacing: '0.04em',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#a01f24')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#C0272D')}
           >
-            Close Details
+            Close
           </button>
         </div>
 

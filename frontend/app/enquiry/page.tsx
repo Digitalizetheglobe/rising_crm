@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import EnquiryDetailModule from "../../Components/enquiryDetailModule";
 import { useDashboard } from "../DashboardContext";
+import { API_URL } from "../../config/api.config";
 
 // Interfaces
 interface Enquiry {
@@ -54,6 +55,7 @@ export default function EnquiryPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, pending: 0, converted: 0 });
 
+
   const getAuthHeaders = () => {
     const token = localStorage.getItem("crm_token");
     return {
@@ -65,7 +67,7 @@ export default function EnquiryPage() {
   const fetchEnquiries = async () => {
     setLoading(true);
     try {
-      let url = `http://localhost:5000/api/v1/enquiries?page=${currentPage}&limit=10`;
+      let url = `${API_URL}/v1/enquiries?page=${currentPage}&limit=10`;
       if (searchQuery) {
         url += `&search=${encodeURIComponent(searchQuery)}`;
       }
@@ -107,7 +109,7 @@ export default function EnquiryPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`http://localhost:5000/api/v1/enquiries/stats`, {
+      const res = await fetch(`${API_URL}/v1/enquiries/stats`, {
         headers: getAuthHeaders()
       });
       const json = await res.json();
@@ -162,7 +164,7 @@ export default function EnquiryPage() {
         message: newEnquiryMessage.trim(),
       };
 
-      const res = await fetch("http://localhost:5000/api/v1/enquiries", {
+      const res = await fetch(`${API_URL}/v1/enquiries`, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify(payload),
@@ -188,7 +190,7 @@ export default function EnquiryPage() {
   // Delete Enquiry
   const handleDeleteEnquiry = async (id: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/v1/enquiries/${id}`, {
+      const res = await fetch(`${API_URL}/v1/enquiries/${id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
@@ -211,7 +213,7 @@ export default function EnquiryPage() {
     try {
       if (nextStatus === "Converted lead") {
         // 1. Update status to Qualified first
-        const statusRes = await fetch(`http://localhost:5000/api/v1/enquiries/${id}/status`, {
+        const statusRes = await fetch(`${API_URL}/v1/enquiries/${id}/status`, {
           method: "PATCH",
           headers: getAuthHeaders(),
           body: JSON.stringify({ status: "Qualified" }),
@@ -234,7 +236,7 @@ export default function EnquiryPage() {
           priority: "Medium"
         };
 
-        const convertRes = await fetch(`http://localhost:5000/api/v1/enquiries/${id}/convert`, {
+        const convertRes = await fetch(`${API_URL}/v1/enquiries/${id}/convert`, {
           method: "POST",
           headers: getAuthHeaders(),
           body: JSON.stringify(convertPayload),
@@ -250,7 +252,7 @@ export default function EnquiryPage() {
         }
       } else {
         // Mark as Pending
-        const res = await fetch(`http://localhost:5000/api/v1/enquiries/${id}/status`, {
+        const res = await fetch(`${API_URL}/v1/enquiries/${id}/status`, {
           method: "PATCH",
           headers: getAuthHeaders(),
           body: JSON.stringify({ status: "Pending" }),
@@ -281,11 +283,11 @@ export default function EnquiryPage() {
 
   return (
     <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6 bg-[#FDFCFB]">
-      
+
       {/* Main Title & Action Row */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Enquiry</h1>
+          <h1 className="text-3xl font-medium text-slate-900 tracking-tight">Enquiry</h1>
           <p className="text-slate-500 mt-1 text-[15px] font-semibold">Manage property and plots incoming inquiries</p>
         </div>
 
@@ -305,12 +307,12 @@ export default function EnquiryPage() {
 
       {/* 3 KPI Metric Cards - Styled exactly like the user mockup */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
+
         {/* Card 1: Total Enquiries */}
         <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#EB3539] rounded-t-full" />
           <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total Enquiries</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{totalEnquiriesCount}</h3>
+          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{totalEnquiriesCount}</h3>
           <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
         </div>
 
@@ -318,7 +320,7 @@ export default function EnquiryPage() {
         <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#3b82f6] rounded-t-full" />
           <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Pending response</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{pendingCount}</h3>
+          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{pendingCount}</h3>
           <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
         </div>
 
@@ -326,14 +328,14 @@ export default function EnquiryPage() {
         <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#10b981] rounded-t-full" />
           <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Converted leads</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{totalLeadsCount}</h3>
+          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{totalLeadsCount}</h3>
           <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
         </div>
       </div>
 
       {/* Table Filters Panel matching mockup */}
       <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center gap-4 justify-between">
-        <div className="text-[15px] font-extrabold text-slate-700">Enquiry Records</div>
+        <div className="text-[15px] font-medium text-slate-700">Enquiry Records</div>
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Status Select dropdown */}
@@ -343,7 +345,7 @@ export default function EnquiryPage() {
                 setShowStatusDropdown(!showStatusDropdown);
                 setShowTimeDropdown(false);
               }}
-              className="bg-[#F3F2F1]/70 text-slate-700 font-bold px-4 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2 hover:bg-slate-200 transition-colors cursor-pointer"
+              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-4 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               {statusFilter}
               <svg className={`w-4.5 h-4.5 text-slate-500 transition-transform ${showStatusDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
@@ -354,7 +356,7 @@ export default function EnquiryPage() {
             {showStatusDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowStatusDropdown(false)} />
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-semibold text-[13.5px]">
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-medium text-[13.5px]">
                   {["All status", "Pending", "Converted lead"].map((st) => (
                     <button
                       key={st}
@@ -380,7 +382,7 @@ export default function EnquiryPage() {
                 setShowTimeDropdown(!showTimeDropdown);
                 setShowStatusDropdown(false);
               }}
-              className="bg-[#F3F2F1]/70 text-slate-700 font-bold px-4 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2.5 hover:bg-slate-200 transition-colors cursor-pointer"
+              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-4 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2.5 hover:bg-slate-200 transition-colors cursor-pointer"
             >
               <svg className="w-4.5 h-4.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -391,7 +393,7 @@ export default function EnquiryPage() {
             {showTimeDropdown && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowTimeDropdown(false)} />
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-semibold text-[13.5px]">
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-medium text-[13.5px]">
                   {["Last 30 days", "Last 3 months", "Last 12 months"].map((tr) => (
                     <button
                       key={tr}
@@ -413,7 +415,7 @@ export default function EnquiryPage() {
           {/* Filter Reset pill */}
           <button
             onClick={handleResetFilters}
-            className="bg-[#FDF2F2] text-brand font-extrabold px-5 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2 hover:bg-red-100/50 transition-colors cursor-pointer font-sans"
+            className="bg-[#FDF2F2] text-brand font-medium px-5 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2 hover:bg-red-100/50 transition-colors cursor-pointer font-sans"
           >
             <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -424,25 +426,25 @@ export default function EnquiryPage() {
       </div>
 
       {/* Main Enquiries Interactive List Container */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-visible">
+
         {/* Desktop Table View */}
-        <div className="hidden sm:block overflow-x-auto">
+        <div className="hidden sm:block overflow-visible">
           {loading ? (
             <div className="py-20 text-center text-slate-400 font-bold flex flex-col items-center gap-3">
               <span className="w-8 h-8 rounded-full border-[3px] border-slate-200 border-t-brand animate-spin"></span>
               Loading enquiries database...
             </div>
           ) : (
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[700px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 bg-[#FCFBFB]">
-                  <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Client info</th>
-                  <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Source</th>
-                  <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Contact no</th>
-                  <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Status</th>
-                  <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider">Last contacted</th>
-                  <th className="py-4.5 px-6 font-extrabold text-[14px] text-brand uppercase tracking-wider text-right">Action</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Client info</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Source</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Contact no</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Status</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Last contacted</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-semibold text-[14.5px] text-slate-700">
@@ -454,17 +456,17 @@ export default function EnquiryPage() {
                   </tr>
                 ) : (
                   filteredEnquiries.map((enq) => (
-                    <tr key={enq.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 px-6 text-slate-800 font-bold">{enq.name}</td>
+                    <tr key={enq.id} className={`hover:bg-slate-50/50 transition-colors ${activeRowActionId === enq.id ? 'relative z-50' : 'relative z-0'}`}>
+                      <td onClick={() => { setIsDetailModalOpen(true); }} className="py-4 px-6 text-slate-800 font-semibold cursor-pointer hover:text-brand transition-colors">{enq.name}</td>
                       <td className="py-4 px-6 text-slate-600">{enq.source}</td>
-                      <td className="py-4 px-6 text-slate-850 font-extrabold">{enq.contactNo}</td>
+                      <td className="py-4 px-6 text-slate-850 font-medium">{enq.contactNo}</td>
                       <td className="py-4 px-6">
                         {enq.status === "Pending" ? (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-extrabold bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-xs">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-xs">
                             Pending
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-extrabold bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-xs">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-xs">
                             Converted lead
                           </span>
                         )}
@@ -485,7 +487,7 @@ export default function EnquiryPage() {
                             <div className="fixed inset-0 z-40" onClick={() => setActiveRowActionId(null)} />
                             <div className="absolute right-6 mt-1 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-semibold text-[13px] text-left">
                               <span className="block px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Enquiry Actions</span>
-                              
+
                               {enq.status === "Pending" ? (
                                 <button
                                   onClick={() => handleChangeStatus(enq.id, "Converted lead")}
@@ -551,11 +553,11 @@ export default function EnquiryPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-slate-800 font-bold text-[16px]">{enq.name}</span>
                   {enq.status === "Pending" ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-xs">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-xs">
                       Pending
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-xs">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-xs">
                       Converted lead
                     </span>
                   )}
@@ -568,7 +570,7 @@ export default function EnquiryPage() {
                   </div>
                   <div className="flex justify-between">
                     <span>Contact no:</span>
-                    <span className="text-slate-800 font-extrabold">{enq.contactNo}</span>
+                    <span className="text-slate-800 font-medium">{enq.contactNo}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Last contacted:</span>
@@ -667,113 +669,115 @@ export default function EnquiryPage() {
       </div>
 
       {/* Add New Enquiry Modal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-[32px] w-full max-w-lg border border-slate-100 shadow-2xl p-6 md:p-8 animate-scale-up font-sans">
-            <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-5">
-              <h2 className="text-xl font-extrabold text-slate-900">Add New Enquiry</h2>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleAddEnquiry} className="space-y-4 font-semibold text-[13.5px] text-slate-700">
-              <div>
-                <label className="block text-slate-600 font-bold mb-1.5">Client Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Aniket patil"
-                  value={newEnquiryName}
-                  onChange={(e) => setNewEnquiryName(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none placeholder:text-slate-400 font-medium"
-                />
+      {
+        isAddModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-fade-in">
+            <div className="bg-white rounded-[32px] w-full max-w-lg border border-slate-100 shadow-2xl p-6 md:p-8 animate-scale-up font-sans">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-5">
+                <h2 className="text-xl font-medium text-slate-900">Add New Enquiry</h2>
+                <button
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="p-1 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 cursor-pointer"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <form onSubmit={handleAddEnquiry} className="space-y-4 font-semibold text-[13.5px] text-slate-700">
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1.5">Contact Number</label>
+                  <label className="block text-slate-600 font-bold mb-1.5">Client Full Name</label>
                   <input
-                    type="tel"
+                    type="text"
                     required
-                    placeholder="e.g. 9445625435"
-                    value={newEnquiryContact}
-                    onChange={(e) => setNewEnquiryContact(e.target.value)}
+                    placeholder="e.g. Aniket patil"
+                    value={newEnquiryName}
+                    onChange={(e) => setNewEnquiryName(e.target.value)}
                     className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none placeholder:text-slate-400 font-medium"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1.5">Marketing Source</label>
-                  <select
-                    value={newEnquirySource}
-                    onChange={(e) => setNewEnquirySource(e.target.value)}
-                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none text-[14px] font-semibold"
-                  >
-                    <option value="Website">Website</option>
-                    <option value="Advertisement">Advertisement</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Walk-In">Walk-In</option>
-                    <option value="Phone">Phone</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                    <option value="Email">Email</option>
-                    <option value="Social Media">Social Media</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-slate-600 font-bold mb-1.5">Contact Number</label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. 9445625435"
+                      value={newEnquiryContact}
+                      onChange={(e) => setNewEnquiryContact(e.target.value)}
+                      className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none placeholder:text-slate-400 font-medium"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-slate-600 font-bold mb-1.5">Requirement Message</label>
-                <textarea
-                  placeholder="e.g. interested in 3 bhk"
-                  value={newEnquiryMessage}
-                  onChange={(e) => setNewEnquiryMessage(e.target.value)}
-                  rows={3}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none placeholder:text-slate-400 font-medium resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-600 font-bold mb-1.5">Initial Enquiry Status</label>
-                <div className="grid grid-cols-2 gap-3">
-                  {(["Pending", "Converted lead"] as const).map((status) => (
-                    <button
-                      key={status}
-                      type="button"
-                      onClick={() => setNewEnquiryStatus(status)}
-                      className={`py-2.5 px-3 rounded-xl border-2 transition-all font-extrabold text-[12.5px] cursor-pointer ${newEnquiryStatus === status ? "border-brand bg-brand-light text-brand shadow-xs" : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"}`}
+                  <div>
+                    <label className="block text-slate-600 font-bold mb-1.5">Marketing Source</label>
+                    <select
+                      value={newEnquirySource}
+                      onChange={(e) => setNewEnquirySource(e.target.value)}
+                      className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none text-[14px] font-semibold"
                     >
-                      {status}
-                    </button>
-                  ))}
+                      <option value="Website">Website</option>
+                      <option value="Advertisement">Advertisement</option>
+                      <option value="Referral">Referral</option>
+                      <option value="Walk-In">Walk-In</option>
+                      <option value="Phone">Phone</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="Email">Email</option>
+                      <option value="Social Media">Social Media</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex gap-3.5 pt-4 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-5 py-2.5 rounded-2xl text-slate-500 hover:bg-slate-100 font-bold cursor-pointer font-sans"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 rounded-2xl bg-brand hover:bg-brand-hover text-white font-bold shadow-md shadow-brand/10 cursor-pointer font-sans"
-                >
-                  Save Enquiry
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5">Requirement Message</label>
+                  <textarea
+                    placeholder="e.g. interested in 3 bhk"
+                    value={newEnquiryMessage}
+                    onChange={(e) => setNewEnquiryMessage(e.target.value)}
+                    rows={3}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none placeholder:text-slate-400 font-medium resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5">Initial Enquiry Status</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["Pending", "Converted lead"] as const).map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setNewEnquiryStatus(status)}
+                        className={`py-2.5 px-3 rounded-xl border-2 transition-all font-medium text-[12.5px] cursor-pointer ${newEnquiryStatus === status ? "border-brand bg-brand-light text-brand shadow-xs" : "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"}`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-3.5 pt-4 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    className="px-5 py-2.5 rounded-2xl text-slate-500 hover:bg-slate-100 font-bold cursor-pointer font-sans"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 rounded-2xl bg-brand hover:bg-brand-hover text-white font-bold shadow-md shadow-brand/10 cursor-pointer font-sans"
+                  >
+                    Save Enquiry
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Enquiry Detail Modal */}
       <EnquiryDetailModule
@@ -784,6 +788,6 @@ export default function EnquiryPage() {
         }}
         enquiry={selectedEnquiry}
       />
-    </div>
+    </div >
   );
 }
