@@ -5,7 +5,9 @@ export interface IUser extends Document {
     name: string;
     email: string;
     password: string;
+    phone?: string;
     role: string;
+    isActive: boolean;
     comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -30,6 +32,11 @@ const userSchema = new Schema<IUser>(
             minlength: 6,
         },
 
+        phone: {
+            type: String,
+            trim: true,
+        },
+
         role: {
             type: String,
             enum: [
@@ -41,6 +48,11 @@ const userSchema = new Schema<IUser>(
                 "VIEWER",
             ],
             default: "SALES_EXECUTIVE",
+        },
+
+        isActive: {
+            type: Boolean,
+            default: true,
         },
     },
     {

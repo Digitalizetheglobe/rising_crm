@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     },
     {
       name: "Employees",
-      href: "#",
+      href: "/employee",
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -291,9 +291,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* Right CRM Workspace Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
+      <main className="flex-1 flex flex-col h-full min-h-0 overflow-hidden">
         {/* Top Header */}
-        <header className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-30">
+        <header className="flex-shrink-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-30">
           <div className="flex items-center gap-3">
             {/* Hamburger Toggle */}
             <button
@@ -464,7 +464,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Child Content */}
-        {children}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain">
+          {children}
+        </div>
       </main>
 
       {/* Name Edit Modal Overlay */}
