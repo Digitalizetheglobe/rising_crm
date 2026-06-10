@@ -31,11 +31,11 @@ router.post(
     validate(createClientSchema),
     createClient
 );
-router.get('/', getAllClients);
-router.get('/export', exportClients);
+router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getAllClients);
+router.get('/export', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), exportClients);
 router.post('/import', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), memStorage.single('file'), importClients);
 
-router.get('/:id', getClientById);
+router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getClientById);
 router.put(
     '/:id',
     allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),

@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import PageHeader from "../../Components/PageHeader";
+import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLayout";
 import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
+import { getAuthHeaders } from "../../lib/auth";
+import { ROLE_LABELS } from "../../lib/permissions";
 
 interface EmployeeStats {
   assignedLeads: number;
@@ -27,18 +31,11 @@ const ROLE_OPTIONS = [
   "SALES_EXECUTIVE",
   "SALES_MANAGER",
   "ADMIN",
-  "FINANCE_MANAGER",
+  "FINANCIAL_EXECUTIVE",
   "VIEWER",
 ];
 
-const ROLE_LABEL: Record<string, string> = {
-  SUPER_ADMIN: "Super Admin",
-  ADMIN: "Admin",
-  SALES_MANAGER: "Sales Manager",
-  SALES_EXECUTIVE: "Sales Executive",
-  FINANCE_MANAGER: "Finance Manager",
-  VIEWER: "Viewer",
-};
+const ROLE_LABEL = ROLE_LABELS;
 
 const AVATAR_COLORS = [
   "bg-[#EF4444]", "bg-[#3B82F6]", "bg-[#8B5CF6]",
@@ -100,14 +97,6 @@ export default function EmployeePage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("crm_token");
-    return {
-      "Content-Type": "application/json",
-      Authorization: token ? (token.startsWith("Bearer ") ? token : `Bearer ${token}`) : "",
-    };
-  };
-
   const fetchEmployees = async () => {
     setLoading(true);
     try {
@@ -148,9 +137,6 @@ export default function EmployeePage() {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined" && !localStorage.getItem("crm_token")) {
-      localStorage.setItem("crm_token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VySWQiOiI2YTE5OGYxY2E5MmQyZGViMGM2NGE3Y2QiLCJyb2xlIjoiU1VQRVJfQURNSU4iLCJpYXQiOjE3ODA1NjU3NTUsImV4cCI6MTgxMjEwMTc1NX0._QWpjMR0kNPIQtgzGZYJg3ESfU4ZRY3yI4dNbMQdMP4");
-    }
     fetchEmployees();
   }, [currentPage, roleFilter]);
 
@@ -229,24 +215,19 @@ export default function EmployeePage() {
   };
 
   return (
-    <div className="px-4 md:px-8 py-6 pb-10 space-y-6 bg-[#FDFCFB]">
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-[26px] md:text-[30px] font-semibold text-slate-900 tracking-tight">Employees</h1>
-          <p className="text-slate-500 mt-1 text-[14px] md:text-[15px] font-medium">Manage your CRM team members</p>
-        </div>
-        <button
-          onClick={() => setIsAddOpen(true)}
-          className="self-start sm:self-auto bg-[#EB3539] hover:bg-[#d42d31] text-white text-[14px] font-bold px-5 py-2.5 rounded-xl shadow-md shadow-red-200 flex items-center gap-2 transition-all cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Add Employee
-        </button>
-      </div>
+    <div className={`${PAGE_CONTAINER_CLASS} pb-10`}>
+      <PageHeader
+        title="Employees"
+        subtitle="Manage your CRM team members"
+        actions={
+          <button onClick={() => setIsAddOpen(true)} className={PRIMARY_ACTION_BTN_CLASS}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Employee
+          </button>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

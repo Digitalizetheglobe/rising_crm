@@ -25,33 +25,31 @@ const router = Router();
 router.use(protect);
 
 // ── Stats & special routes (before /:id) ─────────────────────────────────────
-router.get('/stats', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getLeadStats);
+router.get('/stats', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getLeadStats);
 
-// ── CRUD ──────────────────────────────────────────────────────────────────────
 router.post(
     '/',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
     validate(createLeadSchema),
     createLead
 );
 
-router.get('/', getAllLeads);
+router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getAllLeads);
 
-router.get('/:id', getLeadById);
+router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getLeadById);
 
-router.get('/:id/activity', getLeadActivity);
+router.get('/:id/activity', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getLeadActivity);
 
 router.put(
     '/:id',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
     validate(updateLeadSchema),
     updateLead
 );
 
-// Status update — executive can update their own, manager can update any
 router.patch(
     '/:id/status',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
     validate(updateLeadStatusSchema),
     updateLeadStatus
 );

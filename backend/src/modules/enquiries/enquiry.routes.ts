@@ -35,32 +35,28 @@ router.get(
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
-// Create — anyone except VIEWER and FINANCE_MANAGER
+// Create — sales manager and above
 router.post(
     '/',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
     validate(createEnquirySchema),
     createEnquiry
 );
 
-// List — all roles can view (SALES_EXECUTIVE filtered to own in controller)
-router.get('/', getAllEnquiries);
+router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getAllEnquiries);
 
-// Single
-router.get('/:id', getEnquiryById);
+router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getEnquiryById);
 
-// Update details
 router.put(
     '/:id',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
     validate(updateEnquirySchema),
     updateEnquiry
 );
 
-// Update status (Pending → Contacted → Qualified → Rejected)
 router.patch(
     '/:id/status',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
     validate(updateStatusSchema),
     updateEnquiryStatus
 );

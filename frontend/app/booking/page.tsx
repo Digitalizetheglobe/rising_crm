@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import PageHeader from "../../Components/PageHeader";
+import { PAGE_CONTAINER_CLASS } from "../../lib/pageLayout";
 import { useDashboard } from "../DashboardContext";
 
 export default function BookingPage() {
@@ -13,15 +15,11 @@ export default function BookingPage() {
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6 bg-[#FDFCFB]">
-      
-      {/* Main Title & Action Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Booking</h1>
-          <p className="text-slate-500 mt-1 text-[15px] font-semibold">Manage property booking and payment structure</p>
-        </div>
-      </div>
+    <div className={PAGE_CONTAINER_CLASS}>
+      <PageHeader
+        title="Booking"
+        subtitle="Manage property booking and payment structure"
+      />
 
       {/* 4 KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

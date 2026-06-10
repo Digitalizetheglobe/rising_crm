@@ -1,11 +1,12 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
+import { ROLES, LEGACY_FINANCE_ROLE } from "../../constants/roles";
 
 export interface IUser extends Document {
     name: string;
     email: string;
     password: string;
-    phone?: string;
+    phone: string;
     role: string;
     isActive: boolean;
     comparePassword(candidatePassword: string): Promise<boolean>;
@@ -34,20 +35,23 @@ const userSchema = new Schema<IUser>(
 
         phone: {
             type: String,
+            required: true,
+            unique: true,
             trim: true,
         },
 
         role: {
             type: String,
             enum: [
-                "SUPER_ADMIN",
-                "ADMIN",
-                "SALES_MANAGER",
-                "SALES_EXECUTIVE",
-                "FINANCE_MANAGER",
-                "VIEWER",
+                ROLES.SUPER_ADMIN,
+                ROLES.ADMIN,
+                ROLES.SALES_MANAGER,
+                ROLES.SALES_EXECUTIVE,
+                ROLES.FINANCIAL_EXECUTIVE,
+                LEGACY_FINANCE_ROLE,
+                ROLES.VIEWER,
             ],
-            default: "SALES_EXECUTIVE",
+            default: ROLES.SALES_EXECUTIVE,
         },
 
         isActive: {

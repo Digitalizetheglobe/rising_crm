@@ -87,6 +87,12 @@ export const createLeadService = async (
     }
 
     await lead.save();
+
+    if (data.assignedTo) {
+        const { createClientFromLeadService } = await import('../clients/client.service');
+        await createClientFromLeadService(lead, createdBy, 'ASSIGNED');
+    }
+
     return lead;
 };
 
@@ -238,7 +244,7 @@ export const updateLeadStatusService = async (
 
     if (newStatus === 'BOOKED') {
         const { createClientFromLeadService } = await import('../clients/client.service');
-        await createClientFromLeadService(lead, updatedBy);
+        await createClientFromLeadService(lead, updatedBy, 'BOOKED');
     }
 
     // Send notification to assigned executive on key milestones
@@ -299,6 +305,9 @@ export const assignLeadService = async (
     );
 
     await lead.save();
+
+    const { createClientFromLeadService } = await import('../clients/client.service');
+    await createClientFromLeadService(lead, assignedBy, 'ASSIGNED');
 
     // Notify new assignee
     const { Notification } = await import('../notifications/notification.model');

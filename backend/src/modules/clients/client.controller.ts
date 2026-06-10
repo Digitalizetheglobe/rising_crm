@@ -37,7 +37,7 @@ export const getAllClients = async (req: AuthRequest, res: Response): Promise<vo
         const limit = parseInt(req.query.limit as string, 10) || 10;
         const queryParams = { ...req.query } as Record<string, any>;
 
-        if (req.user!.role === 'SALES_EXECUTIVE') {
+        if (req.user!.role === 'SALES_EXECUTIVE' || req.user!.role === 'SALES_MANAGER') {
             queryParams.assignedTo = req.user!.UserId;
         }
 

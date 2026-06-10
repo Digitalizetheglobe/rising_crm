@@ -293,6 +293,9 @@ export const convertToLeadService = async (
         await session.commitTransaction();
         session.endSession();
 
+        const { createClientFromLeadService } = await import('../clients/client.service');
+        await createClientFromLeadService(lead, convertedBy, 'ASSIGNED');
+
         return {
             lead,
             message: `Enquiry successfully converted to lead and assigned. Follow-up scheduled for ${new Date(followUpDate).toLocaleDateString('en-IN')}.`,

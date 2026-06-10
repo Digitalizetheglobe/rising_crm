@@ -13,6 +13,7 @@ export const createUserSchema = Joi.object({
         "SALES_MANAGER",
         "SALES_EXECUTIVE",
         "FINANCE_MANAGER",
+        "FINANCIAL_EXECUTIVE",
         "VIEWER"
     ).optional(),
 });
@@ -31,6 +32,7 @@ export const updateUserSchema = Joi.object({
         "SALES_MANAGER",
         "SALES_EXECUTIVE",
         "FINANCE_MANAGER",
+        "FINANCIAL_EXECUTIVE",
         "VIEWER"
     ).optional(),
 });

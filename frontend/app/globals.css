@@ -210,3 +210,14 @@ input::placeholder {
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+/* Red dashboard cards — keep typography white (overrides global h3/h4/p slate colors) */
+.recent-activity-card h3,
+.recent-activity-card h4,
+.recent-activity-card p {
+  color: #ffffff;
+}
+
+.recent-activity-card p {
+  opacity: 0.92;
+}

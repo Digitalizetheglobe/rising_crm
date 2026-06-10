@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import { DashboardProvider } from "./DashboardContext";
-import DashboardLayout from "./DashboardLayout";
+import { AuthProvider } from "./AuthContext";
+import AppShell from "./AppShell";
 
 const poppins = Poppins({
   variable: "--font-sans",
@@ -11,8 +12,11 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Rising CRM - Dashboard",
+  title: "Rising CRM",
   description: "Rising Spaces Leads and CRM Dashboard",
+  icons: {
+    icon: "/logo/logo_rising.png",
+  },
 };
 
 export default function RootLayout({
@@ -26,11 +30,11 @@ export default function RootLayout({
       className={`${poppins.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans bg-[#FDFCFB]">
-        <DashboardProvider>
-          <DashboardLayout>
-            {children}
-          </DashboardLayout>
-        </DashboardProvider>
+        <AuthProvider>
+          <DashboardProvider>
+            <AppShell>{children}</AppShell>
+          </DashboardProvider>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,27 +1,16 @@
-import { Request, Response } from "express";
-import {
-    loginUser,
-    registerUser,
-} from "./auth.service";
+import { Response } from "express";
+import { AuthRequest } from "../../middleware/auth.middleware";
+import { loginUser, registerUser, getCurrentUser } from "./auth.service";
 
-export const register = async (
-    req: Request,
-    res: Response
-) => {
+export const register = async (req: AuthRequest, res: Response) => {
     try {
-        const { name, email, password, role } =
-            req.body;
+        const { name, email, phone, password, role } = req.body;
 
-        const data = await registerUser(
-            name,
-            email,
-            password,
-            role
-        );
+        const data = await registerUser(name, email, phone, password, role);
 
         res.status(201).json({
             success: true,
-            message: "User registered successfully",
+            message: "Account created successfully",
             data,
         });
     } catch (error: any) {
@@ -32,17 +21,11 @@ export const register = async (
     }
 };
 
-export const login = async (
-    req: Request,
-    res: Response
-) => {
+export const login = async (req: AuthRequest, res: Response) => {
     try {
-        const { email, password } = req.body;
+        const { phone, password } = req.body;
 
-        const data = await loginUser(
-            email,
-            password
-        );
+        const data = await loginUser(phone, password);
 
         res.status(200).json({
             success: true,
@@ -51,6 +34,21 @@ export const login = async (
         });
     } catch (error: any) {
         res.status(400).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+export const me = async (req: AuthRequest, res: Response) => {
+    try {
+        const user = await getCurrentUser(req.user!.UserId);
+        res.status(200).json({
+            success: true,
+            data: user,
+        });
+    } catch (error: any) {
+        res.status(401).json({
             success: false,
             message: error.message,
         });

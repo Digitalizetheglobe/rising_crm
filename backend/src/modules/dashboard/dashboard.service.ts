@@ -281,7 +281,55 @@ export const getDashboardService = async (UserId: string, role: string) => {
 };
 
 export const getBookingsTrendService = async (UserId: string, role: string) => {
-  return [];
+  const Lead = mongoose.model('Lead');
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+  const leadScope: Record<string, any> = {};
+  const bookingScope: Record<string, any> = {};
+  if (role === 'SALES_EXECUTIVE') {
+    leadScope.assignedTo = new mongoose.Types.ObjectId(UserId);
+    bookingScope.bookedBy = new mongoose.Types.ObjectId(UserId);
+  }
+
+  const weeks: { start: Date; end: Date; label: string }[] = [];
+  for (let w = 0; w < 4; w++) {
+    const startDay = w * 7 + 1;
+    const endDay = Math.min((w + 1) * 7, daysInMonth);
+    if (startDay > daysInMonth) break;
+    weeks.push({
+      start: new Date(now.getFullYear(), now.getMonth(), startDay),
+      end: new Date(now.getFullYear(), now.getMonth(), endDay, 23, 59, 59, 999),
+      label: `Week ${w + 1}`,
+    });
+  }
+
+  const results = await Promise.all(
+    weeks.map(async (week) => {
+      const [leadCount, closureCount] = await Promise.all([
+        Lead.countDocuments({
+          ...leadScope,
+          createdAt: { $gte: week.start, $lte: week.end },
+        }),
+        Booking.countDocuments({
+          ...bookingScope,
+          bookingDate: { $gte: week.start, $lte: week.end },
+          status: { $in: ['Active', 'Completed'] },
+        }),
+      ]);
+      return { label: week.label, leads: leadCount, closures: closureCount };
+    })
+  );
+
+  const maxVal = Math.max(...results.map((r) => Math.max(r.leads, r.closures)), 1);
+
+  return results.map((r) => ({
+    label: r.label,
+    volumeRaw: r.leads,
+    closuresRaw: r.closures,
+    volume: Math.round((r.leads / maxVal) * 100),
+    closures: Math.round((r.closures / maxVal) * 100),
+  }));
 };
 
 export const getRevenueByProjectService = async () => {

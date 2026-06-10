@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import EnquiryDetailModule from "../../Components/enquiryDetailModule";
+import PageHeader from "../../Components/PageHeader";
+import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLayout";
 import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
+import { getAuthHeaders } from "../../lib/auth";
 
 // Interfaces
 interface Enquiry {
@@ -55,14 +58,6 @@ export default function EnquiryPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, pending: 0, converted: 0 });
 
-
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("crm_token");
-    return {
-      "Content-Type": "application/json",
-      "Authorization": token ? (token.startsWith("Bearer ") ? token : `Bearer ${token}`) : "",
-    };
-  };
 
   const fetchEnquiries = async () => {
     setLoading(true);
@@ -126,13 +121,7 @@ export default function EnquiryPage() {
     }
   };
 
-  // Sync token and load data
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (!localStorage.getItem("crm_token")) {
-        localStorage.setItem("crm_token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VySWQiOiI2YTE5OGYxY2E5MmQyZGViMGM2NGE3Y2QiLCJyb2xlIjoiU1VQRVJfQURNSU4iLCJpYXQiOjE3ODA1NjU3NTUsImV4cCI6MTgxMjEwMTc1NX0._QWpjMR0kNPIQtgzGZYJg3ESfU4ZRY3yI4dNbMQdMP4");
-      }
-    }
     fetchEnquiries();
     fetchStats();
   }, [currentPage, searchQuery, statusFilter]);
@@ -282,28 +271,19 @@ export default function EnquiryPage() {
   const filteredEnquiries = enquiries;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6 bg-[#FDFCFB]">
-
-      {/* Main Title & Action Row */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-medium text-slate-900 tracking-tight">Enquiry</h1>
-          <p className="text-slate-500 mt-1 text-[15px] font-semibold">Manage property and plots incoming inquiries</p>
-        </div>
-
-        {/* Action Buttons matching mockup */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-brand hover:bg-brand-hover text-white text-[14px] font-bold px-5 py-2.5 rounded-xl shadow-md shadow-brand/10 flex items-center gap-2 transition-all duration-300 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 cursor-pointer font-sans"
-          >
-            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+    <div className={PAGE_CONTAINER_CLASS}>
+      <PageHeader
+        title="Enquiry"
+        subtitle="Manage property and plots incoming inquiries"
+        actions={
+          <button onClick={() => setIsAddModalOpen(true)} className={PRIMARY_ACTION_BTN_CLASS}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
             Add New Enquiry
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* 3 KPI Metric Cards - Styled exactly like the user mockup */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

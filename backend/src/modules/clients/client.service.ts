@@ -39,6 +39,8 @@ const addActivity = (
 
 const toObjectId = (id?: string) => (id ? new mongoose.Types.ObjectId(id) : undefined);
 
+const SOURCE_LEAD_FIELDS = 'name phone email status propertyType preferredLocation budgetRange priority nextFollowUpDate';
+
 export const createClientService = async (payload: Record<string, any>, createdBy: string) => {
     const existing = await Client.findOne({ phone: payload.phone });
     if (existing) throw new ApiError(409, 'Client with this phone already exists');
@@ -54,26 +56,50 @@ export const createClientService = async (payload: Record<string, any>, createdB
     await client.save();
 
     const hydrated = await Client.findById(client._id)
-        .populate('sourceLead', 'name phone status')
+        .populate('sourceLead', SOURCE_LEAD_FIELDS)
         .populate('assignedTo', 'name email phone')
         .populate('createdBy', 'name email');
     return sanitizeClient(hydrated);
 };
 
-export const createClientFromLeadService = async (lead: any, performedBy: string) => {
+const syncClientFromLead = async (client: any, lead: any, performedBy: string) => {
+    let changed = false;
+
+    if (lead.assignedTo && client.assignedTo?.toString() !== lead.assignedTo.toString()) {
+        client.assignedTo = lead.assignedTo;
+        addActivity(client, 'REASSIGNED', 'Client assignee synced with lead assignment', performedBy, {
+            assignedTo: lead.assignedTo.toString(),
+        });
+        changed = true;
+    }
+
+    if (!client.sourceLead) {
+        client.sourceLead = lead._id;
+        addActivity(client, 'LINKED_TO_LEAD', 'Existing client linked to assigned lead', performedBy, {
+            sourceLead: lead._id.toString(),
+        });
+        changed = true;
+    }
+
+    if (changed) await client.save();
+    return client;
+};
+
+export const createClientFromLeadService = async (
+    lead: any,
+    performedBy: string,
+    reason: 'ASSIGNED' | 'BOOKED' = 'BOOKED'
+) => {
+    if (!lead.assignedTo) return null;
+
     const existingByLead = await Client.findOne({ sourceLead: lead._id });
-    if (existingByLead) return existingByLead;
+    if (existingByLead) {
+        return syncClientFromLead(existingByLead, lead, performedBy);
+    }
 
     const existingByPhone = await Client.findOne({ phone: lead.phone });
     if (existingByPhone) {
-        if (!existingByPhone.sourceLead) {
-            existingByPhone.sourceLead = lead._id;
-            addActivity(existingByPhone, 'LINKED_TO_LEAD', 'Existing client linked to converted lead', performedBy, {
-                sourceLead: lead._id.toString(),
-            });
-            await existingByPhone.save();
-        }
-        return existingByPhone;
+        return syncClientFromLead(existingByPhone, lead, performedBy);
     }
 
     const client = new Client({
@@ -82,12 +108,17 @@ export const createClientFromLeadService = async (lead: any, performedBy: string
         email: lead.email,
         assignedTo: lead.assignedTo,
         sourceLead: lead._id,
-        createdBy: lead.createdBy,
+        createdBy: lead.createdBy || new mongoose.Types.ObjectId(performedBy),
         status: 'ACTIVE',
         notes: lead.notes,
     });
 
-    addActivity(client, 'AUTO_CREATED_FROM_LEAD', 'Client auto-created when lead status moved to BOOKED', performedBy, {
+    const description =
+        reason === 'ASSIGNED'
+            ? 'Client auto-created when lead was assigned'
+            : 'Client auto-created when lead status moved to BOOKED';
+
+    addActivity(client, reason === 'ASSIGNED' ? 'AUTO_CREATED_FROM_ASSIGNMENT' : 'AUTO_CREATED_FROM_LEAD', description, performedBy, {
         sourceLead: lead._id.toString(),
     });
     await client.save();
@@ -124,7 +155,7 @@ export const getAllClientsService = async (query: Record<string, any>, page = 1,
 
     const [clients, total] = await Promise.all([
         Client.find(filter)
-            .populate('sourceLead', 'name phone status')
+            .populate('sourceLead', SOURCE_LEAD_FIELDS)
             .populate('assignedTo', 'name email phone')
             .populate('createdBy', 'name email')
             .select('-activityLog')
@@ -147,7 +178,7 @@ export const getAllClientsService = async (query: Record<string, any>, page = 1,
 
 export const getClientByIdService = async (clientId: string) => {
     const client = await Client.findById(clientId)
-        .populate('sourceLead', 'name phone status')
+        .populate('sourceLead', SOURCE_LEAD_FIELDS)
         .populate('assignedTo', 'name email phone')
         .populate('createdBy', 'name email')
         .populate('activityLog.performedBy', 'name email');
@@ -205,7 +236,10 @@ export const getClientBookingsService = async (clientId: string) => {
     await getClientByIdService(clientId);
     const bookings = await Booking.find({
         $or: [{ client: new mongoose.Types.ObjectId(clientId) }, { clientId: new mongoose.Types.ObjectId(clientId) }],
-    }).sort({ createdAt: -1 });
+    })
+        .populate('project', 'name location')
+        .populate('unit', 'unitNumber floor')
+        .sort({ createdAt: -1 });
     return bookings;
 };
 

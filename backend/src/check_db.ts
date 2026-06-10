@@ -24,8 +24,9 @@ async function run() {
     if (users.length === 0) {
         console.log("No users found. Creating a default super admin...");
         const adminUser = await User.create({
-            name: "Murali Anna",
+            name: "Hello",
             email: "murali@example.com",
+            phone: "9876543210",
             password: "password123",
             role: "SUPER_ADMIN"
         });

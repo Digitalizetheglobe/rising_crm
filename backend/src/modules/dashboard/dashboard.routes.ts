@@ -9,21 +9,21 @@ const router = Router();
 router.get(
   '/',
   protect,
-  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER'),
+  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
   getDashboard
 );
 
 router.get(
   '/bookings-trend',
   protect,
-  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER'),
+  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
   getBookingsTrend
 );
 
 router.get(
   '/revenue-by-project',
   protect,
-  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'FINANCE_MANAGER'),
+  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'FINANCIAL_EXECUTIVE'),
   getRevenueByProject
 );
 
