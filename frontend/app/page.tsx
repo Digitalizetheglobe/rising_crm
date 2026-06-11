@@ -442,15 +442,15 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-sky-100 hover:border-sky-200 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-800 tracking-tight">Leads vs Closures</h3>
+              <h3 className="text-xl font-bold text-slate-800 tracking-tight">Enquiry vs Leads</h3>
               <div className="flex items-center gap-5">
                 <div className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 rounded-full bg-brand-pink block" />
-                  <span className="text-slate-500 text-[13px] font-semibold">Lead Volume</span>
+                  <span className="text-slate-500 text-[13px] font-semibold">Enquiry</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-3.5 h-3.5 rounded-full bg-brand block" />
-                  <span className="text-slate-500 text-[13px] font-semibold">Closures</span>
+                  <span className="text-slate-500 text-[13px] font-semibold">Lead</span>
                 </div>
               </div>
             </div>
