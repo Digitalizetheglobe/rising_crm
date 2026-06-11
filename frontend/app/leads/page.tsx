@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders } from "../../lib/auth";
+import { importLeads, exportLeads } from "../../lib/leadService";
+import { downloadCrmTemplateExcel } from "../../lib/services/importExportService";
+import { useAuth } from "../AuthContext";
 import LeadDetailModule from "../../Components/leadDetailModule";
 import PageHeader from "../../Components/PageHeader";
 import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLayout";
@@ -28,6 +31,7 @@ interface Lead {
 
 export default function LeadsPage() {
   const { searchQuery, setSearchQuery, addToast } = useDashboard();
+  const { user } = useAuth();
 
   // Filter & Search states
   const [statusFilter, setStatusFilter] = useState("All status");
@@ -45,6 +49,11 @@ export default function LeadsPage() {
   // Detail Modal State
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
+  // Import/Export loading
+  const importInputRef = React.useRef<HTMLInputElement>(null);
+  const [importLoading, setImportLoading] = React.useState(false);
+  const [exportLoading, setExportLoading] = React.useState(false);
 
   // Assign & Follow-up Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -171,8 +180,6 @@ export default function LeadsPage() {
 
   const handleChangeLeadStatus = async (id: string, newStatus: "Hot Lead" | "Closed" | "New lead") => {
     try {
-      // Backend expects statuses like NEW, CONTACTED, QUALIFIED, NEGOTIATION, WON, LOST
-      // Let's map it roughly. New lead -> NEW, Hot Lead -> QUALIFIED, Closed -> WON
       let mappedStatus = "NEW";
       if (newStatus === "Hot Lead") mappedStatus = "QUALIFIED";
       if (newStatus === "Closed") mappedStatus = "WON";
@@ -206,7 +213,7 @@ export default function LeadsPage() {
     try {
       const payload = {
         name: newLeadName.trim(),
-        phone: "9999999999", // Dummy phone as backend requires it
+        phone: "9999999999",
         source: newLeadSource,
       };
 
@@ -233,21 +240,52 @@ export default function LeadsPage() {
     }
   };
 
-  const handleExportFile = () => {
-    addToast("Generating leads report spreadsheet...", "info");
-    setTimeout(() => {
-      const headers = "Name,Source,Status,Last Contacted\n";
-      const rows = leads
-        .map((l) => `"${l.name}","${l.source}","${l.status}","${l.lastContacted}"`)
-        .join("\n");
-      const blob = new Blob([headers + rows], { type: "text/csv" });
+  const handleExportFile = async () => {
+    setExportLoading(true);
+    try {
+      addToast("Generating leads export report...", "info");
+      const blob = await exportLeads();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.setAttribute("href", url);
-      a.setAttribute("download", `RisingSpaces_Leads_${Date.now()}.csv`);
+      a.style.display = "none";
+      a.href = url;
+      a.download = `RisingSpaces_Leads_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
       a.click();
-      addToast("Leads list exported successfully!", "success");
-    }, 1200);
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      addToast("Leads exported successfully!", "success");
+    } catch (e) {
+      console.error(e);
+      addToast("Failed to export leads", "info");
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportLoading(true);
+    try {
+      await importLeads(file);
+      addToast("Leads imported successfully!", "success");
+      fetchLeads();
+    } catch (err: any) {
+      addToast(err.message || "Import failed", "info");
+    } finally {
+      setImportLoading(false);
+      if (importInputRef.current) importInputRef.current.value = "";
+    }
+  };
+
+  const handleDownloadCrmTemplate = async () => {
+    try {
+      await downloadCrmTemplateExcel();
+      addToast("CRM template downloaded!", "success");
+    } catch (err: any) {
+      addToast(err.message || "Failed to download CRM template", "info");
+    }
   };
 
   return (
@@ -257,17 +295,31 @@ export default function LeadsPage() {
         subtitle="Here's what requires your attention today"
         actions={
           <>
+            <input
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              style={{ display: 'none' }}
+              ref={importInputRef}
+              onChange={handleImportFile}
+            />
             <button
-              onClick={() => addToast("Not yet implemented", "info")}
+              onClick={() => importInputRef.current?.click()}
+              disabled={importLoading}
               className={PRIMARY_ACTION_BTN_CLASS}
             >
               <UploadIcon className="text-white w-4 h-4 mr-2" />
-              Import File
+              Import Leads
             </button>
-            <button onClick={handleExportFile} className={PRIMARY_ACTION_BTN_CLASS}>
+            <button onClick={handleExportFile} disabled={exportLoading} className={PRIMARY_ACTION_BTN_CLASS}>
               <DownloadIcon className="text-white w-4 h-4 mr-2" />
-              Export File
+              Export Leads
             </button>
+            {user && (user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "SALES_MANAGER") && (
+              <button onClick={handleDownloadCrmTemplate} className={PRIMARY_ACTION_BTN_CLASS}>
+                <DownloadIcon className="text-white w-4 h-4 mr-2" />
+                Download CRM Template
+              </button>
+            )}
             <button onClick={() => setIsAddModalOpen(true)} className={PRIMARY_ACTION_BTN_CLASS}>
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -869,6 +921,39 @@ export default function LeadsPage() {
           setSelectedLead(null);
         }}
         lead={selectedLead}
+        onSave={async (updated) => {
+          try {
+            // Backend update route is PUT /v1/leads/:id and its Joi schema rejects
+            // unknown keys (id, status, createdAt...) and the UI's display
+            // placeholders, so send only real, updatable values.
+            const payload: Record<string, string> = {
+              name: updated.name,
+              notes: updated.notes || '',
+            };
+            if (updated.phone && /^[6-9]\d{9}$/.test(updated.phone)) payload.phone = updated.phone;
+            if (updated.email && updated.email !== 'Not provided') payload.email = updated.email;
+            if (updated.source && updated.source !== 'Unknown') payload.source = updated.source;
+            if (updated.budgetRange && updated.budgetRange !== 'Not specified') payload.budgetRange = updated.budgetRange;
+            if (updated.propertyType && updated.propertyType !== 'Not specified') payload.propertyType = updated.propertyType;
+            if (updated.preferredLocation && updated.preferredLocation !== 'Not specified') payload.preferredLocation = updated.preferredLocation;
+
+            const res = await fetch(`${API_URL}/v1/leads/${updated.id}`, {
+              method: 'PUT',
+              headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            const json = await res.json();
+            if (json.success) {
+              addToast('Lead updated successfully', 'success');
+              fetchLeads();
+              fetchStats();
+            } else {
+              addToast(json.message || 'Failed to update lead', 'info');
+            }
+          } catch (err: any) {
+            addToast(err.message || 'Error updating lead', 'info');
+          }
+        }}
       />
 
     </div>

@@ -23,9 +23,14 @@ export const register = async (req: AuthRequest, res: Response) => {
 
 export const login = async (req: AuthRequest, res: Response) => {
     try {
-        const { phone, password } = req.body;
+        const { identifier, phone, email, password } = req.body;
+        const loginIdentifier = identifier || phone || email;
 
-        const data = await loginUser(phone, password);
+        if (!loginIdentifier || !password) {
+            throw new Error("Please provide email/phone and password");
+        }
+
+        const data = await loginUser(loginIdentifier, password);
 
         res.status(200).json({
             success: true,

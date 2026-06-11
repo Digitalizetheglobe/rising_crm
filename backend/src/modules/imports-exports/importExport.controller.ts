@@ -8,6 +8,7 @@ import {
   exportLeads, exportClients, exportPayments, exportProjects, exportUnits,
   downloadTemplate, ExportFilters,
 } from './importExport.service';
+import { downloadMultiSheetCrmTemplate } from './crmTemplate.service';
 
 // ─── IMPORTS ──────────────────────────────────────────────────────────────────
 
@@ -95,4 +96,9 @@ export const handleDownloadTemplate = asyncHandler(async (req: AuthRequest, res:
   const type = req.params.type as any;
   const buffer = await downloadTemplate(type);
   sendExcel(res, buffer, `${type}_template`);
+});
+
+export const handleDownloadCrmTemplate = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const buffer = await downloadMultiSheetCrmTemplate();
+  sendExcel(res, buffer, `rising_crm_master_template`);
 });

@@ -60,11 +60,13 @@ export const registerUser = async (
     };
 };
 
-export const loginUser = async (phone: string, password: string) => {
-    const user = await User.findOne({ phone });
+export const loginUser = async (identifier: string, password: string) => {
+    const user = await User.findOne({ 
+        $or: [{ phone: identifier }, { email: identifier }] 
+    });
 
     if (!user) {
-        throw new Error("Invalid phone number or password");
+        throw new Error("Invalid phone number, email or password");
     }
 
     if (!user.isActive) {
@@ -74,7 +76,7 @@ export const loginUser = async (phone: string, password: string) => {
     const isPasswordMatched = await user.comparePassword(password);
 
     if (!isPasswordMatched) {
-        throw new Error("Invalid phone number or password");
+        throw new Error("Invalid phone number, email or password");
     }
 
     const token = signToken(user);

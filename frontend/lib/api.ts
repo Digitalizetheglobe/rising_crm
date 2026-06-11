@@ -38,3 +38,37 @@ export async function apiFetch<T = unknown>(
 
   return data as T;
 }
+
+export async function apiDownloadBlob(
+  path: string,
+  options: RequestInit = {}
+): Promise<Blob> {
+  const res = await fetch(`${API_URL}/v1${path}`, {
+    ...options,
+    headers: {
+      ...getAuthHeaders(),
+      ...(options.headers as Record<string, string> | undefined),
+    },
+  });
+
+  if (res.status === 401) {
+    clearAuthSession();
+    if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      window.location.href = "/login";
+    }
+    throw new ApiError("Session expired. Please log in again.", 401);
+  }
+
+  if (!res.ok) {
+    let msg = "Download failed";
+    try {
+      const errData = await res.json();
+      if (errData.message) msg = errData.message;
+    } catch (e) {
+      // Ignore
+    }
+    throw new ApiError(msg, res.status);
+  }
+
+  return res.blob();
+}

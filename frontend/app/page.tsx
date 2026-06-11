@@ -6,6 +6,7 @@ import { getAuthHeaders } from "../lib/auth";
 import PageHeader from "../Components/PageHeader";
 import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../lib/pageLayout";
 import { useDashboard } from "./DashboardContext";
+import { Download, Plus, Upload, User } from "lucide-react";
 
 interface Task {
   id: string;
@@ -196,7 +197,7 @@ export default function Home() {
     });
 
     return items
-      .sort((a, b) => b.sortDate - a.sortDate)
+      .sort((a, b) => (b.sortDate ?? 0) - (a.sortDate ?? 0))
       .slice(0, 4)
       .map(({ sortDate: _, ...rest }) => rest);
   };
@@ -365,23 +366,27 @@ export default function Home() {
           actions={
             <>
               <button
+                onClick={() => addToast("Uploading new leads collection...", "success")}
+                className={PRIMARY_ACTION_BTN_CLASS}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Leads
+              </button>
+
+              <button
                 onClick={() => addToast("Exporting account statement PDF...", "success")}
                 className={PRIMARY_ACTION_BTN_CLASS}
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
+                <Download className="w-4 h-4 mr-2" />
                 Export Statement
               </button>
-              <button
+              {/* <button
                 onClick={() => addToast("Creating new leads collection...", "success")}
                 className={PRIMARY_ACTION_BTN_CLASS}
               >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
+                <Plus className="w-4 h-4 mr-2" />
                 New Collection
-              </button>
+              </button> */}
             </>
           }
         />
@@ -389,11 +394,11 @@ export default function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {(loading && kpis.length === 0
             ? [
-                { title: "Total Enquiry", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-brand" },
-                { title: "Total Leads", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-blue-500" },
-                { title: "Bookings", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-amber-500" },
-                { title: "Units Left", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-emerald-500" },
-              ]
+              { title: "Total Enquiry", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-brand" },
+              { title: "Total Leads", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-blue-500" },
+              { title: "Bookings", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-amber-500" },
+              { title: "Units Left", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-emerald-500" },
+            ]
             : kpis
           ).map((kpi, idx) => {
             const bgColors: { [key: string]: string } = {
@@ -593,16 +598,14 @@ export default function Home() {
                 tasks.map((task) => (
                   <div
                     key={task.id}
-                    className={`bg-white rounded-3xl p-5 border border-slate-100 flex flex-col justify-between gap-5 relative transition-all duration-300 group/card ${
-                      task.completed ? "opacity-60 shadow-sm line-through saturate-[0.1]" : "hover:shadow-2xl hover:-translate-y-1.5"
-                    }`}
+                    className={`bg-white rounded-3xl p-5 border border-slate-100 flex flex-col justify-between gap-5 relative transition-all duration-300 group/card ${task.completed ? "opacity-60 shadow-sm line-through saturate-[0.1]" : "hover:shadow-2xl hover:-translate-y-1.5"
+                      }`}
                   >
                     <div className="flex items-start justify-between">
                       <button
                         onClick={() => toggleTaskCompleted(task.id)}
-                        className={`w-5.5 h-5.5 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer ${
-                          task.completed ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 hover:border-brand hover:bg-red-50/50"
-                        }`}
+                        className={`w-5.5 h-5.5 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer ${task.completed ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 hover:border-brand hover:bg-red-50/50"
+                          }`}
                       >
                         {task.completed && (
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
@@ -646,9 +649,8 @@ export default function Home() {
 
                     <div>
                       <h4
-                        className={`text-[15px] font-bold text-slate-800 leading-tight group-hover/card:text-brand transition-colors duration-200 ${
-                          task.completed ? "text-slate-400" : ""
-                        }`}
+                        className={`text-[15px] font-bold text-slate-800 leading-tight group-hover/card:text-brand transition-colors duration-200 ${task.completed ? "text-slate-400" : ""
+                          }`}
                       >
                         {task.title}
                       </h4>

@@ -4,7 +4,6 @@ import { ApiError } from '../../utils/ApiError';
 import {
     LeadStatus,
     TERMINAL_STATUSES,
-    VALID_STATUS_TRANSITIONS,
 } from './lead.constants';
 
 // ── Helper: add activity log entry ────────────────────────────────────────────
@@ -198,13 +197,8 @@ export const updateLeadStatusService = async (
 
     const currentStatus = lead.status;
 
-    // Validate transition
-    const allowedNext = VALID_STATUS_TRANSITIONS[currentStatus];
-    if (!allowedNext.includes(newStatus)) {
-        throw new ApiError(
-            400,
-            `Invalid status transition from ${currentStatus} to ${newStatus}. Allowed: ${allowedNext.join(', ') || 'none (terminal status)'}`
-        );
+    if (currentStatus === newStatus) {
+        throw new ApiError(400, `Lead is already in status ${newStatus}`);
     }
 
     // Store previous for activity log

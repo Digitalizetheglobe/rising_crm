@@ -42,9 +42,10 @@ export default function EnquiryPage() {
 
   // Add Enquiry modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newEnquiryBudgetRange, setNewEnquiryBudgetRange] = useState("");
   const [newEnquiryName, setNewEnquiryName] = useState("");
-  const [newEnquirySource, setNewEnquirySource] = useState("Website");
   const [newEnquiryContact, setNewEnquiryContact] = useState("");
+  const [newEnquirySource, setNewEnquirySource] = useState("Website");
   const [newEnquiryMessage, setNewEnquiryMessage] = useState("");
   const [newEnquiryStatus, setNewEnquiryStatus] = useState<"Pending" | "Converted lead">("Pending");
 
@@ -146,12 +147,14 @@ export default function EnquiryPage() {
     }
 
     try {
-      const payload = {
-        name: newEnquiryName.trim(),
-        phone: newEnquiryContact.trim(),
-        source: newEnquirySource,
-        message: newEnquiryMessage.trim(),
-      };
+      // Include budgetRange in payload
+        const payload = {
+          name: newEnquiryName.trim(),
+          phone: newEnquiryContact.trim(),
+          source: newEnquirySource,
+          message: newEnquiryMessage.trim(),
+          budgetRange: newEnquiryBudgetRange,
+        };
 
       const res = await fetch(`${API_URL}/v1/enquiries`, {
         method: "POST",
@@ -259,6 +262,47 @@ export default function EnquiryPage() {
       addToast(err.message || "Error changing status", "info");
     }
     setActiveRowActionId(null);
+  };
+
+  // Update Enquiry
+  const handleUpdateEnquiry = async (updated: Enquiry) => {
+    try {
+      const payload = {
+        name: updated.name,
+        phone: updated.contactNo,
+        email: updated.email,
+        source: updated.source,
+        message: updated.message,
+        budgetRange: updated.budgetRange,
+        propertyType: updated.propertyType,
+        preferredLocation: updated.preferredLocation,
+        notes: updated.notes,
+      };
+
+    console.log('Updating enquiry with payload:', payload);
+    const res = await fetch(`${API_URL}/v1/enquiries/${updated.id}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    console.log('Update enquiry response:', json);
+    if (json.success) {
+        addToast("Enquiry updated successfully", "success");
+        setSelectedEnquiry(updated);
+        fetchEnquiries();
+        fetchStats();
+        
+        // If status changed in the modal, we also need to update status
+        if (selectedEnquiry && updated.status !== selectedEnquiry.status) {
+          handleChangeStatus(updated.id, updated.status);
+        }
+      } else {
+        addToast(json.message || "Failed to update enquiry", "info");
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error updating enquiry", "info");
+    }
   };
 
   // Filter reset helper
@@ -437,7 +481,7 @@ export default function EnquiryPage() {
                 ) : (
                   filteredEnquiries.map((enq) => (
                     <tr key={enq.id} className={`hover:bg-slate-50/50 transition-colors ${activeRowActionId === enq.id ? 'relative z-50' : 'relative z-0'}`}>
-                      <td onClick={() => { setIsDetailModalOpen(true); }} className="py-4 px-6 text-slate-800 font-semibold cursor-pointer hover:text-brand transition-colors">{enq.name}</td>
+                      <td onClick={() => { setSelectedEnquiry(enq); setIsDetailModalOpen(true); }} className="py-4 px-6 text-slate-800 font-semibold cursor-pointer hover:text-brand transition-colors">{enq.name}</td>
                       <td className="py-4 px-6 text-slate-600">{enq.source}</td>
                       <td className="py-4 px-6 text-slate-850 font-medium">{enq.contactNo}</td>
                       <td className="py-4 px-6">
@@ -677,7 +721,21 @@ export default function EnquiryPage() {
                     className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none placeholder:text-slate-400 font-medium"
                   />
                 </div>
-
+                  <div className="mt-4">
+                    <label className="block text-slate-600 font-bold mb-1.5">Budget Range</label>
+                    <select
+                      value={newEnquiryBudgetRange}
+                      onChange={(e) => setNewEnquiryBudgetRange(e.target.value)}
+                      className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none text-[14px] font-medium"
+                    >
+                      <option value="">Select...</option>
+                      <option value="Under 25L">Under 25L</option>
+                      <option value="25L-50L">25L-50L</option>
+                      <option value="50L-1Cr">50L-1Cr</option>
+                      <option value="1Cr-2Cr">1Cr-2Cr</option>
+                      <option value="Above 2Cr">Above 2Cr</option>
+                    </select>
+                  </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-slate-600 font-bold mb-1.5">Contact Number</label>
@@ -767,6 +825,7 @@ export default function EnquiryPage() {
           setSelectedEnquiry(null);
         }}
         enquiry={selectedEnquiry}
+        onSave={handleUpdateEnquiry}
       />
     </div >
   );

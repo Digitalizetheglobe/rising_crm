@@ -15,6 +15,8 @@ export const registerSchema = Joi.object({
 });
 
 export const loginSchema = Joi.object({
-    phone: Joi.string().trim().pattern(/^[0-9+\-\s()]{10,15}$/).required(),
+    identifier: Joi.string().trim(),
+    phone: Joi.string().trim(),
+    email: Joi.string().email().lowercase(),
     password: Joi.string().required(),
-});
+}).or('identifier', 'phone', 'email');

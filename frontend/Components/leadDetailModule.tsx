@@ -5,7 +5,7 @@ export interface LeadDetail {
   name: string;
   source: string;
   phone: string;
-  status: "Hot Lead" | "Closed" | "New lead";
+  status: string;
   lastContacted: string;
   email?: string;
   budgetRange?: string;
@@ -20,6 +20,7 @@ interface LeadDetailModuleProps {
   isOpen: boolean;
   onClose: () => void;
   lead: LeadDetail | null;
+  onSave?: (updated: LeadDetail) => void;
 }
 
 // Rising Spaces — Light Excel palette
@@ -34,7 +35,13 @@ interface LeadDetailModuleProps {
 // #d0d0d0  — grid line borders
 // #f9f9f9  — chrome bars (title, ribbon, formula)
 
-function Row({ label, value, shade }: { label: string; value?: string | React.ReactNode; shade: boolean }) {
+function Row({
+  label, value, shade, isEditing, onChange, type = 'text', options
+}: {
+  label: string; value?: string | React.ReactNode; shade: boolean;
+  isEditing?: boolean; onChange?: (val: string) => void;
+  type?: string; options?: string[];
+}) {
   return (
     <tr style={{ background: shade ? '#f5f5f5' : '#ffffff' }}>
       <td
@@ -58,11 +65,37 @@ function Row({ label, value, shade }: { label: string; value?: string | React.Re
           fontFamily: 'Calibri, "Segoe UI", sans-serif',
           fontSize: '12px',
           color: '#1a1a1a',
-          padding: '5px 10px',
+          padding: isEditing ? '2px 5px' : '5px 10px',
           border: '1px solid #d0d0d0',
         }}
       >
-        {value || '—'}
+        {isEditing && typeof value === 'string' ? (
+          options ? (
+            <select
+              value={value || ''}
+              onChange={(e) => onChange?.(e.target.value)}
+              style={{
+                width: '100%', padding: '3px', border: '1px solid #ccc',
+                fontFamily: 'Calibri, "Segoe UI", sans-serif', fontSize: '12px'
+              }}
+            >
+              <option value="">Select...</option>
+              {options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          ) : (
+            <input
+              type={type}
+              value={value || ''}
+              onChange={(e) => onChange?.(e.target.value)}
+              style={{
+                width: '100%', padding: '3px', border: '1px solid #ccc',
+                fontFamily: 'Calibri, "Segoe UI", sans-serif', fontSize: '12px'
+              }}
+            />
+          )
+        ) : (
+          value || '—'
+        )}
       </td>
     </tr>
   );
@@ -91,8 +124,29 @@ function SectionHeader({ title, icon }: { title: string; icon: string }) {
   );
 }
 
-export default function LeadDetailModule({ isOpen, onClose, lead }: LeadDetailModuleProps) {
-  if (!isOpen || !lead) return null;
+export default function LeadDetailModule({ isOpen, onClose, lead, onSave }: LeadDetailModuleProps) {
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [formData, setFormData] = React.useState<LeadDetail | null>(null);
+
+  React.useEffect(() => {
+    if (lead) setFormData(lead);
+    setIsEditing(false);
+  }, [lead, isOpen]);
+
+  if (!isOpen || !formData) return null;
+
+  const handleChange = (field: keyof LeadDetail, val: string) => {
+    setFormData(prev => prev ? { ...prev, [field]: val } : prev);
+  };
+
+  const handleEditToggle = () => {
+    if (isEditing) {
+      if (onSave) onSave(formData);
+      setIsEditing(false);
+    } else {
+      setIsEditing(true);
+    }
+  };
 
   const statusCell = (() => {
     const base: React.CSSProperties = {
@@ -103,19 +157,19 @@ export default function LeadDetailModule({ isOpen, onClose, lead }: LeadDetailMo
       padding: '1px 8px',
       letterSpacing: '0.04em',
     };
-    if (lead.status === 'Hot Lead') return (
+    if (formData.status === 'Hot Lead') return (
       <span style={{ ...base, background: '#fde8e9', color: '#C0272D', border: '1px solid #C0272D' }}>
         Hot Lead
       </span>
     );
-    if (lead.status === 'Closed') return (
+    if (formData.status === 'Closed') return (
       <span style={{ ...base, background: '#edfaf2', color: '#15803d', border: '1px solid #86efac' }}>
         Closed
       </span>
     );
     return (
       <span style={{ ...base, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
-        New Lead
+        {formData.status ? formData.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : 'New Lead'}
       </span>
     );
   })();
@@ -183,12 +237,32 @@ export default function LeadDetailModule({ isOpen, onClose, lead }: LeadDetailMo
                 letterSpacing: '0.02em',
               }}
             >
-              LeadDetail_{lead.id}.xlsx —&nbsp;
-              <span style={{ color: '#C0272D' }}>Read-Only</span>
+              LeadDetail_{formData.id}.xlsx —&nbsp;
+              <span style={{ color: '#C0272D' }}>{isEditing ? 'Editing' : 'Read-Only'}</span>
             </span>
           </div>
-          <button
-            onClick={onClose}
+          <div className="flex gap-2">
+            <button
+              onClick={handleEditToggle}
+              style={{
+                background: isEditing ? '#C0272D' : 'transparent',
+                border: '1px solid #C0272D',
+                color: isEditing ? '#fff' : '#C0272D',
+                fontFamily: 'Calibri, "Segoe UI", sans-serif',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => !isEditing && (e.currentTarget.style.background = '#fde8e9')}
+              onMouseLeave={e => !isEditing && (e.currentTarget.style.background = 'transparent')}
+            >
+              {isEditing ? 'Save Lead' : 'Edit Lead'}
+            </button>
+            <button
+              onClick={onClose}
             style={{
               background: 'transparent',
               border: 'none',
@@ -205,6 +279,7 @@ export default function LeadDetailModule({ isOpen, onClose, lead }: LeadDetailMo
           >
             ✕
           </button>
+          </div>
         </div>
 
         {/* Ribbon */}
@@ -271,7 +346,7 @@ export default function LeadDetailModule({ isOpen, onClose, lead }: LeadDetailMo
               flex: 1,
             }}
           >
-            =LEAD("{lead.name}", "{lead.id}")
+            =LEAD("{formData.name}", "{formData.id}")
           </span>
         </div>
 
@@ -357,23 +432,25 @@ export default function LeadDetailModule({ isOpen, onClose, lead }: LeadDetailMo
             >
               <tbody>
                 <SectionHeader title="Client Information" icon="👤" />
-                <Row label="Full Name" value={lead.name} shade={false} />
-                <Row label="Contact Number" value={lead.phone} shade={true} />
-                <Row label="Email Address" value={lead.email} shade={false} />
+                <Row label="Full Name" value={formData.name} shade={false} isEditing={isEditing} onChange={v => handleChange('name', v)} />
+                <Row label="Contact Number" value={formData.phone} shade={true} isEditing={isEditing} onChange={v => handleChange('phone', v)} />
+                <Row label="Email Address" value={formData.email} shade={false} isEditing={isEditing} onChange={v => handleChange('email', v)} type="email" />
 
                 <SectionHeader title="Preferences & Budget" icon="🏠" />
-                <Row label="Property Type" value={lead.propertyType} shade={false} />
-                <Row label="Budget Range" value={lead.budgetRange} shade={true} />
-                <Row label="Preferred Location" value={lead.preferredLocation} shade={false} />
+                <Row label="Property Type" value={formData.propertyType} shade={false} isEditing={isEditing} onChange={v => handleChange('propertyType', v)} options={['1BHK', '2BHK', '3BHK', '4+BHK', 'Villa', 'Banglow', 'Plot', 'Residential', 'Commercial', 'Apartment', 'Shop', 'Office']} />
+                <Row label="Budget Range" value={formData.budgetRange} shade={true} isEditing={isEditing} onChange={v => handleChange('budgetRange', v)} options={['Under 25L', '25L-50L', '50L-1Cr', '1Cr-2Cr', 'Above 2Cr']} />
+                <Row label="Preferred Location" value={formData.preferredLocation} shade={false} isEditing={isEditing} onChange={v => handleChange('preferredLocation', v)} />
 
                 <SectionHeader title="Tracking Information" icon="📋" />
-                <Row label="Assign Employee" value={lead.assignEmployee} shade={true} />
+                <Row label="Assign Employee" value={formData.assignEmployee} shade={true} isEditing={isEditing} onChange={v => handleChange('assignEmployee', v)} />
+                {/* Status changes go through PATCH /:id/status with pipeline
+                    transition rules — use the "Move Pipeline" action instead. */}
                 <Row label="Status" value={statusCell} shade={false} />
-                <Row label="Source" value={lead.source} shade={true} />
-                <Row label="Created Date" value={lead.createdAt} shade={false} />
-                <Row label="Last Contacted" value={lead.lastContacted} shade={true} />
+                <Row label="Source" value={formData.source} shade={true} isEditing={isEditing} onChange={v => handleChange('source', v)} options={['Website', 'Advertisement', 'Referral', 'Walk-In', 'Phone', 'WhatsApp', 'Email', 'Social Media', 'Other']} />
+                <Row label="Created Date" value={formData.createdAt} shade={false} />
+                <Row label="Last Contacted" value={formData.lastContacted} shade={true} isEditing={isEditing} onChange={v => handleChange('lastContacted', v)} type="date" />
 
-                {lead.notes && (
+                {(isEditing || formData.notes) && (
                   <>
                     <SectionHeader title="Internal Notes" icon="📝" />
                     <tr style={{ background: '#fff8f8' }}>
@@ -389,7 +466,18 @@ export default function LeadDetailModule({ isOpen, onClose, lead }: LeadDetailMo
                           lineHeight: '1.6',
                         }}
                       >
-                        {lead.notes}
+                        {isEditing ? (
+                          <textarea
+                            value={formData.notes || ''}
+                            onChange={(e) => handleChange('notes', e.target.value)}
+                            style={{
+                              width: '100%', minHeight: '60px', padding: '5px', border: '1px solid #ccc',
+                              fontFamily: 'Calibri, "Segoe UI", sans-serif', fontSize: '12px'
+                            }}
+                          />
+                        ) : (
+                          formData.notes
+                        )}
                       </td>
                     </tr>
                   </>

@@ -20,7 +20,9 @@ interface EnquiryDetailModuleProps {
   isOpen: boolean;
   onClose: () => void;
   enquiry: EnquiryDetail | null;
+  onSave?: (updated: EnquiryDetail) => void;
 }
+
 
 // Rising Spaces — Light palette
 // #ffffff  — modal body / cell background
@@ -34,7 +36,13 @@ interface EnquiryDetailModuleProps {
 // #d0d0d0  — grid line borders
 // #f9f9f9  — chrome bars (title, ribbon, formula)
 
-function Row({ label, value, shade }: { label: string; value?: string | React.ReactNode; shade: boolean }) {
+function Row({
+  label, value, shade, isEditing, onChange, type = 'text', options
+}: {
+  label: string; value?: string | React.ReactNode; shade: boolean;
+  isEditing?: boolean; onChange?: (val: string) => void;
+  type?: string; options?: string[];
+}) {
   return (
     <tr style={{ background: shade ? '#f5f5f5' : '#ffffff' }}>
       <td
@@ -58,11 +66,37 @@ function Row({ label, value, shade }: { label: string; value?: string | React.Re
           fontFamily: 'Calibri, "Segoe UI", sans-serif',
           fontSize: '12px',
           color: '#1a1a1a',
-          padding: '5px 10px',
+          padding: isEditing ? '2px 5px' : '5px 10px',
           border: '1px solid #d0d0d0',
         }}
       >
-        {value || '—'}
+        {isEditing && typeof value === 'string' ? (
+          options ? (
+            <select
+              value={value || ''}
+              onChange={(e) => onChange?.(e.target.value)}
+              style={{
+                width: '100%', padding: '3px', border: '1px solid #ccc',
+                fontFamily: 'Calibri, "Segoe UI", sans-serif', fontSize: '12px'
+              }}
+            >
+              <option value="">Select...</option>
+              {options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          ) : (
+            <input
+              type={type}
+              value={value || ''}
+              onChange={(e) => onChange?.(e.target.value)}
+              style={{
+                width: '100%', padding: '3px', border: '1px solid #ccc',
+                fontFamily: 'Calibri, "Segoe UI", sans-serif', fontSize: '12px'
+              }}
+            />
+          )
+        ) : (
+          value || '—'
+        )}
       </td>
     </tr>
   );
@@ -91,11 +125,32 @@ function SectionHeader({ title, icon }: { title: string; icon: string }) {
   );
 }
 
-export default function EnquiryDetailModule({ isOpen, onClose, enquiry }: EnquiryDetailModuleProps) {
-  if (!isOpen || !enquiry) return null;
+export default function EnquiryDetailModule({ isOpen, onClose, enquiry, onSave }: EnquiryDetailModuleProps) {
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [formData, setFormData] = React.useState<EnquiryDetail | null>(null);
+
+  React.useEffect(() => {
+    if (enquiry) setFormData(enquiry);
+    setIsEditing(false);
+  }, [enquiry, isOpen]);
+
+  if (!isOpen || !formData) return null;
+
+  const handleChange = (field: keyof EnquiryDetail, val: string) => {
+    setFormData(prev => prev ? { ...prev, [field]: val } : prev);
+  };
+
+  const handleEditToggle = () => {
+    if (isEditing) {
+      if (onSave) onSave(formData);
+      setIsEditing(false);
+    } else {
+      setIsEditing(true);
+    }
+  };
 
   const statusCell =
-    enquiry.status === 'Pending' ? (
+    formData.status === 'Pending' ? (
       <span
         style={{
           display: 'inline-block',
@@ -192,28 +247,50 @@ export default function EnquiryDetailModule({ isOpen, onClose, enquiry }: Enquir
                 letterSpacing: '0.02em',
               }}
             >
-              EnquiryDetail_{enquiry.id}.xlsx —&nbsp;
-              <span style={{ color: '#C0272D' }}>Read-Only</span>
+              EnquiryDetail_{formData.id}.xlsx —&nbsp;
+              <span style={{ color: '#C0272D' }}>{isEditing ? 'Editing' : 'Read-Only'}</span>
             </span>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#aaa',
-              cursor: 'pointer',
-              fontSize: '15px',
-              lineHeight: 1,
-              padding: '0 4px',
-              fontFamily: 'Calibri, sans-serif',
-              transition: 'color 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#C0272D')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
-          >
-            ✕
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleEditToggle}
+              style={{
+                background: isEditing ? '#C0272D' : 'transparent',
+                border: '1px solid #C0272D',
+                color: isEditing ? '#fff' : '#C0272D',
+                fontFamily: 'Calibri, "Segoe UI", sans-serif',
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => !isEditing && (e.currentTarget.style.background = '#fde8e9')}
+              onMouseLeave={e => !isEditing && (e.currentTarget.style.background = 'transparent')}
+            >
+              {isEditing ? 'Save Enquiry' : 'Edit Enquiry'}
+            </button>
+            <button
+              onClick={() => onClose()}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#aaa',
+                cursor: 'pointer',
+                fontSize: '15px',
+                lineHeight: 1,
+                padding: '0 4px',
+                fontFamily: 'Calibri, sans-serif',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#C0272D')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#aaa')}
+            >
+              ✕
+            </button>
+          </div>
+
         </div>
 
         {/* Ribbon bar */}
@@ -280,7 +357,7 @@ export default function EnquiryDetailModule({ isOpen, onClose, enquiry }: Enquir
               flex: 1,
             }}
           >
-            =ENQUIRY("{enquiry.name}", "{enquiry.id}")
+            =ENQUIRY("{formData.name}", "{formData.id}")
           </span>
         </div>
 
@@ -366,20 +443,24 @@ export default function EnquiryDetailModule({ isOpen, onClose, enquiry }: Enquir
             >
               <tbody>
                 <SectionHeader title="Client Information" icon="👤" />
-                <Row label="Full Name" value={enquiry.name} shade={false} />
-                <Row label="Contact Number" value={enquiry.contactNo} shade={true} />
-                <Row label="Email Address" value={enquiry.email} shade={false} />
+                <Row label="Full Name" value={formData.name} shade={false} isEditing={isEditing} onChange={v => handleChange('name', v)} />
+                <Row label="Contact Number" value={formData.contactNo} shade={true} isEditing={isEditing} onChange={v => handleChange('contactNo', v)} />
+                <Row label="Email Address" value={formData.email} shade={false} isEditing={isEditing} onChange={v => handleChange('email', v)} type="email" />
 
                 <SectionHeader title="Preferences & Budget" icon="🏠" />
-                <Row label="Property Type" value={enquiry.propertyType} shade={false} />
-                <Row label="Budget Range" value={enquiry.budgetRange} shade={true} />
-                <Row label="Preferred Location" value={enquiry.preferredLocation} shade={false} />
+                <Row label="Property Type" value={formData.propertyType} shade={false} isEditing={isEditing} onChange={v => handleChange('propertyType', v)} options={['Plot', 'Flat', 'Villa', 'Commercial']} />
+                <Row label="Budget Range" value={formData.budgetRange} shade={true} isEditing={isEditing} onChange={v => handleChange('budgetRange', v)} options={['Under 25L', '25L-50L', '50L-1Cr', '1Cr-2Cr', 'Above 2Cr']} />
+                <Row label="Preferred Location" value={formData.preferredLocation} shade={false} isEditing={isEditing} onChange={v => handleChange('preferredLocation', v)} />
 
                 <SectionHeader title="Tracking Information" icon="📋" />
-                <Row label="Status" value={statusCell} shade={false} />
-                <Row label="Source" value={enquiry.source} shade={true} />
-                <Row label="Created Date" value={enquiry.createdAt} shade={false} />
-                <Row label="Last Contacted" value={enquiry.lastContacted} shade={true} />
+                {isEditing ? (
+                  <Row label="Status" value={formData.status} shade={false} isEditing={isEditing} onChange={v => handleChange('status', v)} options={['Pending', 'Converted lead']} />
+                ) : (
+                  <Row label="Status" value={statusCell} shade={false} />
+                )}
+                <Row label="Source" value={formData.source} shade={true} isEditing={isEditing} onChange={v => handleChange('source', v)} />
+                <Row label="Created Date" value={formData.createdAt} shade={false} />
+                <Row label="Last Contacted" value={formData.lastContacted} shade={true} isEditing={isEditing} onChange={v => handleChange('lastContacted', v)} type="date" />
 
                 <SectionHeader title="Message / Requirements" icon="💬" />
                 <tr style={{ background: '#ffffff' }}>
@@ -395,11 +476,23 @@ export default function EnquiryDetailModule({ isOpen, onClose, enquiry }: Enquir
                       lineHeight: '1.6',
                     }}
                   >
-                    {enquiry.message || 'No message provided.'}
+                    {isEditing ? (
+                      <textarea
+                        value={formData.message || ''}
+                        onChange={(e) => handleChange('message', e.target.value)}
+                        style={{
+                          width: '100%', minHeight: '60px', padding: '5px', border: '1px solid #ccc',
+                          fontFamily: 'Calibri, "Segoe UI", sans-serif', fontSize: '12px'
+                        }}
+                      />
+                    ) : (
+                      formData.message || 'No message provided.'
+                    )}
                   </td>
                 </tr>
 
-                {enquiry.notes && (
+                {/* Internal Notes are always visible in edit mode, or if they exist */}
+                {(isEditing || formData.notes) && (
                   <>
                     <SectionHeader title="Internal Notes" icon="📝" />
                     <tr style={{ background: '#fff8f8' }}>
@@ -415,7 +508,18 @@ export default function EnquiryDetailModule({ isOpen, onClose, enquiry }: Enquir
                           lineHeight: '1.6',
                         }}
                       >
-                        {enquiry.notes}
+                        {isEditing ? (
+                          <textarea
+                            value={formData.notes || ''}
+                            onChange={(e) => handleChange('notes', e.target.value)}
+                            style={{
+                              width: '100%', minHeight: '60px', padding: '5px', border: '1px solid #ccc',
+                              fontFamily: 'Calibri, "Segoe UI", sans-serif', fontSize: '12px'
+                            }}
+                          />
+                        ) : (
+                          formData.notes
+                        )}
                       </td>
                     </tr>
                   </>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, EyeOff, Phone, Lock } from "lucide-react";
+import { Eye, EyeOff, User, Lock } from "lucide-react";
 import AuthFormCard, {
   AuthLink,
   AUTH_INPUT_CLASS,
@@ -12,7 +12,7 @@ import { useAuth } from "../../AuthContext";
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -23,7 +23,7 @@ export default function LoginPage() {
     setError("");
     setIsSubmitting(true);
     try {
-      await login(phone.trim(), password);
+      await login(identifier.trim(), password);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -49,22 +49,22 @@ export default function LoginPage() {
         )}
 
         <div>
-          <label htmlFor="phone" className={AUTH_LABEL_CLASS}>
-            Phone Number
+          <label htmlFor="identifier" className={AUTH_LABEL_CLASS}>
+            Email or Phone Number
           </label>
           <div className="relative">
             <span className="absolute inset-y-0 left-3.5 flex items-center text-slate-400">
-              <Phone className="w-4.5 h-4.5" />
+              <User className="w-4.5 h-4.5" />
             </span>
             <input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Enter your phone number"
+              id="identifier"
+              type="text"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="Enter your email or phone number"
               className={`${AUTH_INPUT_CLASS} pl-11`}
               required
-              autoComplete="tel"
+              autoComplete="username"
             />
           </div>
         </div>
