@@ -132,9 +132,9 @@ export const getProjectStatsService = async (projectId: string) => {
                 $group: {
                     _id:       null,
                     total:     { $sum: 1 },
-                    available: { $sum: { $cond: [{ $eq: ['$status', 'AVAILABLE'] }, 1, 0] } },
-                    booked:    { $sum: { $cond: [{ $eq: ['$status', 'BOOKED']    }, 1, 0] } },
-                    sold:      { $sum: { $cond: [{ $eq: ['$status', 'SOLD']      }, 1, 0] } },
+                    available: { $sum: { $cond: [{ $eq: ['$status', 'Available'] }, 1, 0] } },
+                    booked:    { $sum: { $cond: [{ $eq: ['$status', 'Booked']    }, 1, 0] } },
+                    sold:      { $sum: { $cond: [{ $eq: ['$status', 'Sold']      }, 1, 0] } },
                     minPrice:  { $min: '$price' },
                     maxPrice:  { $max: '$price' },
                 },

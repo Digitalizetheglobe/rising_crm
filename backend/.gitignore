@@ -32,8 +32,9 @@ pids/
 *.seed
 *.pid.lock
 
-# Uploads
-uploads/
+# Uploads (keep folder, ignore uploaded files)
+uploads/*
+!uploads/.gitkeep
 temp/
 tmp/
 

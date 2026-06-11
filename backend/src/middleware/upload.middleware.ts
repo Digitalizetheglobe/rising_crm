@@ -2,10 +2,14 @@ import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import { Request } from 'express';
 import { ApiError } from '../utils/ApiError';
+import { UPLOADS_DIR, ensureUploadsDir } from '../config/uploads';
+
+ensureUploadsDir();
 
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
-        cb(null, 'uploads/');
+        ensureUploadsDir();
+        cb(null, UPLOADS_DIR);
     },
     filename: (_req, file, cb) => {
         const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;

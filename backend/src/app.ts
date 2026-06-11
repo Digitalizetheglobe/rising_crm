@@ -1,10 +1,12 @@
 import express, { Application } from 'express';
-import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { errorHandler } from './middleware/error.middleware';
 import router from './routes/index';
+import { UPLOADS_DIR, ensureUploadsDir } from './config/uploads';
+
+ensureUploadsDir();
 
 const app: Application = express();
 
@@ -15,7 +17,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploads folder statically
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 // app.use('/api/auth', require('./routes/auth'));
 // app.use('/api/leads', require('./routes/leads'));
