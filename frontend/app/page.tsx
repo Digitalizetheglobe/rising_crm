@@ -150,9 +150,9 @@ export default function Home() {
         colorCode: "border-t-amber-500",
       },
       {
-        title: "Close Deals",
+        title: "Units Left",
         value: String(closedCount),
-        trend: "Total closed deals",
+        trend: "Total Units left",
         isUp: true,
         colorCode: "border-t-emerald-500",
       },
@@ -392,7 +392,7 @@ export default function Home() {
                 { title: "Total Enquiry", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-brand" },
                 { title: "Total Leads", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-blue-500" },
                 { title: "Bookings", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-amber-500" },
-                { title: "Close Deals", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-emerald-500" },
+                { title: "Units Left", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-emerald-500" },
               ]
             : kpis
           ).map((kpi, idx) => {

@@ -74,21 +74,77 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ),
   };
 
-  const menuItems = useMemo(() => {
-    if (!user?.role) return [];
-    return getNavItemsForRole(user.role).map((item) => ({
-      ...item,
-      icon: NAV_ICONS[item.name],
-    }));
+  type NavChild = { name: string; href: string; module: string };
+  type NavEntry =
+    | { type: "link"; name: string; href: string; module: string }
+    | { type: "group"; name: string; children: NavChild[] };
+
+  const SIDEBAR_NAV: NavEntry[] = [
+    { type: "link", name: "Dashboard", href: "/", module: "dashboard" },
+    {
+      type: "group",
+      name: "All Clients",
+      children: [
+        { name: "Enquiries", href: "/enquiry", module: "enquiries" },
+        { name: "Leads", href: "/leads", module: "leads" },
+        { name: "Clients", href: "/client", module: "clients" },
+      ],
+    },
+    {
+      type: "group",
+      name: "Inventory",
+      children: [
+        { name: "Projects", href: "/projects", module: "projects" },
+        { name: "Units", href: "/units", module: "units" },
+      ],
+    },
+    {
+      type: "group",
+      name: "Finance",
+      children: [
+        { name: "Bookings", href: "/booking", module: "booking" },
+        { name: "Payments", href: "/payments", module: "payments" },
+      ],
+    },
+    { type: "link", name: "Employee", href: "/employee", module: "employees" },
+    { type: "link", name: "Settings", href: "#", module: "settings" },
+  ];
+
+  const allowedModules = useMemo(() => {
+    if (!user?.role) return new Set<string>();
+    return new Set(getNavItemsForRole(user.role).map((item) => item.module));
   }, [user?.role]);
 
-  // Header Dropdowns
+  const navEntries = useMemo(() => {
+    return SIDEBAR_NAV.map((entry) => {
+      if (entry.type === "link") {
+        if (entry.module === "settings") return entry;
+        return allowedModules.has(entry.module) ? entry : null;
+      }
+      const children = entry.children.filter((child) => allowedModules.has(child.module));
+      return children.length > 0 ? { ...entry, children } : null;
+    }).filter(Boolean) as NavEntry[];
+  }, [allowedModules]);
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  // Profile Name Editing
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(userName);
+
+  const getIsActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    if (href === "#") return false;
+    return pathname.startsWith(href);
+  };
+
+  useEffect(() => {
+    navEntries.forEach((entry) => {
+      if (entry.type === "group" && entry.children.some((child) => getIsActive(child.href))) {
+        setOpenGroups((prev) => ({ ...prev, [entry.name]: true }));
+      }
+    });
+  }, [pathname, navEntries]);
 
   const handleSaveName = () => {
     if (tempName.trim()) {
@@ -99,14 +155,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   };
 
-  const getIsActive = (href: string) => {
-    if (href === "/") {
-      return pathname === "/";
-    }
+  const toggleGroup = (name: string) => {
+    setOpenGroups((prev) => ({ ...prev, [name]: !prev[name] }));
+  };
+
+  const handleNavClick = (href: string, name: string) => {
+    setIsSidebarOpen(false);
     if (href === "#") {
-      return false;
+      addToast(`Feature "${name}" is coming soon!`, "info");
     }
-    return pathname.startsWith(href);
   };
 
   const renderSidebarContent = () => (
@@ -126,54 +183,116 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Main Menu List */}
-      <nav className="flex-1 space-y-1.5 mt-4">
-        {menuItems.map((item) => {
-          const isActive = getIsActive(item.href);
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              onClick={() => {
-                setIsSidebarOpen(false);
-                if (item.href === "#") {
-                  addToast(`Feature "${item.name}" is coming soon!`, "info");
-                }
-              }}
-              className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${isActive
-                  ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
-                  : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
+      <nav className="flex-1 space-y-1 mt-4">
+        {navEntries.map((entry) => {
+          if (entry.type === "link") {
+            const isActive = getIsActive(entry.href);
+            const icon =
+              entry.name === "Dashboard"
+                ? NAV_ICONS.Dashboard
+                : entry.name === "Employee"
+                  ? NAV_ICONS.Employees
+                  : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  );
+
+            return (
+              <Link
+                key={entry.name}
+                href={entry.href}
+                onClick={() => handleNavClick(entry.href, entry.name)}
+                className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${
+                  isActive
+                    ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
+                    : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
                 }`}
-            >
-              <span className={`transition-colors duration-300 ${isActive ? "text-white" : "text-slate-400 group-hover:text-brand"}`}>
-                {item.icon}
-              </span>
-              {item.name}
-            </Link>
+              >
+                <span className={`transition-colors duration-300 ${isActive ? "text-white" : "text-slate-400"}`}>
+                  {icon}
+                </span>
+                {entry.name}
+              </Link>
+            );
+          }
+
+          const isOpen = !!openGroups[entry.name];
+          const hasActiveChild = entry.children.some((child) => getIsActive(child.href));
+
+          return (
+            <div key={entry.name}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(entry.name)}
+                className={`w-full flex items-center justify-between cursor-pointer gap-3 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${
+                  hasActiveChild
+                    ? "bg-white text-brand shadow-sm"
+                    : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm"
+                }`}
+              >
+                <span className="flex items-center gap-3.5">
+                  <span className={`transition-colors duration-300 ${hasActiveChild ? "text-brand" : "text-slate-400"}`}>
+                    {entry.name === "All Clients" && (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    )}
+                    {entry.name === "Inventory" && NAV_ICONS.Projects}
+                    {entry.name === "Finance" && (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                  </span>
+                  {entry.name}
+                </span>
+                <svg
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-300 ease-in-out ${isOpen ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2.5"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <div
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                  isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="ml-5 mt-1 mb-1 space-y-0.5 border-l-2 border-slate-200/80 pl-3">
+                    {entry.children.map((child) => {
+                      const isActive = getIsActive(child.href);
+                      return (
+                        <Link
+                          key={child.name}
+                          href={child.href}
+                          onClick={() => handleNavClick(child.href, child.name)}
+                          className={`block px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-200 ${
+                            isActive
+                              ? "bg-brand text-white shadow-md shadow-brand/20"
+                              : "text-slate-500 hover:bg-white hover:text-brand hover:translate-x-0.5"
+                          }`}
+                        >
+                          {child.name}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
           );
         })}
       </nav>
 
       {/* Sidebar Footer */}
-      <div className="mt-8 space-y-4">
-        {/* Secondary Setting Button */}
-        <Link
-          href="#"
-          onClick={() => {
-            setIsSidebarOpen(false);
-            addToast("Loaded configuration setting", "info");
-          }}
-          className="w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-semibold transition-all duration-300 text-slate-500 hover:bg-white hover:text-brand hover:translate-x-1"
-        >
-          <span className="text-slate-400">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </span>
-          Setting
-        </Link>
-
-        {/* AI Assistant Banner */}
+      <div className="mt-8">
         <div className="bg-brand text-white p-4 rounded-3xl shadow-xl shadow-brand/15 relative overflow-hidden group">
           <div className="absolute -right-6 -bottom-6 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
           <div className="relative z-10 flex flex-col items-center text-center">
