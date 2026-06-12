@@ -20,8 +20,8 @@ export const ROLE_LABELS: Record<string, string> = {
 export const SIGNUP_ROLE_OPTIONS = [
   { value: "SUPER_ADMIN", label: "Super Admin" },
   { value: "ADMIN", label: "Admin" },
-  { value: "SALES_EXECUTIVE", label: "Sales Executive" },
   { value: "SALES_MANAGER", label: "Sales Manager" },
+  { value: "SALES_EXECUTIVE", label: "Sales Executive" },
   { value: "FINANCIAL_EXECUTIVE", label: "Financial Executive" },
 ] as const;
 
@@ -32,9 +32,9 @@ export const normalizeRole = (role: string): UserRole =>
 const ROLE_ROUTE_ACCESS: Record<string, string[]> = {
   SUPER_ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee"],
   ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee"],
-  SALES_MANAGER: ["/", "/leads", "/client", "/enquiry", "/booking"],
-  SALES_EXECUTIVE: ["/client"],
-  FINANCIAL_EXECUTIVE: ["/booking", "/payments", "/units"],
+  SALES_MANAGER: ["/", "/enquiry", "/leads", "/client", "/projects", "/units"],
+  SALES_EXECUTIVE: ["/", "/leads", "/client", "/projects", "/units"],
+  FINANCIAL_EXECUTIVE: ["/", "/booking", "/client", "/projects", "/units", "/payments"],
   VIEWER: ["/", "/leads", "/client", "/enquiry", "/booking", "/projects", "/units"],
 };
 
@@ -74,9 +74,9 @@ export const ALL_NAV_ITEMS: NavItem[] = [
 const ROLE_NAV_MODULES: Record<string, string[]> = {
   SUPER_ADMIN: ["dashboard", "leads", "clients", "enquiries", "booking", "payments", "projects", "units", "employees"],
   ADMIN: ["dashboard", "leads", "clients", "enquiries", "booking", "payments", "projects", "units", "employees"],
-  SALES_MANAGER: ["dashboard", "leads", "clients", "enquiries", "booking"],
-  SALES_EXECUTIVE: ["clients"],
-  FINANCIAL_EXECUTIVE: ["booking", "payments", "units"],
+  SALES_MANAGER: ["dashboard", "enquiries", "leads", "clients", "projects", "units"],
+  SALES_EXECUTIVE: ["dashboard", "leads", "clients", "projects", "units"],
+  FINANCIAL_EXECUTIVE: ["dashboard", "booking", "clients", "projects", "units", "payments"],
   VIEWER: ["dashboard", "leads", "clients", "enquiries", "booking", "projects", "units"],
 };
 

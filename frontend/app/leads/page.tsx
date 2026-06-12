@@ -58,6 +58,28 @@ export default function LeadsPage() {
   // Assign & Follow-up Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  
+  const [users, setUsers] = useState<any[]>([]);
+
+  // Fetch users when Assign Modal opens
+  useEffect(() => {
+    if (isAssignModalOpen && users.length === 0) {
+      fetch(`${API_URL}/v1/users`, { headers: getAuthHeaders() })
+        .then(res => res.json())
+        .then(json => {
+          if (json.success) {
+            setUsers(json.data || []);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isAssignModalOpen]);
+
+  // Follow-up state
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [followUpTime, setFollowUpTime] = useState("");
+  const [followUpNotes, setFollowUpNotes] = useState("");
+  const [followUpType, setFollowUpType] = useState("Call");
 
   // Row Action Dropdown state
   const [activeRowActionId, setActiveRowActionId] = useState<string | null>(null);
@@ -909,6 +931,190 @@ export default function LeadsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Modal */}
+      {isAssignModalOpen && selectedLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white rounded-[32px] p-6 w-full max-w-sm border border-slate-100 shadow-2xl animate-scale-up">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <h3 className="text-lg font-semibold text-slate-800 tracking-tight">Assign Lead</h3>
+              <button
+                onClick={() => setIsAssignModalOpen(false)}
+                className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="mt-5">
+               <p className="text-[14px] text-slate-600 mb-4 font-medium">Assign <span className="font-bold text-slate-800">{selectedLead.name}</span> to a team member:</p>
+               
+               <select
+                 className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-semibold text-slate-700"
+                 id="assignEmployeeSelect"
+                 defaultValue=""
+               >
+                 <option value="" disabled>Select Employee...</option>
+                 {users.map(u => <option key={u._id} value={u._id}>{u.name} ({u.role.replace(/_/g, " ")})</option>)}
+               </select>
+               
+               <div className="flex gap-3 pt-6 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsAssignModalOpen(false)}
+                  className="px-5 py-2.5 rounded-2xl text-slate-500 hover:bg-slate-100 font-bold cursor-pointer font-sans text-[14px]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                     const select = document.getElementById("assignEmployeeSelect") as HTMLSelectElement;
+                     const empId = select.value;
+                     if (!empId) { addToast("Please select an employee", "info"); return; }
+                     
+                     try {
+                       const res = await fetch(`${API_URL}/v1/leads/${selectedLead.id}/assign`, {
+                         method: "PATCH",
+                         headers: getAuthHeaders(),
+                         body: JSON.stringify({ assignedTo: empId })
+                       });
+                       const json = await res.json();
+                       if (json.success) {
+                          addToast("Lead assigned successfully", "success");
+                          setIsAssignModalOpen(false);
+                          fetchLeads();
+                       } else {
+                          addToast(json.message || "Failed to assign lead", "info");
+                       }
+                     } catch(err:any) {
+                       addToast(err.message || "Error assigning lead", "info");
+                     }
+                  }}
+                  className="px-6 py-2.5 rounded-2xl bg-brand hover:bg-brand-hover text-white font-bold shadow-md shadow-brand/10 cursor-pointer font-sans text-[14px]"
+                >
+                  Assign
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Follow Up Modal */}
+      {isFollowUpModalOpen && selectedLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-white rounded-[32px] p-6 w-full max-w-md border border-slate-100 shadow-2xl animate-scale-up">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Schedule Follow-up</h3>
+              <button
+                onClick={() => setIsFollowUpModalOpen(false)}
+                className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <svg className="w-5.5 h-5.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="mt-5 space-y-4">
+               <div>
+                 <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Follow-up Type</label>
+                 <select
+                   value={followUpType}
+                   onChange={(e) => setFollowUpType(e.target.value)}
+                   className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-semibold"
+                 >
+                   <option value="Call">Call</option>
+                   <option value="Email">Email</option>
+                   <option value="Meeting">Meeting</option>
+                   <option value="Site Visit">Site Visit</option>
+                   <option value="WhatsApp">WhatsApp</option>
+                 </select>
+               </div>
+               
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Date</label>
+                   <input
+                     type="date"
+                     value={followUpDate}
+                     onChange={(e) => setFollowUpDate(e.target.value)}
+                     className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
+                   />
+                 </div>
+                 <div>
+                   <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Time</label>
+                   <input
+                     type="time"
+                     value={followUpTime}
+                     onChange={(e) => setFollowUpTime(e.target.value)}
+                     className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
+                   />
+                 </div>
+               </div>
+
+               <div>
+                 <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Notes</label>
+                 <textarea
+                   rows={3}
+                   value={followUpNotes}
+                   onChange={(e) => setFollowUpNotes(e.target.value)}
+                   placeholder="Enter details..."
+                   className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium resize-none"
+                 />
+               </div>
+               
+               <div className="flex gap-3 pt-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsFollowUpModalOpen(false)}
+                  className="px-5 py-2.5 rounded-2xl text-slate-500 hover:bg-slate-100 font-bold cursor-pointer font-sans text-[14px]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                     if (!followUpDate || !followUpTime) { addToast("Please select date and time", "info"); return; }
+                     const scheduledAt = new Date(`${followUpDate}T${followUpTime}`).toISOString();
+                     
+                     try {
+                       const res = await fetch(`${API_URL}/v1/followups`, {
+                         method: "POST",
+                         headers: getAuthHeaders(),
+                         body: JSON.stringify({
+                           lead: selectedLead.id,
+                           type: followUpType,
+                           scheduledAt,
+                           notes: followUpNotes,
+                         })
+                       });
+                       const json = await res.json();
+                       if (json.success) {
+                          addToast("Follow-up scheduled!", "success");
+                          setIsFollowUpModalOpen(false);
+                          setFollowUpDate("");
+                          setFollowUpTime("");
+                          setFollowUpNotes("");
+                       } else {
+                          addToast(json.message || "Failed to schedule", "info");
+                       }
+                     } catch(err:any) {
+                       addToast(err.message || "Error scheduling follow-up", "info");
+                     }
+                  }}
+                  className="px-6 py-2.5 rounded-2xl bg-brand hover:bg-brand-hover text-white font-bold shadow-md shadow-brand/10 cursor-pointer font-sans text-[14px]"
+                >
+                  Schedule
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

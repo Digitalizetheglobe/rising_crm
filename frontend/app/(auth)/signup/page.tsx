@@ -10,6 +10,8 @@ import AuthFormCard, {
 } from "../../../Components/AuthFormCard";
 import { useAuth } from "../../AuthContext";
 import { SIGNUP_ROLE_OPTIONS } from "../../../lib/permissions";
+import { API_URL } from "../../../config/api.config";
+import { useEffect } from "react";
 
 export default function SignUpPage() {
   const { register } = useAuth();
@@ -19,12 +21,29 @@ export default function SignUpPage() {
     phone: "",
     password: "",
     confirmPassword: "",
-    role: "SALES_EXECUTIVE",
+    role: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+
+  useEffect(() => {
+    fetch(`${API_URL}/v1/auth/available-roles`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) {
+          setAvailableRoles(json.data);
+          if (json.data.length > 0) {
+            setForm((prev) => ({ ...prev, role: json.data[0] }));
+          }
+        }
+      })
+      .catch((err) => setError("Failed to load available roles"))
+      .finally(() => setLoadingRoles(false));
+  }, []);
 
   const update = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -35,6 +54,11 @@ export default function SignUpPage() {
 
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match");
+      return;
+    }
+
+    if (!form.role) {
+      setError("Please select a role. If no roles are available, registration is currently disabled.");
       return;
     }
 
@@ -138,14 +162,21 @@ export default function SignUpPage() {
               id="role"
               value={form.role}
               onChange={(e) => update("role", e.target.value)}
-              className={`${AUTH_INPUT_CLASS} pl-11 appearance-none cursor-pointer`}
+              className={`${AUTH_INPUT_CLASS} pl-11 appearance-none cursor-pointer ${loadingRoles ? "opacity-50" : ""}`}
               required
+              disabled={loadingRoles || availableRoles.length === 0}
             >
-              {SIGNUP_ROLE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
+              {loadingRoles ? (
+                <option value="">Loading roles...</option>
+              ) : availableRoles.length === 0 ? (
+                <option value="">No roles available for registration</option>
+              ) : (
+                SIGNUP_ROLE_OPTIONS.filter((opt) => availableRoles.includes(opt.value)).map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))
+              )}
             </select>
           </div>
         </div>
@@ -206,7 +237,7 @@ export default function SignUpPage() {
           </div>
         </div>
 
-        <button type="submit" disabled={isSubmitting} className={`${AUTH_SUBMIT_CLASS} mt-2`}>
+        <button type="submit" disabled={isSubmitting || loadingRoles || availableRoles.length === 0} className={`${AUTH_SUBMIT_CLASS} mt-2 disabled:opacity-50`}>
           {isSubmitting ? "Creating account..." : "Create Account"}
         </button>
       </form>

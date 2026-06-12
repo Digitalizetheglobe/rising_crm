@@ -17,10 +17,58 @@ import {
   validateLeadRow, validateClientRow, validatePaymentRow,
   validateProjectRow, validateUnitRow, RowError,
 } from './importExport.validator';
+import { LEAD_STATUSES, LEAD_SOURCES, PROPERTY_TYPES } from '../leads/lead.constants';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Build comma-separated enum string for Excel data validation formulae
+const toDropdown = (values: readonly string[]) =>
+  `"${values.join(',')}"`;
+
+// Normalize an incoming status string to its exact Mongoose enum value.
+// Handles: 'New'→'NEW', 'Contacted'→'CONTACTED', 'Hot'→'NEW', 'Dead'→'LOST', etc.
+const STATUS_MAP: Record<string, string> = {
+  'new':                    'NEW',
+  'hot':                    'NEW',
+  'contacted':              'CONTACTED',
+  'warm':                   'CONTACTED',
+  'qualified':              'QUALIFIED',
+  'interested':             'INTERESTED',
+  'cold':                   'INTERESTED',
+  'site visit scheduled':   'SITE_VISIT_SCHEDULED',
+  'site visit':             'SITE_VISIT_SCHEDULED',
+  'site visit completed':   'SITE_VISIT_COMPLETED',
+  'negotiation':            'NEGOTIATION',
+  'booking in progress':    'BOOKING_IN_PROGRESS',
+  'booked':                 'BOOKED',
+  'payment in progress':    'PAYMENT_IN_PROGRESS',
+  'closed':                 'CLOSED',
+  'closed won':             'CLOSED',
+  'hold':                   'HOLD',
+  'lost':                   'LOST',
+  'dead':                   'LOST',
+  'closed lost':            'LOST',
+  'duplicate':              'DUPLICATE',
+};
+const normalizeStatus = (raw: string): string => {
+  if (!raw) return 'NEW';
+  const key = raw.toString().trim().toLowerCase();
+  // Already a valid enum value (uppercase)
+  if ((LEAD_STATUSES as readonly string[]).includes(raw.trim())) return raw.trim();
+  return STATUS_MAP[key] || 'NEW';
+};
+
+// Normalize an incoming source string to its exact Mongoose enum value.
+// Falls back to 'Other' if not matched, returns empty string if empty.
+const normalizeSource = (raw: string): string => {
+  if (!raw) return '';
+  const val = raw.toString().trim();
+  const lower = val.toLowerCase();
+  const match = (LEAD_SOURCES as readonly string[]).find((s) => s.toLowerCase() === lower);
+  return match || 'Other';
+};
 
 // Parse the uploaded file buffer into an array of row objects
 const parseExcel = (buffer: Buffer): Record<string, any>[] => {
@@ -85,6 +133,12 @@ interface ImportResult {
 }
 
 // ── Import Leads ─────────────────────────────────────────────────────────────
+// Supports both the NEW 20-col Lead Master template and the legacy format.
+// New template keys (after normaliseRow camelCase):
+//   leadId, leadDate, leadSource, firstName, lastName, phoneNumber,
+//   alternatePhone, emailId, city, assignedExecutive, leadStatus,
+//   propertyType, budgetMin, budgetMax, preferredLocation, sizeRequired,
+//   purpose, loanRequired, timelineToBuy, remarks
 export const importLeads = async (
   buffer: Buffer,
   uploaderId: string,
@@ -97,43 +151,100 @@ export const importLeads = async (
 
   for (let i = 0; i < raw.length; i++) {
     const row    = normaliseRow(raw[i]);
-    const rowNum = i + 2; // +2 because row 1 is header
+    const rowNum = i + 2;
 
-    const err = validateLeadRow(row, rowNum);
-    if (err) { errors.push(err); skipped++; continue; }
+    // ── Normalise: support both new template keys and legacy keys ─────────────
+    // Name: new template splits into firstName + lastName
+    const name = [
+      row.firstName || row.name || '',
+      row.lastName  || '',
+    ].filter(Boolean).join(' ').trim();
 
-    // Resolve project by name if provided
-    let projectId: Types.ObjectId | undefined;
-    if (row.projectName) {
-      const project = await Project.findOne({
-        name: { $regex: new RegExp(`^${row.projectName}$`, 'i') },
-      });
-      if (project) projectId = project._id as Types.ObjectId;
+    // Phone: new = phoneNumber, legacy = phone
+    const phone = (row.phoneNumber || row.phone || '').toString().trim();
+
+    // Email: new = emailId, legacy = email
+    const email = (row.emailId || row.email || '').toString().trim();
+
+    // Source: new = leadSource, legacy = source — normalize to enum or fallback to 'Other'
+    const rawSource = (row.leadSource || row.source || '').toString().trim();
+    const source = normalizeSource(rawSource);
+
+    // Status: new = leadStatus, legacy = status — normalize to enum
+    const status = normalizeStatus((row.leadStatus || row.status || '').toString());
+
+    // Notes/Remarks: new = remarks, legacy = notes
+    const notes = (row.remarks || row.notes || '').toString().trim();
+
+    // Preferred location / city
+    const preferredLocation = (row.preferredLocation || row.city || '').toString().trim();
+
+    // Property type
+    const propertyType = (row.propertyType || '').toString().trim();
+
+    // Assigned executive: new = assignedExecutive (name), legacy = agentEmail
+    const agentEmail        = (row.agentEmail || '').toString().trim();
+    const assignedExecName  = (row.assignedExecutive || '').toString().trim();
+
+    // ── Validate required fields ──────────────────────────────────────────────
+    const rowErrors: string[] = [];
+    if (!name)                              rowErrors.push('Name / First Name is required');
+    if (!/^[6-9]\d{9}$/.test(phone))       rowErrors.push('Valid 10-digit phone number is required');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) rowErrors.push('Invalid email format');
+    if (!source)                            rowErrors.push('Lead Source is required');
+
+    if (rowErrors.length) {
+      errors.push({ row: rowNum, errors: rowErrors });
+      skipped++;
+      continue;
     }
 
-    const assignedTo = await resolveAgent(row.agentEmail, uploaderId, adminOverrideAgentId);
+    // ── Resolve assigned executive ────────────────────────────────────────────
+    let assignedTo: Types.ObjectId;
+    if (adminOverrideAgentId) {
+      assignedTo = new Types.ObjectId(adminOverrideAgentId);
+    } else if (assignedExecName) {
+      // Try to find by name (case-insensitive) from new template
+      const agent = await User.findOne({
+        name: { $regex: new RegExp(`^${assignedExecName}$`, 'i') },
+      });
+      if (agent) {
+        assignedTo = agent._id as Types.ObjectId;
+      } else if (agentEmail) {
+        // Fallback to email if name not found
+        const agentByEmail = await User.findOne({ email: agentEmail.toLowerCase() });
+        assignedTo = agentByEmail
+          ? (agentByEmail._id as Types.ObjectId)
+          : new Types.ObjectId(uploaderId);
+      } else {
+        assignedTo = new Types.ObjectId(uploaderId);
+      }
+    } else {
+      // Legacy path: resolve by agentEmail
+      assignedTo = await resolveAgent(agentEmail, uploaderId);
+    }
 
-    // Skip duplicate phone numbers
-    const exists = await Lead.findOne({ phone: row.phone });
+    // ── Skip duplicate phone numbers ──────────────────────────────────────────
+    const exists = await Lead.findOne({ phone });
     if (exists) {
-      errors.push({ row: rowNum, errors: [`Phone ${row.phone} already exists — skipped`] });
+      errors.push({ row: rowNum, errors: [`Phone ${phone} already exists — skipped`] });
       skipped++;
       continue;
     }
 
     await Lead.create({
-      name:             row.name,
-      phone:            row.phone,
-      email:            row.email || undefined,
-      source:           row.source,
-      status:           row.status || 'NEW',
-      notes:            row.notes || undefined,
-      nextFollowUpDate: row.nextFollowUp || undefined,
-      interestedProject: projectId,
+      name,
+      phone,
+      email:             email || undefined,
+      source,
+      status,
+      notes:             notes || undefined,
+      preferredLocation: preferredLocation || undefined,
+      propertyType:      propertyType || undefined,
       assignedTo,
-      assignedBy:  new Types.ObjectId(uploaderId),
-      assignedAt:  new Date(),
-      createdBy:   new Types.ObjectId(uploaderId),
+      assignedBy:        new Types.ObjectId(uploaderId),
+      assignedAt:        new Date(),
+      createdBy:         new Types.ObjectId(uploaderId),
     });
 
     inserted++;
@@ -354,46 +465,125 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
   const query: Record<string, any> = {
     ...buildDateFilter(filters.startDate, filters.endDate),
   };
-  if (filters.agentId)   query.assignedTo = new Types.ObjectId(filters.agentId);
-  if (filters.projectId) query.project    = new Types.ObjectId(filters.projectId);
+  if (filters.agentId)   query.assignedTo       = new Types.ObjectId(filters.agentId);
+  if (filters.projectId) query.interestedProject = new Types.ObjectId(filters.projectId);
 
   const leads = await Lead.find(query)
     .populate<{ assignedTo: { name: string; email: string } }>('assignedTo', 'name email')
-    .populate<{ project: { name: string } }>('project', 'name')
+    .populate<{ interestedProject: { name: string } }>('interestedProject', 'name')
     .sort({ createdAt: -1 });
 
-  const wb    = new ExcelJS.Workbook();
-  const sheet = wb.addWorksheet('Leads');
-  sheet.columns = LEAD_COLUMNS;
-  styleHeader(sheet);
+  // ── Workbook matching Lead Master template exactly ─────────────────────────
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Rising CRM';
+  wb.created = new Date();
 
-  leads.forEach((lead: any) => {
-    sheet.addRow({
-      name:         lead.name,
-      phone:        lead.phone,
-      email:        lead.email || '',
-      source:       lead.source,
-      status:       lead.status,
-      projectName:  (lead.project as any)?.name || '',
-      notes:        lead.notes || '',
-      nextFollowUp: lead.nextFollowUp
-        ? new Date(lead.nextFollowUp).toLocaleDateString('en-IN')
-        : '',
-      agentEmail:   (lead.assignedTo as any)?.email || '',
+  const sheet = wb.addWorksheet('Lead Master', {
+    properties: { tabColor: { argb: 'FF00B0F0' } },
+  });
+
+  sheet.columns = [
+    { header: 'Lead ID*',                key: 'leadId',            width: 15 },
+    { header: 'Lead Date*',              key: 'leadDate',          width: 15 },
+    { header: 'Lead Source*',            key: 'leadSource',        width: 20 },
+    { header: 'First Name*',             key: 'firstName',         width: 20 },
+    { header: 'Last Name',               key: 'lastName',          width: 20 },
+    { header: 'Phone Number*',           key: 'phoneNumber',       width: 15 },
+    { header: 'Alternate Phone',         key: 'alternatePhone',    width: 15 },
+    { header: 'Email ID',                key: 'emailId',           width: 25 },
+    { header: 'City',                    key: 'city',              width: 20 },
+    { header: 'Assigned Executive',      key: 'assignedExecutive', width: 25 },
+    { header: 'Lead Status*',            key: 'leadStatus',        width: 15 },
+    { header: 'Property Type Interest',  key: 'propertyType',      width: 25 },
+    { header: 'Budget Min',              key: 'budgetMin',         width: 15 },
+    { header: 'Budget Max',              key: 'budgetMax',         width: 15 },
+    { header: 'Preferred Location',      key: 'preferredLocation', width: 25 },
+    { header: 'Size Required',           key: 'sizeRequired',      width: 15 },
+    { header: 'Purpose',                 key: 'purpose',           width: 15 },
+    { header: 'Loan Required',           key: 'loanRequired',      width: 15 },
+    { header: 'Timeline to Buy',         key: 'timelineToBuy',     width: 20 },
+    { header: 'Remarks',                 key: 'remarks',           width: 35 },
+  ];
+
+  // ── Header styling (identical to crmTemplate.service.ts) ──────────────────
+  const headerRow = sheet.getRow(1);
+  headerRow.eachCell((cell) => {
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B3A5C' } };
+    cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    cell.border = { bottom: { style: 'medium', color: { argb: 'FFCCCCCC' } } };
+    if (String(cell.value).includes('*')) {
+      cell.font = { color: { argb: 'FFFFE066' }, bold: true, size: 11 };
+    }
+  });
+  headerRow.height = 22;
+  sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+  // ── Populate data rows ─────────────────────────────────────────────────────
+  leads.forEach((lead: any, idx: number) => {
+    const rowIndex = idx + 2;
+    const nameParts = (lead.name || '').trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName  = nameParts.slice(1).join(' ') || '';
+
+    const row = sheet.addRow({
+      leadId:            (lead._id as any)?.toString() || '',
+      leadDate:          lead.createdAt ? new Date(lead.createdAt) : '',
+      leadSource:        lead.source || '',
+      firstName,
+      lastName,
+      phoneNumber:       lead.phone || '',
+      alternatePhone:    '',
+      emailId:           lead.email || '',
+      city:              lead.preferredLocation || '',
+      assignedExecutive: (lead.assignedTo as any)?.name || '',
+      leadStatus:        lead.status || '',
+      propertyType:      lead.propertyType || '',
+      budgetMin:         '',
+      budgetMax:         '',
+      preferredLocation: lead.preferredLocation || '',
+      sizeRequired:      '',
+      purpose:           '',
+      loanRequired:      '',
+      timelineToBuy:     '',
+      remarks:           lead.notes || '',
+    });
+
+    // Dropdowns — use exact model enum values
+    sheet.getCell(`C${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_SOURCES)] };
+    sheet.getCell(`K${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_STATUSES)] };
+    sheet.getCell(`L${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(PROPERTY_TYPES)] };
+    sheet.getCell(`Q${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Self Use,Investment,Rental"'] };
+    sheet.getCell(`R${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Yes,No"'] };
+    sheet.getCell(`S${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Immediate,1-3 months,6+ months"'] };
+
+    // Formats
+    sheet.getCell(`B${rowIndex}`).numFmt = 'DD/MM/YYYY';
+    sheet.getCell(`M${rowIndex}`).numFmt = '₹#,##0.00';
+    sheet.getCell(`N${rowIndex}`).numFmt = '₹#,##0.00';
+
+    // Alternating row shading
+    row.eachCell((cell: any) => {
+      cell.fill = {
+        type: 'pattern', pattern: 'solid',
+        fgColor: { argb: rowIndex % 2 === 0 ? 'FFF5F7FA' : 'FFFFFFFF' },
+      };
     });
   });
 
-  // alternate row shading
-  sheet.eachRow((row: any, i: number) => {
-    if (i > 1) {
-      row.eachCell((cell: any) => {
-        cell.fill = {
-          type: 'pattern', pattern: 'solid',
-          fgColor: { argb: i % 2 === 0 ? 'FFF5F7FA' : 'FFFFFFFF' },
-        };
-      });
-    }
-  });
+  // ── Blank rows up to 1000 — keep dropdowns/formats ready ──────────────────
+  const dataEnd = leads.length + 2;
+  for (let i = dataEnd; i <= 1000; i++) {
+    sheet.getCell(`C${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_SOURCES)] };
+    sheet.getCell(`K${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_STATUSES)] };
+    sheet.getCell(`L${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(PROPERTY_TYPES)] };
+    sheet.getCell(`Q${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Self Use,Investment,Rental"'] };
+    sheet.getCell(`R${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Yes,No"'] };
+    sheet.getCell(`S${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Immediate,1-3 months,6+ months"'] };
+    sheet.getCell(`B${i}`).numFmt = 'DD/MM/YYYY';
+    sheet.getCell(`M${i}`).numFmt = '₹#,##0.00';
+    sheet.getCell(`N${i}`).numFmt = '₹#,##0.00';
+  }
 
   return wb.xlsx.writeBuffer();
 };

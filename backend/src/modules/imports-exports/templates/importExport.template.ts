@@ -1,13 +1,19 @@
 export const LEAD_COLUMNS = [
+    { header: 'ID',             key: 'id',           width: 26 },
     { header: 'Name*',          key: 'name',         width: 20 },
     { header: 'Phone*',         key: 'phone',        width: 15 },
     { header: 'Email',          key: 'email',        width: 25 },
     { header: 'Source*',        key: 'source',       width: 15 },
     { header: 'Status',         key: 'status',       width: 15 },
+    { header: 'Priority',       key: 'priority',     width: 12 },
+    { header: 'Budget Range',   key: 'budgetRange',  width: 18 },
+    { header: 'Property Type',  key: 'propertyType', width: 16 },
     { header: 'Project Name',   key: 'projectName',  width: 20 },
     { header: 'Notes',          key: 'notes',        width: 30 },
     { header: 'Next Follow Up', key: 'nextFollowUp', width: 18 },
+    { header: 'Agent Name',     key: 'agentName',    width: 20 },
     { header: 'Agent Email*',   key: 'agentEmail',   width: 25 },
+    { header: 'Created At',     key: 'createdAt',    width: 18 },
   ];
   
   export const CLIENT_COLUMNS = [
@@ -53,10 +59,15 @@ export const LEAD_COLUMNS = [
     { header: 'Facing',        key: 'facing',      width: 12 },
   ];
   
-  export const VALID_LEAD_SOURCES   = ['Website', 'Advertisement', 'Referral', 'Walk-In', 'Phone', 'Other'];
-  export const VALID_LEAD_STATUSES  = ['New', 'Contacted', 'Interested', 'Site Visit', 'Negotiation', 'Closed Won', 'Closed Lost'];
-  export const VALID_UNIT_TYPES     = ['1BHK', '2BHK', '3BHK', 'Plot', 'Shop', 'Villa'];
-  export const VALID_UNIT_STATUSES  = ['Available', 'Booked', 'Sold'];
-  export const VALID_PROJECT_STATUSES = ['Upcoming', 'Active', 'Completed'];
-  export const VALID_PAYMENT_STATUSES = ['Pending', 'Paid', 'Overdue'];
-  export const VALID_PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'UPI', 'Other'];
+  // Import directly from lead constants to stay in sync with the Mongoose model
+import { LEAD_SOURCES, LEAD_STATUSES, LEAD_PRIORITIES, PROPERTY_TYPES } from '../../leads/lead.constants';
+
+export { LEAD_SOURCES, LEAD_STATUSES, LEAD_PRIORITIES, PROPERTY_TYPES };
+
+export const VALID_LEAD_SOURCES   = [...LEAD_SOURCES] as string[];
+export const VALID_LEAD_STATUSES  = [...LEAD_STATUSES] as string[];
+export const VALID_UNIT_TYPES     = ['1BHK', '2BHK', '3BHK', 'Plot', 'Shop', 'Villa'];
+export const VALID_UNIT_STATUSES  = ['Available', 'Booked', 'Sold'];
+export const VALID_PROJECT_STATUSES = ['Upcoming', 'Active', 'Completed'];
+export const VALID_PAYMENT_STATUSES = ['Pending', 'Paid', 'Overdue'];
+export const VALID_PAYMENT_MODES  = ['Cash', 'Cheque', 'NEFT', 'UPI', 'Other'];

@@ -21,6 +21,16 @@ const sanitizeUser = (user: InstanceType<typeof User>) => ({
     isActive: user.isActive,
 });
 
+export const getAvailableRoles = async () => {
+    const uniqueRoles = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "FINANCIAL_EXECUTIVE"];
+    const takenRoles = await User.distinct("role", { role: { $in: uniqueRoles } });
+    
+    // Legacy support for FINANCE_MANAGER mapped to FINANCIAL_EXECUTIVE
+    const normalizedTaken = takenRoles.map(normalizeRole);
+
+    return uniqueRoles.filter(role => !normalizedTaken.includes(role));
+};
+
 export const registerUser = async (
     name: string,
     email: string,
@@ -32,6 +42,18 @@ export const registerUser = async (
 
     if (!SIGNUP_ALLOWED_ROLES.includes(normalizedRole as (typeof SIGNUP_ALLOWED_ROLES)[number])) {
         throw new Error("Invalid role selected for registration");
+    }
+
+    if (normalizedRole === "SALES_EXECUTIVE") {
+        throw new Error("Public registration for Sales Executives is disabled. Please contact an Administrator.");
+    }
+
+    const uniqueRoles = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "FINANCIAL_EXECUTIVE"];
+    if (uniqueRoles.includes(normalizedRole)) {
+        const existingRoleUser = await User.findOne({ role: { $in: [normalizedRole, role] } });
+        if (existingRoleUser) {
+            throw new Error("This role has already been registered. Please contact the Super Admin.");
+        }
     }
 
     const existingEmail = await User.findOne({ email });

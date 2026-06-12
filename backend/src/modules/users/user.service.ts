@@ -2,6 +2,7 @@ import { User } from './user.model';
 import { ApiError } from '../../utils/ApiError';
 import { Lead } from '../leads/lead.model';
 import { Booking } from '../bookings/booking.model';
+import { normalizeRole } from '../../constants/roles';
 
 const attachUserStats = async (users: any[]) => {
     if (!users.length) return [];
@@ -119,6 +120,17 @@ export const createUser = async (data: any) => {
         throw new ApiError(400, 'Email is already in use');
     }
 
+    if (data.role) {
+        const normalizedRole = normalizeRole(data.role);
+        const uniqueRoles = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "FINANCIAL_EXECUTIVE"];
+        if (uniqueRoles.includes(normalizedRole)) {
+            const existingRoleUser = await User.findOne({ role: { $in: [normalizedRole, data.role] } });
+            if (existingRoleUser) {
+                throw new ApiError(400, "This role has already been registered. Please contact the Super Admin.");
+            }
+        }
+    }
+
     const user = new User(data);
     await user.save();
     
@@ -136,6 +148,17 @@ export const updateUser = async (id: string, data: any) => {
         const existingUser = await User.findOne({ email: data.email });
         if (existingUser) {
             throw new ApiError(400, 'Email is already in use');
+        }
+    }
+
+    if (data.role && data.role !== user.role) {
+        const normalizedRole = normalizeRole(data.role);
+        const uniqueRoles = ["SUPER_ADMIN", "ADMIN", "SALES_MANAGER", "FINANCIAL_EXECUTIVE"];
+        if (uniqueRoles.includes(normalizedRole)) {
+            const existingRoleUser = await User.findOne({ role: { $in: [normalizedRole, data.role] } });
+            if (existingRoleUser) {
+                throw new ApiError(400, "This role has already been registered. Please contact the Super Admin.");
+            }
         }
     }
 

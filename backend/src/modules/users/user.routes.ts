@@ -7,17 +7,16 @@ import * as userController from './user.controller';
 
 const router = Router();
 
-// All user routes should be protected and only accessible by ADMIN or SUPER_ADMIN
+// Fetching users is allowed for SALES_MANAGER to assign leads
 router.use(protect);
-router.use(allowRoles('ADMIN', 'SUPER_ADMIN'));
 
 router.route('/')
-    .get(userController.getUsers)
-    .post(validate(createUserSchema), userController.createUser);
+    .get(allowRoles('ADMIN', 'SUPER_ADMIN', 'SALES_MANAGER'), userController.getUsers)
+    .post(allowRoles('ADMIN', 'SUPER_ADMIN'), validate(createUserSchema), userController.createUser);
 
 router.route('/:id')
-    .get(userController.getUser)
-    .put(validate(updateUserSchema), userController.updateUser)
-    .delete(userController.deleteUser);
+    .get(allowRoles('ADMIN', 'SUPER_ADMIN'), userController.getUser)
+    .put(allowRoles('ADMIN', 'SUPER_ADMIN'), validate(updateUserSchema), userController.updateUser)
+    .delete(allowRoles('ADMIN', 'SUPER_ADMIN'), userController.deleteUser);
 
 export default router;

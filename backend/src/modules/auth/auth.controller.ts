@@ -1,6 +1,21 @@
-import { Response } from "express";
+import { Request, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
-import { loginUser, registerUser, getCurrentUser } from "./auth.service";
+import { loginUser, registerUser, getCurrentUser, getAvailableRoles as getAvailableRolesService } from "./auth.service";
+
+export const getAvailableRoles = async (req: Request, res: Response) => {
+    try {
+        const roles = await getAvailableRolesService();
+        res.status(200).json({
+            success: true,
+            data: roles,
+        });
+    } catch (error: any) {
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
 
 export const register = async (req: AuthRequest, res: Response) => {
     try {

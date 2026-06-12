@@ -9,14 +9,14 @@ const router = Router();
 router.get(
   '/',
   protect,
-  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCIAL_EXECUTIVE'),
   getDashboard
 );
 
 router.get(
   '/bookings-trend',
   protect,
-  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+  allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'FINANCIAL_EXECUTIVE'),
   getBookingsTrend
 );
 

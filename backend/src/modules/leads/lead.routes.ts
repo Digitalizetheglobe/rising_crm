@@ -34,22 +34,22 @@ router.post(
     createLead
 );
 
-router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getAllLeads);
+router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getAllLeads);
 
-router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getLeadById);
+router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getLeadById);
 
-router.get('/:id/activity', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getLeadActivity);
+router.get('/:id/activity', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getLeadActivity);
 
 router.put(
     '/:id',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
     validate(updateLeadSchema),
     updateLead
 );
 
 router.patch(
     '/:id/status',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
     validate(updateLeadStatusSchema),
     updateLeadStatus
 );
