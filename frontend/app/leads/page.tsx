@@ -373,8 +373,8 @@ export default function LeadsPage() {
         {/* Card 1: Total Hotleads */}
         <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#EB3539] rounded-t-full" />
-          <span className="text-slate-800 font-semibold text-[14.5px] uppercase tracking-wider block">Total Hotleads</span>
-          <h3 className="text-[52px] font-semibold text-slate-900 mt-2 mb-2 leading-none">{totalHotLeads}</h3>
+          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total Hotleads</span>
+          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{totalHotLeads}</h3>
           <div className="flex items-center gap-1.5 mt-2">
             <span className="text-[#22c55e] font-semi text-[14px] flex items-center bg-emerald-50 px-2 py-0.5 rounded-full">
               <svg className="w-4 h-4 mr-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" /></svg>
@@ -387,8 +387,8 @@ export default function LeadsPage() {
         {/* Card 2: Follow-ups today */}
         <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#3b82f6] rounded-t-full" />
-          <span className="text-slate-800 font-semibold text-[14.5px] uppercase tracking-wider block">Follow-ups today</span>
-          <h3 className="text-[52px] font-semibold text-slate-900 mt-2 mb-2 leading-none">{followUpsToday}</h3>
+          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Follow-ups today</span>
+          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{followUpsToday}</h3>
           <div className="flex items-center gap-1.5 mt-2">
             <span className="text-[#22c55e] font-semibold text-[14px] flex items-center bg-emerald-50 px-2 py-0.5 rounded-full">
               <svg className="w-4 h-4 mr-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" /></svg>
@@ -401,8 +401,8 @@ export default function LeadsPage() {
         {/* Card 3: Closed this month */}
         <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#f59e0b] rounded-t-full" />
-          <span className="text-slate-800 font-semibold text-[14.5px] uppercase tracking-wider block">Closed this month</span>
-          <h3 className="text-[52px] font-semibold text-slate-900 mt-2 mb-2 leading-none">{closedThisMonth}</h3>
+          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Closed this month</span>
+          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{closedThisMonth}</h3>
           <div className="flex items-center gap-1.5 mt-2">
             <span className="text-[#ef4444] font-semibold text-[14px] flex items-center bg-rose-50 px-2 py-0.5 rounded-full">
               <svg className="w-4 h-4 mr-0.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12 13a1 1 0 110 2H7a1 1 0 01-1-1V9a1 1 0 112 0v2.586l4.293-4.293a1 1 0 011.414 0L12 9.586l4.293-4.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0L12 9.414 8.414 13H12z" clipRule="evenodd" /></svg>

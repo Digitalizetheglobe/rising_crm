@@ -526,23 +526,20 @@ export default function ClientPage() {
 
       {!selectedClientId ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
-              <span className="text-slate-500 text-sm font-medium mb-1">Total Clients</span>
-              <span className="text-2xl font-bold text-slate-800">{clients.length}</span>
-            </div>
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
-              <span className="text-slate-500 text-sm font-medium mb-1">New Leads</span>
-              <span className="text-2xl font-bold text-slate-800">{clients.filter(c => c.leadStatus === 'NEW').length}</span>
-            </div>
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
-              <span className="text-slate-500 text-sm font-medium mb-1">Site Visits</span>
-              <span className="text-2xl font-bold text-slate-800">{clients.filter(c => c.leadStatus === 'SITE_VISIT_SCHEDULED' || c.leadStatus === 'SITE_VISIT_COMPLETED').length}</span>
-            </div>
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
-              <span className="text-slate-500 text-sm font-medium mb-1">Booked</span>
-              <span className="text-2xl font-bold text-slate-800">{clients.filter(c => c.leadStatus === 'BOOKED' || c.leadStatus === 'BOOKING_IN_PROGRESS').length}</span>
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6 ">
+            {[
+              { label: "Total Clients", value: clients.length, color: "bg-slate-800" },
+              { label: "New Leads", value: clients.filter(c => c.leadStatus === 'NEW').length, color: "bg-[#3B82F6]" },
+              { label: "Site Visits", value: clients.filter(c => c.leadStatus === 'SITE_VISIT_SCHEDULED' || c.leadStatus === 'SITE_VISIT_COMPLETED').length, color: "bg-[#EF4444]" },
+              { label: "Booked", value: clients.filter(c => c.leadStatus === 'BOOKED' || c.leadStatus === 'BOOKING_IN_PROGRESS').length, color: "bg-[#10B981]" },
+            ].map((card) => (
+              <div key={card.label} className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
+                <div className={`absolute top-0 left-0 right-0 h-[6px] ${card.color} rounded-t-full`} />
+                <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block mt-1">{card.label}</span>
+                <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{card.value}</h3>
+                <div className="h-[24px]" />
+              </div>
+            ))}
           </div>
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-visible mt-6">
             <div className="hidden sm:block overflow-visible">

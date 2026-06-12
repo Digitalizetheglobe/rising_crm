@@ -30,10 +30,10 @@ export const normalizeRole = (role: string): UserRole =>
 
 /** Route paths each role may access */
 const ROLE_ROUTE_ACCESS: Record<string, string[]> = {
-  SUPER_ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee"],
-  ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee"],
-  SALES_MANAGER: ["/", "/enquiry", "/leads", "/client", "/projects", "/units"],
-  SALES_EXECUTIVE: ["/", "/leads", "/client", "/projects", "/units"],
+  SUPER_ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee", "/followup"],
+  ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee", "/followup"],
+  SALES_MANAGER: ["/", "/enquiry", "/leads", "/client", "/projects", "/units", "/followup"],
+  SALES_EXECUTIVE: ["/", "/leads", "/client", "/projects", "/units", "/followup"],
   FINANCIAL_EXECUTIVE: ["/", "/booking", "/client", "/projects", "/units", "/payments"],
   VIEWER: ["/", "/leads", "/client", "/enquiry", "/booking", "/projects", "/units"],
 };

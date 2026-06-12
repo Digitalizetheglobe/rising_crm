@@ -579,7 +579,7 @@ export default function Home() {
 
           <div className="relative z-10 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h3 className="text-xl font-bold text-white tracking-wide">Upcoming Task & Reminders</h3>
+              <h3 className="text-xl font-bold !text-white tracking-wide">Upcoming Task & Reminders</h3>
               <button
                 onClick={() => addToast("Custom date range filter opened", "info")}
                 className="bg-white hover:bg-slate-50 text-slate-800 text-[13.5px] font-bold px-4 py-2 rounded-xl shadow-sm flex items-center self-start sm:self-auto transition-all active:scale-95 duration-200 cursor-pointer"
