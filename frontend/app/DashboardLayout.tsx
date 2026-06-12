@@ -88,8 +88,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: "Enquiries", href: "/enquiry", module: "enquiries" },
         { name: "Leads", href: "/leads", module: "leads" },
         { name: "Clients", href: "/client", module: "clients" },
-        { name: "Follow Ups", href: "/client", module: "clients" },
-        { name: "Site Visits", href: "/client", module: "clients" },
+        { name: "Follow Ups", href: "#", module: "clients" },
+        { name: "Site Visits", href: "#", module: "clients" },
 
       ],
     },
@@ -207,11 +207,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={entry.name}
                 href={entry.href}
                 onClick={() => handleNavClick(entry.href, entry.name)}
-                className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${
-                  isActive
+                className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${isActive
                     ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
                     : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
-                }`}
+                  }`}
               >
                 <span className={`transition-colors duration-300 ${isActive ? "text-white" : "text-slate-400"}`}>
                   {icon}
@@ -229,11 +228,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <button
                 type="button"
                 onClick={() => toggleGroup(entry.name)}
-                className={`w-full flex items-center justify-between cursor-pointer gap-3 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${
-                  hasActiveChild
+                className={`w-full flex items-center justify-between cursor-pointer gap-3 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${hasActiveChild
                     ? "bg-white text-brand shadow-sm"
                     : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm"
-                }`}
+                  }`}
               >
                 <span className="flex items-center gap-3.5">
                   <span className={`transition-colors duration-300 ${hasActiveChild ? "text-brand" : "text-slate-400"}`}>
@@ -263,9 +261,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </button>
 
               <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                }`}
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                  }`}
               >
                 <div className="overflow-hidden">
                   <div className="ml-5 mt-1 mb-1 space-y-0.5 border-l-2 border-slate-200/80 pl-3">
@@ -276,11 +273,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           key={child.name}
                           href={child.href}
                           onClick={() => handleNavClick(child.href, child.name)}
-                          className={`block px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-200 ${
-                            isActive
+                          className={`block px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-200 ${isActive
                               ? "bg-brand text-white shadow-md shadow-brand/20"
                               : "text-slate-500 hover:bg-white hover:text-brand hover:translate-x-0.5"
-                          }`}
+                            }`}
                         >
                           {child.name}
                         </Link>

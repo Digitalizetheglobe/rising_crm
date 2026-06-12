@@ -43,6 +43,10 @@ export default function LeadsPage() {
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newLeadName, setNewLeadName] = useState("");
+  const [newLeadEmail, setNewLeadEmail] = useState("");
+  const [newLeadPhone, setNewLeadPhone] = useState("");
+  const [newLeadBudget, setNewLeadBudget] = useState("");
+  const [newLeadProperty, setNewLeadProperty] = useState("");
   const [newLeadSource, setNewLeadSource] = useState("Google Ads");
   const [newLeadStatus, setNewLeadStatus] = useState<"Hot Lead" | "Closed" | "New lead">("New lead");
 
@@ -58,7 +62,7 @@ export default function LeadsPage() {
   // Assign & Follow-up Modal State
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
-  
+
   const [users, setUsers] = useState<any[]>([]);
 
   // Fetch users when Assign Modal opens
@@ -71,7 +75,7 @@ export default function LeadsPage() {
             setUsers(json.data || []);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [isAssignModalOpen]);
 
@@ -231,13 +235,20 @@ export default function LeadsPage() {
       addToast("Please enter a lead name", "info");
       return;
     }
+    if (!newLeadPhone.trim() || !/^\d{10}$/.test(newLeadPhone)) {
+      addToast("Please enter a valid 10-digit phone number", "info");
+      return;
+    }
 
     try {
-      const payload = {
+      const payload: any = {
         name: newLeadName.trim(),
-        phone: "9999999999",
+        phone: newLeadPhone.trim(),
         source: newLeadSource,
       };
+      if (newLeadEmail.trim()) payload.email = newLeadEmail.trim();
+      if (newLeadBudget.trim()) payload.budgetRange = newLeadBudget.trim();
+      if (newLeadProperty.trim()) payload.propertyType = newLeadProperty.trim();
 
       const res = await fetch(`${API_URL}/v1/leads`, {
         method: "POST",
@@ -249,6 +260,10 @@ export default function LeadsPage() {
       if (json.success) {
         addToast(`Successfully added "${newLeadName}"!`, "success");
         setNewLeadName("");
+        setNewLeadEmail("");
+        setNewLeadPhone("");
+        setNewLeadBudget("");
+        setNewLeadProperty("");
         setNewLeadSource("Google Ads");
         setNewLeadStatus("New lead");
         setIsAddModalOpen(false);
@@ -857,7 +872,7 @@ export default function LeadsPage() {
       {/* Add New Lead Modal Overlay */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="bg-white rounded-[32px] p-6 w-full max-w-md border border-slate-100 shadow-2xl animate-scale-up">
+          <div className="bg-white rounded-[32px] p-6 w-full max-w-lg border border-slate-100 shadow-2xl animate-scale-up">
             <div className="flex justify-between items-center pb-4 border-b border-slate-100">
               <h3 className="text-xl font-semibold text-slate-800 tracking-tight">Add New Lead</h3>
               <button
@@ -880,6 +895,72 @@ export default function LeadsPage() {
                   onChange={(e) => setNewLeadName(e.target.value)}
                   className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    placeholder="Enter email address"
+                    value={newLeadEmail}
+                    onChange={(e) => setNewLeadEmail(e.target.value)}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5">Phone</label>
+                  <input
+                    type="text"
+                    placeholder="10-digit number"
+                    value={newLeadPhone}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setNewLeadPhone(val);
+                    }}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5">Budget</label>
+                  <select
+                    value={newLeadBudget}
+                    onChange={(e) => setNewLeadBudget(e.target.value)}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium bg-white"
+                  >
+                    <option value="" disabled>Select budget range</option>
+                    <option value="Under 25L">Under 25L</option>
+                    <option value="25L-50L">25L-50L</option>
+                    <option value="50L-1Cr">50L-1Cr</option>
+                    <option value="1Cr-2Cr">1Cr-2Cr</option>
+                    <option value="Above 2Cr">Above 2Cr</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5">Property Interested</label>
+                  <select
+                    value={newLeadProperty}
+                    onChange={(e) => setNewLeadProperty(e.target.value)}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium bg-white"
+                  >
+                    <option value="" disabled>Select property type</option>
+                    <option value="1BHK">1BHK</option>
+                    <option value="2BHK">2BHK</option>
+                    <option value="3BHK">3BHK</option>
+                    <option value="4+BHK">4+BHK</option>
+                    <option value="Villa">Villa</option>
+                    <option value="Banglow">Banglow</option>
+                    <option value="Plot">Plot</option>
+                    <option value="Residential">Residential</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Apartment">Apartment</option>
+                    <option value="Shop">Shop</option>
+                    <option value="Office">Office</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -950,20 +1031,20 @@ export default function LeadsPage() {
                 </svg>
               </button>
             </div>
-            
+
             <div className="mt-5">
-               <p className="text-[14px] text-slate-600 mb-4 font-medium">Assign <span className="font-bold text-slate-800">{selectedLead.name}</span> to a team member:</p>
-               
-               <select
-                 className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-semibold text-slate-700"
-                 id="assignEmployeeSelect"
-                 defaultValue=""
-               >
-                 <option value="" disabled>Select Employee...</option>
-                 {users.map(u => <option key={u._id} value={u._id}>{u.name} ({u.role.replace(/_/g, " ")})</option>)}
-               </select>
-               
-               <div className="flex gap-3 pt-6 justify-end">
+              <p className="text-[14px] text-slate-600 mb-4 font-medium">Assign <span className="font-bold text-slate-800">{selectedLead.name}</span> to a team member:</p>
+
+              <select
+                className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-semibold text-slate-700"
+                id="assignEmployeeSelect"
+                defaultValue=""
+              >
+                <option value="" disabled>Select Employee...</option>
+                {users.map(u => <option key={u._id} value={u._id}>{u.name} ({u.role.replace(/_/g, " ")})</option>)}
+              </select>
+
+              <div className="flex gap-3 pt-6 justify-end">
                 <button
                   type="button"
                   onClick={() => setIsAssignModalOpen(false)}
@@ -974,27 +1055,27 @@ export default function LeadsPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                     const select = document.getElementById("assignEmployeeSelect") as HTMLSelectElement;
-                     const empId = select.value;
-                     if (!empId) { addToast("Please select an employee", "info"); return; }
-                     
-                     try {
-                       const res = await fetch(`${API_URL}/v1/leads/${selectedLead.id}/assign`, {
-                         method: "PATCH",
-                         headers: getAuthHeaders(),
-                         body: JSON.stringify({ assignedTo: empId })
-                       });
-                       const json = await res.json();
-                       if (json.success) {
-                          addToast("Lead assigned successfully", "success");
-                          setIsAssignModalOpen(false);
-                          fetchLeads();
-                       } else {
-                          addToast(json.message || "Failed to assign lead", "info");
-                       }
-                     } catch(err:any) {
-                       addToast(err.message || "Error assigning lead", "info");
-                     }
+                    const select = document.getElementById("assignEmployeeSelect") as HTMLSelectElement;
+                    const empId = select.value;
+                    if (!empId) { addToast("Please select an employee", "info"); return; }
+
+                    try {
+                      const res = await fetch(`${API_URL}/v1/leads/${selectedLead.id}/assign`, {
+                        method: "PATCH",
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ assignedTo: empId })
+                      });
+                      const json = await res.json();
+                      if (json.success) {
+                        addToast("Lead assigned successfully", "success");
+                        setIsAssignModalOpen(false);
+                        fetchLeads();
+                      } else {
+                        addToast(json.message || "Failed to assign lead", "info");
+                      }
+                    } catch (err: any) {
+                      addToast(err.message || "Error assigning lead", "info");
+                    }
                   }}
                   className="px-6 py-2.5 rounded-2xl bg-brand hover:bg-brand-hover text-white font-bold shadow-md shadow-brand/10 cursor-pointer font-sans text-[14px]"
                 >
@@ -1021,56 +1102,56 @@ export default function LeadsPage() {
                 </svg>
               </button>
             </div>
-            
-            <div className="mt-5 space-y-4">
-               <div>
-                 <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Follow-up Type</label>
-                 <select
-                   value={followUpType}
-                   onChange={(e) => setFollowUpType(e.target.value)}
-                   className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-semibold"
-                 >
-                   <option value="Call">Call</option>
-                   <option value="Email">Email</option>
-                   <option value="Meeting">Meeting</option>
-                   <option value="Site Visit">Site Visit</option>
-                   <option value="WhatsApp">WhatsApp</option>
-                 </select>
-               </div>
-               
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Date</label>
-                   <input
-                     type="date"
-                     value={followUpDate}
-                     onChange={(e) => setFollowUpDate(e.target.value)}
-                     className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Time</label>
-                   <input
-                     type="time"
-                     value={followUpTime}
-                     onChange={(e) => setFollowUpTime(e.target.value)}
-                     className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
-                   />
-                 </div>
-               </div>
 
-               <div>
-                 <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Notes</label>
-                 <textarea
-                   rows={3}
-                   value={followUpNotes}
-                   onChange={(e) => setFollowUpNotes(e.target.value)}
-                   placeholder="Enter details..."
-                   className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium resize-none"
-                 />
-               </div>
-               
-               <div className="flex gap-3 pt-3 justify-end">
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Follow-up Type</label>
+                <select
+                  value={followUpType}
+                  onChange={(e) => setFollowUpType(e.target.value)}
+                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-semibold"
+                >
+                  <option value="Call">Call</option>
+                  <option value="Email">Email</option>
+                  <option value="Meeting">Meeting</option>
+                  <option value="Site Visit">Site Visit</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Date</label>
+                  <input
+                    type="date"
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Time</label>
+                  <input
+                    type="time"
+                    value={followUpTime}
+                    onChange={(e) => setFollowUpTime(e.target.value)}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1.5 text-[14px]">Notes</label>
+                <textarea
+                  rows={3}
+                  value={followUpNotes}
+                  onChange={(e) => setFollowUpNotes(e.target.value)}
+                  placeholder="Enter details..."
+                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-3 justify-end">
                 <button
                   type="button"
                   onClick={() => setIsFollowUpModalOpen(false)}
@@ -1081,33 +1162,33 @@ export default function LeadsPage() {
                 <button
                   type="button"
                   onClick={async () => {
-                     if (!followUpDate || !followUpTime) { addToast("Please select date and time", "info"); return; }
-                     const scheduledAt = new Date(`${followUpDate}T${followUpTime}`).toISOString();
-                     
-                     try {
-                       const res = await fetch(`${API_URL}/v1/followups`, {
-                         method: "POST",
-                         headers: getAuthHeaders(),
-                         body: JSON.stringify({
-                           lead: selectedLead.id,
-                           type: followUpType,
-                           scheduledAt,
-                           notes: followUpNotes,
-                         })
-                       });
-                       const json = await res.json();
-                       if (json.success) {
-                          addToast("Follow-up scheduled!", "success");
-                          setIsFollowUpModalOpen(false);
-                          setFollowUpDate("");
-                          setFollowUpTime("");
-                          setFollowUpNotes("");
-                       } else {
-                          addToast(json.message || "Failed to schedule", "info");
-                       }
-                     } catch(err:any) {
-                       addToast(err.message || "Error scheduling follow-up", "info");
-                     }
+                    if (!followUpDate || !followUpTime) { addToast("Please select date and time", "info"); return; }
+                    const scheduledAt = new Date(`${followUpDate}T${followUpTime}`).toISOString();
+
+                    try {
+                      const res = await fetch(`${API_URL}/v1/followups`, {
+                        method: "POST",
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({
+                          lead: selectedLead.id,
+                          type: followUpType,
+                          scheduledAt,
+                          notes: followUpNotes,
+                        })
+                      });
+                      const json = await res.json();
+                      if (json.success) {
+                        addToast("Follow-up scheduled!", "success");
+                        setIsFollowUpModalOpen(false);
+                        setFollowUpDate("");
+                        setFollowUpTime("");
+                        setFollowUpNotes("");
+                      } else {
+                        addToast(json.message || "Failed to schedule", "info");
+                      }
+                    } catch (err: any) {
+                      addToast(err.message || "Error scheduling follow-up", "info");
+                    }
                   }}
                   className="px-6 py-2.5 rounded-2xl bg-brand hover:bg-brand-hover text-white font-bold shadow-md shadow-brand/10 cursor-pointer font-sans text-[14px]"
                 >

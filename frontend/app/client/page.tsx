@@ -242,7 +242,7 @@ export default function ClientPage() {
         }));
         setClients(mapped);
         if (mapped.length > 0) {
-          setSelectedClientId((prev) => prev ?? mapped[0].id);
+          // Keep null to show list initially
         } else {
           setSelectedClientId(null);
           setClientDetail(null);
@@ -509,34 +509,109 @@ export default function ClientPage() {
     <div className={PAGE_CONTAINER_CLASS}>
       <PageHeader title="Clients" subtitle="Manage and track" />
 
-      {/* Client selector */}
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        {loadingList ? (
-          <p className="text-slate-500 text-sm">Loading clients...</p>
-        ) : clients.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl px-6 py-8 w-full text-center">
-            <p className="text-slate-600 font-medium">No clients yet</p>
-            <p className="text-slate-400 text-sm mt-1">
-              Assigned leads will automatically appear here once a lead is assigned to you.
-            </p>
+      {selectedClientId && (
+        <div className="mb-4">
+          <button
+            onClick={() => {
+              setSelectedClientId(null);
+              setClientDetail(null);
+            }}
+            className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-brand transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Back to Clients List
+          </button>
+        </div>
+      )}
+
+      {!selectedClientId ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
+              <span className="text-slate-500 text-sm font-medium mb-1">Total Clients</span>
+              <span className="text-2xl font-bold text-slate-800">{clients.length}</span>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
+              <span className="text-slate-500 text-sm font-medium mb-1">New Leads</span>
+              <span className="text-2xl font-bold text-slate-800">{clients.filter(c => c.leadStatus === 'NEW').length}</span>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
+              <span className="text-slate-500 text-sm font-medium mb-1">Site Visits</span>
+              <span className="text-2xl font-bold text-slate-800">{clients.filter(c => c.leadStatus === 'SITE_VISIT_SCHEDULED' || c.leadStatus === 'SITE_VISIT_COMPLETED').length}</span>
+            </div>
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-center">
+              <span className="text-slate-500 text-sm font-medium mb-1">Booked</span>
+              <span className="text-2xl font-bold text-slate-800">{clients.filter(c => c.leadStatus === 'BOOKED' || c.leadStatus === 'BOOKING_IN_PROGRESS').length}</span>
+            </div>
           </div>
-        ) : (
-          clients.map((client) => (
-            <button
-              key={client.id}
-              type="button"
-              onClick={() => setSelectedClientId(client.id)}
-              className={`shrink-0 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                selectedClientId === client.id
-                  ? "bg-brand text-white border-brand shadow-md shadow-brand/20"
-                  : "bg-white text-slate-700 border-slate-200 hover:border-brand/40"
-              }`}
-            >
-              {client.name}
-            </button>
-          ))
-        )}
-      </div>
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-visible mt-6">
+            <div className="hidden sm:block overflow-visible">
+            <table className="w-full min-w-[700px] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/50">
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Name</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Phone</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Email</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Status</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Lead Status</th>
+                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-semibold text-[14.5px] text-slate-700">
+                {loadingList ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-500 text-sm">Loading clients...</td>
+                  </tr>
+                ) : clients.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">No clients found.</td>
+                  </tr>
+                ) : (
+                  clients.map((client) => (
+                    <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group relative z-0">
+                      <td className="py-4 px-6 text-slate-800 font-medium hover:text-brand cursor-pointer" onClick={() => setSelectedClientId(client.id)}>{client.name}</td>
+                      <td className="py-4 px-6 text-slate-600">{client.phone}</td>
+                      <td className="py-4 px-6 text-slate-600">{client.email || "-"}</td>
+                      <td className="py-4 px-6">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-sm">
+                          {client.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-slate-500">{client.leadStatus ? leadStatusLabel(client.leadStatus) : "-"}</td>
+                      <td className="py-4 px-6 text-right relative">
+                        <button
+                          onClick={() => setSelectedClientId(client.id)}
+                          className="px-3 py-1.5 rounded-xl text-brand hover:bg-brand/10 transition-colors text-sm font-semibold"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="block sm:hidden divide-y divide-slate-100">
+            {loadingList ? (
+              <div className="py-12 text-center text-slate-500 text-sm">Loading clients...</div>
+            ) : clients.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 font-medium">No clients found.</div>
+            ) : (
+              clients.map((client) => (
+                <div key={client.id} className="p-4 hover:bg-slate-50/50 transition-colors relative flex flex-col gap-2 font-semibold z-0" onClick={() => setSelectedClientId(client.id)}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[16px] text-slate-800 font-bold">{client.name}</span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-sm">{client.status}</span>
+                  </div>
+                  <div className="text-sm text-slate-500">{client.phone}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        </>
+      ) : null}
 
       {clientDetail && (
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
