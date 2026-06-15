@@ -7,6 +7,7 @@ import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLa
 import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders } from "../../lib/auth";
+import KPICard from "../../Components/KPICard";
 
 // Interfaces
 interface Enquiry {
@@ -331,30 +332,9 @@ export default function EnquiryPage() {
 
       {/* 3 KPI Metric Cards - Styled exactly like the user mockup */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-        {/* Card 1: Total Enquiries */}
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#EB3539] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total Enquiries</span>
-          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{totalEnquiriesCount}</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
-
-        {/* Card 2: Pending response */}
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#3b82f6] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Pending response</span>
-          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{pendingCount}</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
-
-        {/* Card 3: Converted leads */}
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#10b981] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Converted leads</span>
-          <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{totalLeadsCount}</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
+        <KPICard title="Total Enquiries" value={totalEnquiriesCount} subtext="All time, all sources" accentColor="#EB3539" />
+        <KPICard title="Pending response" value={pendingCount} subtext="Awaiting follow-up" accentColor="#3b82f6" />
+        <KPICard title="Converted leads" value={totalLeadsCount} subtext="Successfully converted" accentColor="#10b981" />
       </div>
 
       {/* Table Filters Panel matching mockup */}

@@ -6,6 +6,7 @@ import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLa
 import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders } from "../../lib/auth";
+import KPICard from "../../Components/KPICard";
 
 interface Lead {
   _id: string;
@@ -161,27 +162,11 @@ export default function FollowUpPage() {
       <PageHeader title="Follow-ups" subtitle="Track and manage all your scheduled tasks" />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-        {[
-          { label: "Total Tasks", value: stats.total, color: "bg-slate-800" },
-          { label: "Pending", value: stats.pending, color: "bg-[#3B82F6]" },
-          { label: "Overdue", value: stats.overdue, color: "bg-[#EF4444]" },
-          { label: "Completed", value: stats.completed, color: "bg-[#10B981]" },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden"
-          >
-            <div className={`absolute top-0 left-0 right-0 h-[6px] ${card.color} rounded-t-full`} />
-            <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block mt-1">
-              {card.label}
-            </span>
-            <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">
-              {card.value}
-            </h3>
-            <div className="h-[24px]" />
-          </div>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+        <KPICard title="Total Tasks" value={stats.total} subtext="All scheduled tasks" accentColor="#1e293b" />
+        <KPICard title="Pending" value={stats.pending} subtext="Upcoming tasks" accentColor="#3B82F6" />
+        <KPICard title="Overdue" value={stats.overdue} subtext="Requires attention" accentColor="#EF4444" />
+        <KPICard title="Completed" value={stats.completed} subtext="Successfully finished" accentColor="#10B981" />
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-visible mt-6">

@@ -7,6 +7,7 @@ import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLa
 import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders, getToken } from "../../lib/auth";
+import KPICard from "../../Components/KPICard";
 
 const API_BASE = API_URL.replace(/\/api$/, "");
 
@@ -455,21 +456,10 @@ export default function ProjectsPage() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: "Total projects", value: stats.totalProjects, color: "#64748b" },
-          { label: "Total units", value: stats.totalUnits, color: "#f59e0b" },
-          { label: "Available units", value: stats.availableUnits, color: "#3b82f6" },
-          { label: "Sold units", value: stats.soldUnits, color: "#10b981" },
-        ].map((kpi) => (
-          <div
-            key={kpi.label}
-            className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 relative overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 right-0 h-[6px] rounded-t-full" style={{ backgroundColor: kpi.color }} />
-            <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">{kpi.label}</span>
-            <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 leading-none">{kpi.value}</h3>
-          </div>
-        ))}
+        <KPICard title="Total projects" value={stats.totalProjects} subtext="All properties" accentColor="#64748b" />
+        <KPICard title="Total units" value={stats.totalUnits} subtext="Total inventory" accentColor="#f59e0b" />
+        <KPICard title="Available units" value={stats.availableUnits} subtext="Ready to sell" accentColor="#3b82f6" />
+        <KPICard title="Sold units" value={stats.soldUnits} subtext="Successfully sold" accentColor="#10b981" />
       </div>
 
       <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex flex-col lg:flex-row lg:items-center gap-4 justify-between">

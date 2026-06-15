@@ -14,6 +14,7 @@ import {
   Plus,
   Star,
 } from "lucide-react";
+import KPICard from "../../Components/KPICard";
 
 type TabKey = "timeline" | "booking" | "documents" | "feedback";
 
@@ -526,20 +527,11 @@ export default function ClientPage() {
 
       {!selectedClientId ? (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6 ">
-            {[
-              { label: "Total Clients", value: clients.length, color: "bg-slate-800" },
-              { label: "New Leads", value: clients.filter(c => c.leadStatus === 'NEW').length, color: "bg-[#3B82F6]" },
-              { label: "Site Visits", value: clients.filter(c => c.leadStatus === 'SITE_VISIT_SCHEDULED' || c.leadStatus === 'SITE_VISIT_COMPLETED').length, color: "bg-[#EF4444]" },
-              { label: "Booked", value: clients.filter(c => c.leadStatus === 'BOOKED' || c.leadStatus === 'BOOKING_IN_PROGRESS').length, color: "bg-[#10B981]" },
-            ].map((card) => (
-              <div key={card.label} className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-                <div className={`absolute top-0 left-0 right-0 h-[6px] ${card.color} rounded-t-full`} />
-                <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block mt-1">{card.label}</span>
-                <h3 className="text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{card.value}</h3>
-                <div className="h-[24px]" />
-              </div>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+            <KPICard title="Total Clients" value={clients.length} subtext="All registered clients" accentColor="#1e293b" />
+            <KPICard title="New Leads" value={clients.filter(c => c.leadStatus === 'NEW').length} subtext="Recently added" accentColor="#3B82F6" />
+            <KPICard title="Site Visits" value={clients.filter(c => c.leadStatus === 'SITE_VISIT_SCHEDULED' || c.leadStatus === 'SITE_VISIT_COMPLETED').length} subtext="Scheduled/Completed" accentColor="#EF4444" />
+            <KPICard title="Booked" value={clients.filter(c => c.leadStatus === 'BOOKED' || c.leadStatus === 'BOOKING_IN_PROGRESS').length} subtext="Successfully booked" accentColor="#10B981" />
           </div>
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-visible mt-6">
             <div className="hidden sm:block overflow-visible">

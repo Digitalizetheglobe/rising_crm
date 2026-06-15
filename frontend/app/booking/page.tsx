@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import PageHeader from "../../Components/PageHeader";
 import { PAGE_CONTAINER_CLASS } from "../../lib/pageLayout";
 import { useDashboard } from "../DashboardContext";
+import KPICard from "../../Components/KPICard";
 
 export default function BookingPage() {
   const { searchQuery, setSearchQuery } = useDashboard();
@@ -23,38 +24,10 @@ export default function BookingPage() {
 
       {/* 4 KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        
-        {/* Card 1: Total Booking (Orange top border) */}
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#f59e0b] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total Booking</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">0</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
-
-        {/* Card 2: Full Payment (Gray top border) */}
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#e2e8f0] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Full Payment</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">0</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
-
-        {/* Card 3: Instalments (Blue top border) */}
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#3b82f6] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Instalments</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">0</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
-
-        {/* Card 4: Total Value (Green top border) */}
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#10b981] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total Value</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">$0</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
+        <KPICard title="Total Bookings" value="0" subtext="All time bookings" accentColor="#f59e0b" />
+        <KPICard title="Full Payment" value="0" subtext="100% paid bookings" accentColor="#94a3b8" />
+        <KPICard title="Instalments" value="0" subtext="Active payment plans" accentColor="#3b82f6" />
+        <KPICard title="Total Value" value="$0" subtext="Cumulative value" accentColor="#10b981" />
       </div>
 
       {/* Table Filters Panel matching mockup */}

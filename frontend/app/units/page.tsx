@@ -6,6 +6,7 @@ import { PAGE_CONTAINER_CLASS } from "../../lib/pageLayout";
 import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders } from "../../lib/auth";
+import KPICard from "../../Components/KPICard";
 
 interface ProjectOption {
   id: string;
@@ -195,33 +196,10 @@ export default function UnitsPage() {
 
       {/* 4 KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#64748b] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total projects</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{stats.totalProjects}</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
-
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#f59e0b] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Total units</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{stats.totalUnits}</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
-
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#3b82f6] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Available units</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{stats.availableUnits}</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
-
-        <div className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[6px] bg-[#10b981] rounded-t-full" />
-          <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">Sold units</span>
-          <h3 className="text-[52px] font-extrabold text-slate-900 mt-2 mb-2 leading-none">{stats.soldUnits}</h3>
-          <div className="flex items-center gap-1.5 mt-2 h-[24px]"></div>
-        </div>
+        <KPICard title="Total projects" value={stats.totalProjects} subtext="All properties" accentColor="#64748b" />
+        <KPICard title="Total units" value={stats.totalUnits} subtext="Total inventory" accentColor="#f59e0b" />
+        <KPICard title="Available units" value={stats.availableUnits} subtext="Ready to sell" accentColor="#3b82f6" />
+        <KPICard title="Sold units" value={stats.soldUnits} subtext="Successfully sold" accentColor="#10b981" />
       </div>
 
       {/* Table Filters Panel */}

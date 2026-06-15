@@ -7,6 +7,7 @@ import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders } from "../../lib/auth";
 import { ROLE_LABELS } from "../../lib/permissions";
+import KPICard from "../../Components/KPICard";
 
 interface EmployeeStats {
   assignedLeads: number;
@@ -230,20 +231,11 @@ export default function EmployeePage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Total Staff", value: employees.length, color: "bg-slate-800" },
-          { label: "Sales Executives", value: employees.filter(e => e.role === "SALES_EXECUTIVE").length, color: "bg-[#FBBF24]" },
-          { label: "Managers", value: employees.filter(e => e.role === "SALES_MANAGER").length, color: "bg-[#3B82F6]" },
-          { label: "Admins", value: employees.filter(e => e.role === "ADMIN" || e.role === "SUPER_ADMIN").length, color: "bg-[#22C55E]" },
-        ].map((card) => (
-          <div key={card.label} className="bg-white rounded-[26px] p-6 shadow-sm border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 cursor-default relative overflow-hidden">
-            <div className={`absolute top-0 left-0 right-0 h-[6px] ${card.color} rounded-t-full`} />
-            <span className="text-slate-800 font-bold text-[13px] uppercase tracking-wider block mt-1">{card.label}</span>
-            <h3 className="text-[44px] md:text-[52px] font-medium text-slate-900 mt-2 mb-2 leading-none">{card.value}</h3>
-            <div className="h-[24px]" />
-          </div>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <KPICard title="Total Staff" value={employees.length} subtext="All team members" accentColor="#1e293b" />
+        <KPICard title="Sales Executives" value={employees.filter(e => e.role === "SALES_EXECUTIVE").length} subtext="Field sales team" accentColor="#FBBF24" />
+        <KPICard title="Managers" value={employees.filter(e => e.role === "SALES_MANAGER").length} subtext="Team leads" accentColor="#3B82F6" />
+        <KPICard title="Admins" value={employees.filter(e => e.role === "ADMIN" || e.role === "SUPER_ADMIN").length} subtext="System administrators" accentColor="#22C55E" />
       </div>
 
       {/* Filter Bar */}

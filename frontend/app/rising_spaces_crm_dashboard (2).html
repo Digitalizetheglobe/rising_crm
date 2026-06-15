@@ -1,0 +1,493 @@
+
+<h2 class="sr-only">Rising Spaces CRM Dashboard — daily overview with stats, charts, employee activity, and reminders</h2>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.dash{display:flex;min-height:100vh;background:var(--color-background-tertiary)}
+.sidebar{width:200px;background:#0f1f3d;display:flex;flex-direction:column;padding:0;flex-shrink:0}
+.logo{padding:18px 16px 14px;border-bottom:0.5px solid #1e3a6e;display:flex;align-items:center;gap:10px}
+.logo-mark{width:34px;height:34px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px;color:#fff;flex-shrink:0}
+.logo-text{font-size:13px;font-weight:500;color:#fff;line-height:1.2}
+.logo-sub{font-size:11px;color:#64748b}
+.nav{padding:10px 8px;display:flex;flex-direction:column;gap:2px;flex:1}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;color:#94a3b8;font-size:12px;cursor:pointer}
+.nav-item.active{background:#1e3a6e;color:#fff}
+.nav-item i{font-size:16px;width:16px;flex-shrink:0}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:var(--color-background-primary);border-bottom:0.5px solid var(--color-border-tertiary);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+.topbar-left h1{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+.topbar-left p{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.proj-select-wrap{display:flex;align-items:center;gap:6px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:8px;padding:6px 10px}
+.proj-select-wrap label{font-size:11px;color:var(--color-text-secondary);font-weight:500;white-space:nowrap}
+.proj-select-wrap select{background:transparent;border:none;outline:none;font-size:12px;font-weight:500;color:var(--color-text-primary);cursor:pointer;font-family:var(--font-sans)}
+.content{padding:16px 20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;flex:1}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px}
+.stat-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.stat-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.stat-badge{font-size:10px;font-weight:500;padding:2px 6px;border-radius:20px}
+.stat-val{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-top:3px}
+.stat-sub{font-size:10px;color:var(--color-text-tertiary);margin-top:2px}
+.row2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start}
+.row3{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:16px 18px}
+.card-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.card-hd h3{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.card-hd span{font-size:11px;color:var(--color-text-secondary)}
+.emp-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.emp-row:last-child{border-bottom:none;padding-bottom:0}
+.avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;background:#E6F1FB;color:#0C447C}
+.emp-info{flex:1;min-width:0}
+.emp-name{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.emp-prog-row{display:flex;align-items:center;gap:6px;margin-top:4px}
+.prog-bar{flex:1;height:4px;background:var(--color-border-tertiary);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;border-radius:99px;background:#2563eb}
+.prog-done{height:100%;border-radius:99px;background:#16a34a}
+.prog-text{font-size:10px;color:var(--color-text-secondary);white-space:nowrap}
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.reminder-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.reminder-item:last-child{border-bottom:none;padding-bottom:0}
+.rem-time{font-size:11px;font-weight:500;color:var(--color-text-secondary);min-width:52px;padding-top:1px}
+.rem-body{flex:1}
+.rem-title{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.rem-sub{font-size:11px;color:var(--color-text-secondary);margin-top:1px}
+.rem-badge{font-size:10px;padding:1px 7px;border-radius:20px;margin-top:3px;display:inline-block}
+.insight-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.insight-row:last-child{border-bottom:none;padding-bottom:0}
+.ins-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.ins-text{font-size:12px;color:var(--color-text-primary);font-weight:500}
+.ins-sub{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.funnel-wrap{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.funnel-item{display:flex;align-items:center;gap:8px}
+.funnel-label{font-size:11px;color:var(--color-text-secondary);min-width:80px;text-align:right}
+.funnel-bar-outer{flex:1;height:24px;background:var(--color-background-tertiary);border-radius:4px;overflow:hidden;position:relative}
+.funnel-bar-inner{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px}
+.funnel-count{font-size:11px;font-weight:500}
+.funnel-pct{font-size:10px;color:var(--color-text-secondary);min-width:36px;text-align:right}
+.today-work{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.work-add-row{display:flex;gap:8px;margin-top:10px}
+.work-add-row input{flex:1;font-size:12px;padding:6px 10px;border:0.5px solid var(--color-border-secondary);border-radius:8px;background:var(--color-background-secondary);color:var(--color-text-primary);font-family:var(--font-sans)}
+.work-add-row button{font-size:12px;padding:6px 12px;border-radius:8px;cursor:pointer;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);color:var(--color-text-primary);font-family:var(--font-sans)}
+.work-add-row button:hover{background:var(--color-background-secondary)}
+.work-chip{display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:20px;font-size:11px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+.work-chip.done{text-decoration:line-through;color:var(--color-text-tertiary)}
+.work-chip button{background:none;border:none;cursor:pointer;color:var(--color-text-tertiary);font-size:13px;line-height:1;padding:0}
+</style>
+
+<div class="dash">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">RS</div>
+      <div>
+        <div class="logo-text">Rising Spaces</div>
+        <div class="logo-sub">CRM</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Dashboard</div>
+      <div class="nav-item"><i class="ti ti-users" aria-hidden="true"></i>Leads</div>
+      <div class="nav-item"><i class="ti ti-bell" aria-hidden="true"></i>Follow-Ups</div>
+      <div class="nav-item"><i class="ti ti-building" aria-hidden="true"></i>Projects</div>
+      <div class="nav-item"><i class="ti ti-file-text" aria-hidden="true"></i>Bookings</div>
+      <div class="nav-item"><i class="ti ti-coin" aria-hidden="true"></i>Payments</div>
+      <div class="nav-item"><i class="ti ti-user" aria-hidden="true"></i>Clients</div>
+      <div class="nav-item"><i class="ti ti-id" aria-hidden="true"></i>Employees</div>
+      <div class="nav-item"><i class="ti ti-chart-bar" aria-hidden="true"></i>Reports</div>
+      <div class="nav-item" style="margin-top:auto;padding-top:8px"><i class="ti ti-settings" aria-hidden="true"></i>Settings</div>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Good morning, Rahul <span style="font-size:15px">👋</span></h1>
+        <p>Saturday, 14 June 2026 · Here's your full picture for today</p>
+      </div>
+      <div class="topbar-right">
+        <div class="proj-select-wrap">
+          <i class="ti ti-building" style="font-size:14px;color:var(--color-text-secondary)" aria-hidden="true"></i>
+          <label for="proj-dd">Project</label>
+          <select id="proj-dd" onchange="switchProject(this.value)">
+            <option value="all">All Projects</option>
+            <option value="sky">Skyline Heights</option>
+            <option value="verde">Verde Residences</option>
+            <option value="harbor">Harborview Plots</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:8px;padding:6px 10px">
+          <div class="avatar" style="width:28px;height:28px;font-size:10px">RM</div>
+          <div>
+            <div style="font-size:12px;font-weight:500;color:var(--color-text-primary)">Rahul M.</div>
+            <div style="font-size:10px;color:var(--color-text-secondary)">Manager</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- 8 STAT CARDS -->
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <!-- ROW 2: Lead Trend + Lead Funnel + Lead Source Pie -->
+      <div class="row2">
+        <!-- Lead Trend Line Chart -->
+        <div class="card">
+          <div class="card-hd">
+            <h3><i class="ti ti-trending-up" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Lead trend — last 7 days</h3>
+            <span id="trend-signal" style="font-size:10px;padding:2px 7px;border-radius:20px;background:#dcfce7;color:#16a34a;font-weight:500"></span>
+          </div>
+          <div style="position:relative;width:100%;height:140px">
+            <canvas id="trendChart" role="img" aria-label="Line chart of daily lead volume over the last 7 days">Daily lead volume trend chart.</canvas>
+          </div>
+        </div>
+
+        <!-- Lead Funnel -->
+        <div class="card">
+          <div class="card-hd">
+            <h3><i class="ti ti-filter" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Lead funnel</h3>
+            <span style="font-size:10px;color:var(--color-text-tertiary)">This month</span>
+          </div>
+          <div class="funnel-wrap" id="funnel-wrap"></div>
+        </div>
+
+        <!-- Lead Source Pie -->
+        <div class="card">
+          <div class="card-hd">
+            <h3><i class="ti ti-chart-pie" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Lead sources</h3>
+            <span style="font-size:10px;color:var(--color-text-tertiary)">This month</span>
+          </div>
+          <div style="position:relative;width:100%;height:130px">
+            <canvas id="sourceChart" role="img" aria-label="Pie chart of lead sources by percentage">Lead sources breakdown.</canvas>
+          </div>
+          <div id="source-legend" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:11px;color:var(--color-text-secondary)"></div>
+        </div>
+      </div>
+
+      <!-- ROW 3: Employee Follow-Ups + Top Performers + Today's Work + Insights -->
+      <div class="row2">
+        <!-- Employee Follow-Ups -->
+        <div class="card">
+          <div class="card-hd">
+            <h3><i class="ti ti-users" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Team follow-ups today</h3>
+          </div>
+          <div id="emp-list"></div>
+        </div>
+
+        <!-- Top Performers Bar -->
+        <div class="card">
+          <div class="card-hd">
+            <h3><i class="ti ti-trophy" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Top performers</h3>
+            <span style="font-size:10px;color:var(--color-text-tertiary)">Deals this month</span>
+          </div>
+          <div style="position:relative;width:100%;height:160px">
+            <canvas id="perfChart" role="img" aria-label="Horizontal bar chart of deals closed by each employee this month">Top performer deal counts.</canvas>
+          </div>
+          <div style="margin-top:10px;border-top:0.5px solid var(--color-border-tertiary);padding-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px" id="team-totals"></div>
+        </div>
+
+        <!-- Today's Work + Reminders -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <!-- Today's Work -->
+          <div class="card">
+            <div class="card-hd">
+              <h3><i class="ti ti-checkbox" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Today's work</h3>
+              <span style="font-size:10px;color:var(--color-text-secondary)" id="task-count">0 done</span>
+            </div>
+            <div class="today-work" id="tasks-wrap"></div>
+            <div class="work-add-row">
+              <input id="task-input" type="text" placeholder="Add a task…" onkeydown="if(event.key==='Enter')addTask()">
+              <button onclick="addTask()"><i class="ti ti-plus" style="font-size:13px" aria-hidden="true"></i> Add</button>
+            </div>
+          </div>
+
+          <!-- Reminders / Visits -->
+          <div class="card">
+            <div class="card-hd">
+              <h3><i class="ti ti-clock" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Today's reminders</h3>
+            </div>
+            <div id="reminders-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Smart Insights -->
+      <div class="card">
+        <div class="card-hd">
+          <h3><i class="ti ti-bulb" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Smart insights</h3>
+          <span style="font-size:10px;color:var(--color-text-tertiary)">Auto-detected from your data</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px" id="insights-grid"></div>
+      </div>
+
+      <!-- Project Unit Chart -->
+      <div class="card">
+        <div class="card-hd">
+          <h3><i class="ti ti-building" style="font-size:14px;margin-right:4px" aria-hidden="true"></i>Project inventory snapshot</h3>
+          <span style="font-size:10px;color:var(--color-text-tertiary)" id="proj-chart-label">All Projects</span>
+        </div>
+        <div style="position:relative;width:100%;height:160px">
+          <canvas id="projChart" role="img" aria-label="Grouped bar chart showing available, booked, and sold units per project">Project unit availability breakdown.</canvas>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:var(--color-text-secondary)">
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#16a34a;margin-right:4px"></span>Available</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d97706;margin-right:4px"></span>Booked</span>
+          <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#dc2626;margin-right:4px"></span>Sold</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const PROJECTS = {
+  all:{name:'All Projects',totalLeads:1284,newLeads:38,followUps:62,visits:14,bookingsYest:7,pending:23,available:183,convRate:18.4,units:{avail:183,booked:94,sold:143}},
+  sky:{name:'Skyline Heights',totalLeads:542,newLeads:17,followUps:28,visits:6,bookingsYest:3,pending:11,available:72,convRate:21.2,units:{avail:72,booked:41,sold:67}},
+  verde:{name:'Verde Residences',totalLeads:389,newLeads:12,followUps:19,visits:5,bookingsYest:2,pending:8,available:58,convRate:16.7,units:{avail:58,booked:31,sold:31}},
+  harbor:{name:'Harborview Plots',totalLeads:353,newLeads:9,followUps:15,visits:3,bookingsYest:2,pending:4,available:53,convRate:14.9,units:{avail:53,booked:22,sold:45}}
+};
+const STATS_DEF=[
+  {key:'totalLeads',label:'Total leads',sub:'All time',icon:'ti-users',bg:'#E6F1FB',clr:'#185FA5',badgeBg:'#dcfce7',badgeClr:'#16a34a',badge:'+12% vs last mo.'},
+  {key:'newLeads',label:'New leads today',sub:'Since midnight',icon:'ti-sparkles',bg:'#EEEDFE',clr:'#534AB7',badgeBg:'#EEEDFE',badgeClr:'#534AB7',badge:'+3 vs yesterday'},
+  {key:'followUps',label:"Today's follow-ups",sub:'Scheduled',icon:'ti-bell',bg:'#E1F5EE',clr:'#0F6E56',badgeBg:'#E1F5EE',badgeClr:'#0F6E56',badge:'In progress'},
+  {key:'visits',label:"Today's site visits",sub:'Confirmed',icon:'ti-building',bg:'#EAF3DE',clr:'#3B6D11',badgeBg:'#dcfce7',badgeClr:'#16a34a',badge:'+2 vs yesterday'},
+  {key:'bookingsYest',label:"Yesterday's bookings",sub:'Confirmed deals',icon:'ti-file-text',bg:'#FAEEDA',clr:'#854F0B',badgeBg:'#FAEEDA',badgeClr:'#854F0B',badge:'+1 vs prev. day'},
+  {key:'pending',label:'Pending payments',sub:'Due within 7 days',icon:'ti-clock',bg:'#FAECE7',clr:'#993C1D',badgeBg:'#FAECE7',badgeClr:'#dc2626',badge:'5 overdue!'},
+  {key:'available',label:'Units available',sub:'Across all projects',icon:'ti-home',bg:'#E1F5EE',clr:'#085041',badgeBg:'#E1F5EE',badgeClr:'#0F6E56',badge:'Live count'},
+  {key:'convRate',label:'Conversion rate',sub:'Lead to booking',icon:'ti-chart-line',bg:'#FBEAF0',clr:'#993556',badgeBg:'#dcfce7',badgeClr:'#16a34a',badge:'+1.2% this week'}
+];
+const EMPLOYEES=[
+  {name:'Sana Qureshi',init:'SQ',done:8,total:11,deals:7,calls:20,status:'online'},
+  {name:'Arjun Mehta',init:'AM',done:9,total:12,deals:6,calls:18,status:'online'},
+  {name:'Rohan Desai',init:'RD',done:10,total:10,deals:5,calls:15,status:'away'},
+  {name:'Priya Sharma',init:'PS',done:5,total:8,deals:4,calls:12,status:'online'},
+  {name:'Vikram Nair',init:'VN',done:7,total:9,deals:4,calls:14,status:'offline'},
+  {name:'Neha Kapoor',init:'NK',done:3,total:7,deals:2,calls:8,status:'online'}
+];
+const FUNNEL=[
+  {stage:'Total Leads',count:1284,clr:'#2563eb'},
+  {stage:'Contacted',count:874,clr:'#7c3aed'},
+  {stage:'Interested',count:498,clr:'#d97706'},
+  {stage:'Site Visited',count:214,clr:'#059669'},
+  {stage:'Booked',count:94,clr:'#dc2626'}
+];
+const REMINDERS=[
+  {time:'10:00 AM',title:'Site visit — Amit Joshi',sub:'Skyline Heights · B-204 · Arjun Mehta',type:'visit',typeClr:'#dcfce7',typeTC:'#16a34a'},
+  {time:'12:30 PM',title:'Call — Meera Pillai',sub:'Verde Residences · Feedback call',type:'call',typeClr:'#E6F1FB',typeTC:'#185FA5'},
+  {time:'2:00 PM',title:'Payment due — Nikhil Verma',sub:'₹4.5L instalment · 2 days overdue',type:'urgent',typeClr:'#FAECE7',typeTC:'#dc2626'},
+  {time:'4:30 PM',title:'Site visit — Sunita Rao',sub:'Harborview Plots · Priya Sharma',type:'visit',typeClr:'#dcfce7',typeTC:'#16a34a'}
+];
+const INSIGHTS=[
+  {icon:'ti-alert-triangle',bg:'#FAECE7',iclr:'#993C1D',text:'Leads dipping',sub:'Down 18% Wed–Fri. Check ad spend or source quality.'},
+  {icon:'ti-star',bg:'#FAEEDA',iclr:'#854F0B',text:'Sana top this month',sub:'7 deals, 28% conversion — highest on team.'},
+  {icon:'ti-trending-up',bg:'#EAF3DE',iclr:'#3B6D11',text:'Website leads up',sub:'Web form leads +34% vs last week.'},
+  {icon:'ti-coin',bg:'#FAECE7',iclr:'#dc2626',text:'5 payments overdue',sub:'Chase Nikhil Verma & Deepa Menon today.'}
+];
+let tasks=[{text:'Call 3 new leads',done:false},{text:'Review Skyline bookings',done:false},{text:'Send payment reminder',done:false}];
+let proj='all';
+let trendChart,sourceChart,perfChart,projChart;
+
+function switchProject(v){
+  proj=v;
+  renderStats();
+  document.getElementById('proj-chart-label').textContent=PROJECTS[v].name;
+  updateFunnel(v);
+}
+function renderStats(){
+  const p=PROJECTS[proj];
+  const grid=document.getElementById('stats-grid');
+  grid.innerHTML='';
+  STATS_DEF.forEach(s=>{
+    let val=p[s.key];
+    if(s.key==='convRate')val=val+'%';
+    const el=document.createElement('div');
+    el.className='stat';
+    el.innerHTML=`<div class="stat-top">
+      <div class="stat-icon" style="background:${s.bg}"><i class="ti ${s.icon}" style="color:${s.clr};font-size:16px" aria-hidden="true"></i></div>
+      <span class="stat-badge" style="background:${s.badgeBg};color:${s.badgeClr}">${s.badge}</span>
+    </div>
+    <div class="stat-val">${val.toLocaleString()}</div>
+    <div class="stat-label">${s.label}</div>
+    <div class="stat-sub">${s.sub}</div>`;
+    grid.appendChild(el);
+  });
+}
+function renderFunnel(){
+  const max=FUNNEL[0].count;
+  const wrap=document.getElementById('funnel-wrap');
+  wrap.innerHTML='';
+  FUNNEL.forEach((f,i)=>{
+    const pct=Math.round((f.count/max)*100);
+    const convPct=i>0?Math.round((f.count/FUNNEL[i-1].count)*100)+'% pass':'';
+    wrap.innerHTML+=`<div class="funnel-item">
+      <span class="funnel-label">${f.stage}</span>
+      <div class="funnel-bar-outer">
+        <div class="funnel-bar-inner" style="width:${pct}%;background:${f.clr}20;min-width:40px">
+          <span class="funnel-count" style="color:${f.clr}">${f.count.toLocaleString()}</span>
+        </div>
+      </div>
+      <span class="funnel-pct" style="color:${f.clr};font-size:10px">${convPct}</span>
+    </div>`;
+  });
+}
+function updateFunnel(v){
+  const p=PROJECTS[v];
+  const ratios=[1,0.68,0.39,0.17,0.073];
+  const wrap=document.getElementById('funnel-wrap');
+  wrap.innerHTML='';
+  const base=p.totalLeads;
+  FUNNEL.forEach((f,i)=>{
+    const count=Math.round(base*ratios[i]);
+    const pct=Math.round(ratios[i]*100);
+    const convPct=i>0?Math.round(ratios[i]/ratios[i-1]*100)+'% pass':'';
+    wrap.innerHTML+=`<div class="funnel-item">
+      <span class="funnel-label">${f.stage}</span>
+      <div class="funnel-bar-outer">
+        <div class="funnel-bar-inner" style="width:${pct}%;background:${f.clr}20;min-width:40px">
+          <span class="funnel-count" style="color:${f.clr}">${count.toLocaleString()}</span>
+        </div>
+      </div>
+      <span class="funnel-pct" style="color:${f.clr};font-size:10px">${convPct}</span>
+    </div>`;
+  });
+}
+function renderEmployees(){
+  const list=document.getElementById('emp-list');
+  list.innerHTML='';
+  const statusColor={online:'#16a34a',away:'#d97706',offline:'#9ca3af'};
+  EMPLOYEES.forEach(e=>{
+    const pct=Math.round((e.done/e.total)*100);
+    const isDone=e.done===e.total;
+    list.innerHTML+=`<div class="emp-row">
+      <div class="avatar">${e.init}</div>
+      <div class="emp-info">
+        <div style="display:flex;align-items:center;gap:5px">
+          <span class="status-dot" style="background:${statusColor[e.status]}"></span>
+          <span class="emp-name">${e.name}</span>
+        </div>
+        <div class="emp-prog-row">
+          <div class="prog-bar"><div class="${isDone?'prog-done':'prog-fill'}" style="width:${pct}%"></div></div>
+          <span class="prog-text">${e.done}/${e.total} done</span>
+        </div>
+      </div>
+      <div style="text-align:right;min-width:44px">
+        <div style="font-size:12px;font-weight:500;color:var(--color-text-primary)">${e.calls}</div>
+        <div style="font-size:10px;color:var(--color-text-tertiary)">calls</div>
+      </div>
+    </div>`;
+  });
+}
+function renderReminders(){
+  const list=document.getElementById('reminders-list');
+  list.innerHTML='';
+  REMINDERS.forEach(r=>{
+    list.innerHTML+=`<div class="reminder-item">
+      <span class="rem-time">${r.time}</span>
+      <div class="rem-body">
+        <div class="rem-title">${r.title}</div>
+        <div class="rem-sub">${r.sub}</div>
+        <span class="rem-badge" style="background:${r.typeClr};color:${r.typeTC}">${r.type}</span>
+      </div>
+    </div>`;
+  });
+}
+function renderInsights(){
+  const grid=document.getElementById('insights-grid');
+  grid.innerHTML='';
+  INSIGHTS.forEach(ins=>{
+    grid.innerHTML+=`<div style="background:${ins.bg};border-radius:var(--border-radius-md);padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <i class="ti ${ins.icon}" style="font-size:15px;color:${ins.iclr}" aria-hidden="true"></i>
+        <span style="font-size:12px;font-weight:500;color:${ins.iclr}">${ins.text}</span>
+      </div>
+      <div style="font-size:11px;color:${ins.iclr};opacity:0.85">${ins.sub}</div>
+    </div>`;
+  });
+}
+function renderTasks(){
+  const wrap=document.getElementById('tasks-wrap');
+  wrap.innerHTML='';
+  const done=tasks.filter(t=>t.done).length;
+  document.getElementById('task-count').textContent=`${done}/${tasks.length} done`;
+  tasks.forEach((t,i)=>{
+    const chip=document.createElement('div');
+    chip.className='work-chip'+(t.done?' done':'');
+    chip.innerHTML=`<span onclick="toggleTask(${i})" style="cursor:pointer">${t.text}</span><button onclick="removeTask(${i})" aria-label="Remove task">×</button>`;
+    wrap.appendChild(chip);
+  });
+}
+function addTask(){
+  const inp=document.getElementById('task-input');
+  const val=inp.value.trim();
+  if(!val)return;
+  tasks.push({text:val,done:false});
+  inp.value='';
+  renderTasks();
+}
+function toggleTask(i){tasks[i].done=!tasks[i].done;renderTasks();}
+function removeTask(i){tasks.splice(i,1);renderTasks();}
+
+function renderTeamTotals(){
+  const t=document.getElementById('team-totals');
+  t.innerHTML=`
+    <div style="text-align:center"><div style="font-size:18px;font-weight:500;color:var(--color-text-primary)">28</div><div style="font-size:10px;color:var(--color-text-secondary)">Total deals</div></div>
+    <div style="text-align:center"><div style="font-size:18px;font-weight:500;color:var(--color-text-primary)">₹8.4Cr</div><div style="font-size:10px;color:var(--color-text-secondary)">Revenue</div></div>
+    <div style="text-align:center"><div style="font-size:18px;font-weight:500;color:var(--color-text-primary)">22.6%</div><div style="font-size:10px;color:var(--color-text-secondary)">Avg. conversion</div></div>`;
+}
+
+function initCharts(){
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const leadData=[42,55,61,48,38,35,38];
+  document.getElementById('trend-signal').textContent=leadData[6]<leadData[4]?'↓ Dipping — check sources':'↑ Recovering';
+  trendChart=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{labels:days,datasets:[{label:'Leads',data:leadData,borderColor:'#2563eb',backgroundColor:'#2563eb18',borderWidth:2,pointRadius:3,pointBackgroundColor:'#2563eb',fill:true,tension:0.35}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Leads: '+c.parsed.y}}},scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:'#e2e8f015'},ticks:{font:{size:10},stepSize:10}}}}
+  });
+
+  const srcLabels=['Website','Referrals','Ads','Walk-ins','Other'];
+  const srcData=[34,22,26,11,7];
+  const srcColors=['#2563eb','#16a34a','#7c3aed','#d97706','#94a3b8'];
+  sourceChart=new Chart(document.getElementById('sourceChart'),{
+    type:'doughnut',
+    data:{labels:srcLabels,datasets:[{data:srcData,backgroundColor:srcColors,borderWidth:1,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+c.parsed+'%'}}}}
+  });
+  const legend=document.getElementById('source-legend');
+  srcLabels.forEach((l,i)=>{
+    legend.innerHTML+=`<span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:${srcColors[i]};flex-shrink:0"></span>${l} ${srcData[i]}%</span>`;
+  });
+
+  const perfNames=EMPLOYEES.sort((a,b)=>b.deals-a.deals).map(e=>e.init);
+  const perfDeals=EMPLOYEES.sort((a,b)=>b.deals-a.deals).map(e=>e.deals);
+  perfChart=new Chart(document.getElementById('perfChart'),{
+    type:'bar',
+    data:{labels:perfNames,datasets:[{label:'Deals',data:perfDeals,backgroundColor:['#fbbf24','#94a3b8','#cd7c2f','#2563eb','#2563eb','#2563eb'],borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'Deals: '+c.parsed.y}}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#e2e8f015'},ticks:{stepSize:2,font:{size:10}}}}}
+  });
+
+  const projLabels=['Skyline','Verde','Harborview'];
+  const avail=[72,58,53],booked=[41,31,22],sold=[67,31,45];
+  projChart=new Chart(document.getElementById('projChart'),{
+    type:'bar',
+    data:{labels:projLabels,datasets:[
+      {label:'Available',data:avail,backgroundColor:'#16a34a',borderRadius:3},
+      {label:'Booked',data:booked,backgroundColor:'#d97706',borderRadius:3},
+      {label:'Sold',data:sold,backgroundColor:'#dc2626',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{grid:{color:'#e2e8f015'},ticks:{font:{size:10},stepSize:20}}}}
+  });
+}
+
+renderStats();
+updateFunnel('all');
+renderEmployees();
+renderReminders();
+renderInsights();
+renderTasks();
+renderTeamTotals();
+setTimeout(initCharts,100);
+</script>

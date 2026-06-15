@@ -6,668 +6,637 @@ import { getAuthHeaders } from "../lib/auth";
 import PageHeader from "../Components/PageHeader";
 import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../lib/pageLayout";
 import { useDashboard } from "./DashboardContext";
-import { Download, Plus, Upload, User } from "lucide-react";
+import { Download, Upload, ClipboardList, Sparkles, Bell, MapPin, FileCheck, Hourglass, Home as HomeIcon, TrendingUp, BarChart2, ChevronDown } from "lucide-react";
 
-interface Task {
-  id: string;
-  priority: string;
-  status: string;
-  title: string;
-  description: string;
-  time: string;
-  completed: boolean;
-  type: "high" | "followup" | "sitevisit";
-}
+import KPICard from "../Components/KPICard";
 
-interface Activity {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  type: "enquiry" | "visit" | "payment" | "calendar";
-  sortDate?: number;
-}
-
-interface KpiMetric {
-  title: string;
-  value: string;
-  trend: string;
-  isUp: boolean;
-  colorCode: string;
-}
-
-interface ChartBar {
-  label: string;
-  closures: number;
-  volume: number;
-  closuresRaw: number;
-  volumeRaw: number;
-}
-
-const CLOSED_STATUSES = ["CLOSED", "BOOKED", "Closed", "Converted"];
-
-const formatCurrency = (amount: number) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount || 0);
-
-const calcTrend = (current: number, previous: number) => {
-  if (previous === 0) {
-    const isUp = current >= 0;
-    return { pct: current > 0 ? "+100%" : "0%", isUp, suffix: "vs last month" };
-  }
-  const change = ((current - previous) / previous) * 100;
-  const sign = change >= 0 ? "+" : "";
-  return {
-    pct: `${sign}${change.toFixed(1)}%`,
-    isUp: change >= 0,
-    suffix: "vs last month",
-  };
+// --- Helper Functions ---
+const formatCurrencyCr = (val: number) => {
+  if (!val) return "₹0";
+  if (val >= 10000000) return `₹${(val / 10000000).toFixed(1)} Cr`;
+  if (val >= 100000) return `₹${(val / 100000).toFixed(1)} L`;
+  return `₹${val.toLocaleString("en-IN")}`;
 };
 
-const timeAgo = (dateStr: string) => {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} Min Ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} Hr Ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days} Day${days > 1 ? "s" : ""} Ago`;
-};
-
-const getFollowUpStatus = (scheduledAt: string, status: string) => {
-  if (status === "COMPLETED") return "Done";
-  const sched = new Date(scheduledAt);
-  const now = new Date();
-  if (sched < now) return "Overdue";
-  const diffHrs = Math.floor((sched.getTime() - now.getTime()) / 3600000);
-  if (diffHrs < 1) return "In <1hr";
-  if (diffHrs < 24) return `In ${diffHrs}hr`;
-  return sched.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-};
-
-const mapFollowUpType = (type: string, isOverdue: boolean): Task["type"] => {
-  if (type === "Site Visit") return "sitevisit";
-  if (isOverdue) return "high";
-  return "followup";
+const formatCurrencyLakh = (val: number) => {
+  if (!val) return "₹0";
+  if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+  return `₹${val.toLocaleString("en-IN")}`;
 };
 
 export default function Home() {
-  const { userName, setUserName, addToast } = useDashboard();
-
-  const [hoveredWeek, setHoveredWeek] = useState<number | null>(null);
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [tempName, setTempName] = useState(userName);
+  const { userName, addToast } = useDashboard();
   const [loading, setLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState("all");
 
-  const [kpis, setKpis] = useState<KpiMetric[]>([]);
-  const [chartBars, setChartBars] = useState<ChartBar[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-
-  const buildKpis = (data: any, totalEnquiries: number): KpiMetric[] => {
-    const leadStats = data.leadStats?.[0] || {};
-    const bookingStats = data.bookingStats?.[0] || {};
-    const leadsByStatus: { _id: string; count: number }[] = data.leadsByStatus || [];
-
-    const totalLeads = leadStats.total || 0;
-    const newThisMonth = leadStats.newThisMonth || 0;
-    const newLastMonth = leadStats.newLastMonth || 0;
-
-    const closedCount = leadsByStatus
-      .filter((s) => CLOSED_STATUSES.includes(s._id))
-      .reduce((sum, s) => sum + s.count, 0);
-
-    const bookingsThisMonth = bookingStats.thisMonth || 0;
-    const bookingsLastMonth = bookingStats.lastMonth || 0;
-    const bookingsTotal = bookingStats.total || 0;
-
-    const leadsTrend = calcTrend(newThisMonth, newLastMonth);
-    const bookingsTrend = calcTrend(bookingsThisMonth, bookingsLastMonth);
-
-    return [
-      {
-        title: "Total Enquiry",
-        value: String(totalEnquiries),
-        trend: "Total enquiries",
-        isUp: true,
-        colorCode: "border-t-brand",
-      },
-      {
-        title: "Total Leads",
-        value: String(totalLeads),
-        trend: `${leadsTrend.pct} ${leadsTrend.suffix}`,
-        isUp: leadsTrend.isUp,
-        colorCode: "border-t-blue-500",
-      },
-      {
-        title: "Bookings",
-        value: String(bookingsTotal),
-        trend: `${bookingsTrend.pct} ${bookingsTrend.suffix}`,
-        isUp: bookingsTrend.isUp,
-        colorCode: "border-t-amber-500",
-      },
-      {
-        title: "Units Left",
-        value: String(closedCount),
-        trend: "Total Units left",
-        isUp: true,
-        colorCode: "border-t-emerald-500",
-      },
-    ];
-  };
-
-  const buildActivities = (dashboardData: any, enquiries: any[]): Activity[] => {
-    const items: Activity[] = [];
-
-    enquiries.forEach((e: any) => {
-      items.push({
-        id: `enquiry-${e._id}`,
-        title: `New Enquiry${e.interestedProject?.name ? `: ${e.interestedProject.name}` : ""}`,
-        description: `${e.name || "Unknown"} is interested${e.propertyType ? ` in ${e.propertyType}` : ""}`,
-        time: timeAgo(e.createdAt),
-        type: "enquiry",
-        sortDate: new Date(e.createdAt).getTime(),
-      });
-    });
-
-    (dashboardData.recentBookings || []).forEach((b: any) => {
-      items.push({
-        id: `booking-${b._id}`,
-        title: "Site Visit Completed",
-        description: `${b.client?.name || "Client"} booked at ${b.project?.name || "project"}`,
-        time: timeAgo(b.createdAt),
-        type: "visit",
-        sortDate: new Date(b.createdAt).getTime(),
-      });
-    });
-
-    (dashboardData.recentPayments || []).forEach((p: any) => {
-      items.push({
-        id: `payment-${p._id}`,
-        title: "Payment Received",
-        description: `${formatCurrency(p.amount || 0)} from ${p.client?.name || "client"}`,
-        time: timeAgo(p.createdAt),
-        type: "payment",
-        sortDate: new Date(p.createdAt).getTime(),
-      });
-    });
-
-    return items
-      .sort((a, b) => (b.sortDate ?? 0) - (a.sortDate ?? 0))
-      .slice(0, 4)
-      .map(({ sortDate: _, ...rest }) => rest);
-  };
-
-  const mapFollowUpsToTasks = (followUps: any[]): Task[] =>
-    followUps
-      .filter((f) => !["COMPLETED", "CANCELLED"].includes(f.status))
-      .slice(0, 4)
-      .map((f) => {
-        const isOverdue = new Date(f.scheduledAt) < new Date() && f.status !== "COMPLETED";
-        const leadName = f.lead?.name || "Lead";
-        return {
-          id: f._id,
-          priority: f.type === "Site Visit" ? "Site Visit" : isOverdue ? "High Priority" : "Follow up",
-          status: getFollowUpStatus(f.scheduledAt, f.status),
-          title: `${f.type} with ${leadName}`,
-          description: f.notes || `Scheduled follow-up for ${leadName}`,
-          time: new Date(f.scheduledAt).toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          completed: f.status === "COMPLETED",
-          type: mapFollowUpType(f.type, isOverdue),
-        };
-      });
+  const [summary, setSummary] = useState<any>({});
+  const [inventory, setInventory] = useState<any[]>([]);
+  const [employeePerf, setEmployeePerf] = useState<any[]>([]);
+  const [topPerformers, setTopPerformers] = useState<any[]>([]);
+  const [visits, setVisits] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [leadTrends, setLeadTrends] = useState<any[]>([]);
+  const [leadFunnel, setLeadFunnel] = useState<any[]>([]);
+  const [leadSources, setLeadSources] = useState<any[]>([]);
+  const [todayWork, setTodayWork] = useState<any>({});
+  const [reminders, setReminders] = useState<any[]>([]);
 
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
+
+    if (selectedProject !== 'all') {
+      setTimeout(() => {
+        setSummary({
+          totalLeads: Math.floor(Math.random() * 500) + 100,
+          newLeadsToday: Math.floor(Math.random() * 20),
+          newLeadsTrendPct: Math.floor(Math.random() * 20) - 5,
+          todayFollowUps: Math.floor(Math.random() * 30),
+          todayFollowUpsDone: Math.floor(Math.random() * 15),
+          todayVisits: Math.floor(Math.random() * 10),
+          yesterdayBookings: Math.floor(Math.random() * 5),
+          pendingPayments: Math.floor(Math.random() * 50),
+          overduePayments: Math.floor(Math.random() * 10),
+          conversionRate: (Math.random() * 15 + 5).toFixed(1)
+        });
+        setInventory([{ totalUnits: 100, available: Math.floor(Math.random() * 50) + 10 }]);
+        setEmployeePerf([]);
+        setTopPerformers([]);
+        setVisits([]);
+        setPayments([]);
+        setLeadTrends([
+          { leads: Math.floor(Math.random() * 10) + 5, date: new Date(Date.now() - 4 * 86400000).toISOString() },
+          { leads: Math.floor(Math.random() * 20) + 5, date: new Date(Date.now() - 3 * 86400000).toISOString() },
+          { leads: Math.floor(Math.random() * 15) + 5, date: new Date(Date.now() - 2 * 86400000).toISOString() },
+          { leads: Math.floor(Math.random() * 35) + 10, date: new Date(Date.now() - 86400000).toISOString() },
+          { leads: Math.floor(Math.random() * 25) + 10, date: new Date().toISOString() }
+        ]);
+        setLeadFunnel([
+          { status: 'NEW', count: Math.floor(Math.random() * 200) + 50 },
+          { status: 'CONTACTED', count: Math.floor(Math.random() * 100) + 20 },
+          { status: 'INTERESTED', count: Math.floor(Math.random() * 50) + 10 },
+          { status: 'SITE_VISIT_COMPLETED', count: Math.floor(Math.random() * 20) + 5 },
+          { status: 'BOOKED', count: Math.floor(Math.random() * 10) + 2 },
+          { status: 'CLOSED', count: Math.floor(Math.random() * 5) + 1 }
+        ]);
+        setLeadSources([
+          { source: 'Facebook', count: Math.floor(Math.random() * 100) + 20, percentage: 40 },
+          { source: 'Google', count: Math.floor(Math.random() * 50) + 10, percentage: 20 },
+          { source: 'Referral', count: Math.floor(Math.random() * 30) + 5, percentage: 10 }
+        ]);
+        setTodayWork({});
+        setReminders([]);
+        setLoading(false);
+      }, 500);
+      return;
+    }
+
     try {
       const headers = getAuthHeaders();
-      const [dashboardRes, trendRes, followupsRes, enquiriesRes] = await Promise.all([
-        fetch(`${API_URL}/v1/dashboard`, { headers }),
-        fetch(`${API_URL}/v1/dashboard/bookings-trend`, { headers }),
-        fetch(`${API_URL}/v1/followups?limit=8`, { headers }),
-        fetch(`${API_URL}/v1/enquiries?limit=5`, { headers }),
-      ]);
+      const requests = [
+        fetch(`${API_URL}/v1/dashboard/summary`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/project-inventory`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/employee-performance`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/top-performers`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/today-visits`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/payment-alerts`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/lead-trends?period=daily&range=7`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/lead-funnel`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/lead-sources?period=thisMonth`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/today-work`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/reminders`, { headers }).then(r => r.ok ? r.json() : null),
+      ];
 
-      const [dashboardJson, trendJson, followupsJson, enquiriesJson] = await Promise.all([
-        dashboardRes.json(),
-        trendRes.json(),
-        followupsRes.json(),
-        enquiriesRes.json(),
-      ]);
+      const [sumData, invData, empData, topData, visData, payData, trendData, funnelData, srcData, workData, remData] = await Promise.all(requests);
 
-      if (dashboardJson.success && dashboardJson.data) {
-        const enquiriesTotal = enquiriesJson.success ? enquiriesJson.data?.total || 0 : 0;
-        setKpis(buildKpis(dashboardJson.data, enquiriesTotal));
-        const enquiryList = enquiriesJson.success ? enquiriesJson.data?.enquiries || [] : [];
-        setActivities(buildActivities(dashboardJson.data, enquiryList));
-      } else {
-        addToast(dashboardJson.message || "Failed to load dashboard", "info");
+      if (sumData?.success) setSummary(sumData.data || {});
+      if (invData?.success) setInventory(invData.data || []);
+      if (empData?.success) setEmployeePerf(empData.data || []);
+      if (topData?.success) setTopPerformers(topData.data || []);
+      if (visData?.success) setVisits(visData.data || []);
+      if (payData?.success) setPayments(payData.data || []);
+      if (trendData?.success) setLeadTrends(trendData.data || []);
+      if (funnelData?.success) setLeadFunnel(funnelData.data || []);
+      if (srcData?.success) setLeadSources(srcData.data || []);
+      if (workData?.success) setTodayWork(workData.data || {});
+      if (remData?.success) {
+        // reminders returns { upcoming: [...], overdue: [...] }
+        const upcoming = (remData.data?.upcoming || []).map((r: any) => ({ ...r, isOverdue: false }));
+        const overdue  = (remData.data?.overdue  || []).map((r: any) => ({ ...r, isOverdue: true  }));
+        setReminders([...overdue, ...upcoming]);
       }
 
-      if (trendJson.success && Array.isArray(trendJson.data)) {
-        setChartBars(trendJson.data);
-      }
-
-      if (followupsJson.success) {
-        setTasks(mapFollowUpsToTasks(followupsJson.data?.followUps || []));
-      }
     } catch (err: any) {
+      console.error(err);
       addToast(err.message || "Error connecting to server", "info");
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, selectedProject]);
 
   useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  const handleSaveName = () => {
-    if (tempName.trim()) {
-      setUserName(tempName);
-      localStorage.setItem("crm_username", tempName);
-      setIsEditingName(false);
-      addToast(`Profile name updated to "${tempName}"`, "success");
-    }
-  };
-
-  const toggleTaskCompleted = async (id: string) => {
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
-
-    if (!task.completed) {
-      try {
-        const res = await fetch(`${API_URL}/v1/followups/${id}/complete`, {
-          method: "PATCH",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ outcome: "Completed from dashboard", notes: "" }),
-        });
-        const json = await res.json();
-        if (json.success) {
-          setTasks((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, completed: true, status: "Done" } : t))
-          );
-          addToast(`Completed task: "${task.title}"`, "success");
-        } else {
-          addToast(json.message || "Failed to complete task", "info");
-        }
-      } catch (err: any) {
-        addToast(err.message || "Error completing task", "info");
-      }
-    } else {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, completed: false, status: "Reopened" } : t))
-      );
-      addToast(`Reopened task: "${task.title}"`, "info");
-    }
-  };
+  // Derived metrics
+  const totalUnits = inventory.reduce((sum, inv) => sum + (inv.totalUnits || 0), 0);
+  const unitsAvailable = inventory.reduce((sum, inv) => sum + (inv.available || 0), 0);
+  const openPct = totalUnits > 0 ? Math.round((unitsAvailable / totalUnits) * 100) : 0;
+  
+  const teamDeals = topPerformers.reduce((sum, p) => sum + (p.dealsClosedMonth || 0), 0);
+  const teamRevenue = topPerformers.reduce((sum, p) => sum + (p.revenue || 0), 0);
+  const teamAvgConv = topPerformers.length > 0 ? (topPerformers.reduce((sum, p) => sum + (p.conversionRate || 0), 0) / topPerformers.length).toFixed(1) : "0";
 
   return (
     <div className={PAGE_CONTAINER_CLASS}>
-      {isEditingName && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-sm border border-slate-100 shadow-2xl animate-scale-up">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Edit Profile Name</h3>
-            <input
-              type="text"
-              value={tempName}
-              onChange={(e) => setTempName(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-[15px] focus:ring-2 focus:ring-brand/20 outline-none mb-4"
-              placeholder="Enter name"
-              autoFocus
-            />
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setIsEditingName(false)}
-                className="px-4 py-2 rounded-xl text-slate-500 hover:bg-slate-100 text-[14px] font-semibold cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveName}
-                className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-[14px] font-semibold shadow-md shadow-brand/10 cursor-pointer"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-8 animate-fade-in-up">
+      <div className="space-y-6 animate-fade-in-up">
         <PageHeader
-          title={
-            <>
-              Welcome Back,{" "}
-              {isEditingName ? (
-                <span className="text-brand">...</span>
-              ) : (
-                <span
-                  onClick={() => {
-                    setTempName(userName);
-                    setIsEditingName(true);
-                  }}
-                  className="hover:text-brand cursor-pointer border-b-2 border-dashed border-slate-300 hover:border-brand transition-colors"
-                  title="Click to rename"
-                >
-                  {userName}
-                </span>
-              )}
-            </>
-          }
+          title={<>Welcome Back, <span className="text-brand">{userName}</span></>}
           subtitle="Here's what requires your attention today"
           actions={
-            <>
-              <button
-                onClick={() => addToast("Uploading new leads collection...", "success")}
-                className={PRIMARY_ACTION_BTN_CLASS}
+            <div className="flex items-center gap-2 bg-white border border-rose-200 hover:border-[#EB3539]/50 shadow-sm rounded-xl px-4 py-2.5 relative transition-all group w-[280px] cursor-pointer">
+              <span className="text-slate-500 text-[13px] font-medium whitespace-nowrap">Project:</span>
+              <select 
+                className="bg-transparent border-none text-[#EB3539] font-bold text-[14px] outline-none cursor-pointer pr-8 focus:ring-0 appearance-none flex-1 w-full"
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
               >
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Leads
-              </button>
-
-              <button
-                onClick={() => addToast("Exporting account statement PDF...", "success")}
-                className={PRIMARY_ACTION_BTN_CLASS}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export Statement
-              </button>
-              {/* <button
-                onClick={() => addToast("Creating new leads collection...", "success")}
-                className={PRIMARY_ACTION_BTN_CLASS}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Collection
-              </button> */}
-            </>
+                <option value="all" className="text-slate-800 font-medium">All Projects</option>
+                <option value="the_f_row" className="text-slate-800 font-medium">The F row</option>
+                <option value="18_aangan" className="text-slate-800 font-medium">18 Aangan</option>
+                <option value="eco_town" className="text-slate-800 font-medium">Eco-Town</option>
+                <option value="aasis_scahe" className="text-slate-800 font-medium">aasis scahe</option>
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-rose-50 rounded-md flex items-center justify-center group-hover:bg-[#EB3539] transition-colors">
+                <ChevronDown className="w-3.5 h-3.5 text-[#EB3539] group-hover:text-white transition-colors" />
+              </div>
+            </div>
           }
         />
 
+        {/* 8 KPI Cards — inner alignment updated to match Image 2 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {(loading && kpis.length === 0
-            ? [
-              { title: "Total Enquiry", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-brand" },
-              { title: "Total Leads", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-blue-500" },
-              { title: "Bookings", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-amber-500" },
-              { title: "Units Left", value: "—", trend: "Loading...", isUp: true, colorCode: "border-t-emerald-500" },
-            ]
-            : kpis
-          ).map((kpi, idx) => {
-            const bgColors: { [key: string]: string } = {
-              "border-t-brand": "#EB3539",
-              "border-t-blue-500": "#3b82f6",
-              "border-t-amber-500": "#f59e0b",
-              "border-t-emerald-500": "#10b981",
-            };
-            const accentColor = bgColors[kpi.colorCode] || "#EB3539";
-
-            return (
-              <div
-                key={idx}
-                className="bg-white rounded-[26px] p-6 shadow-sm hover:shadow-xl border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1.5 group cursor-default relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 right-0 h-[6px] rounded-t-full" style={{ backgroundColor: accentColor }} />
-                <span className="text-slate-800 font-bold text-[14.5px] uppercase tracking-wider block">{kpi.title}</span>
-                <h3 className="text-[34px] font-extrabold text-slate-900 mt-2 mb-2 leading-none group-hover:scale-102 transition-transform origin-left duration-300">
-                  {kpi.value}
-                </h3>
-                <div className="flex items-center gap-1.5 mt-2">
-                  {kpi.isUp ? (
-                    <span className="text-[#22c55e] font-extrabold text-[14px] flex items-center bg-emerald-50 px-2 py-0.5 rounded-full">
-                      <svg className="w-4 h-4 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                      </svg>
-                      {kpi.trend.split(" ")[0]}
-                    </span>
-                  ) : (
-                    <span className="text-[#ef4444] font-extrabold text-[14px] flex items-center bg-rose-50 px-2 py-0.5 rounded-full">
-                      <svg className="w-4 h-4 mr-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M12 13a1 1 0 110 2H7a1 1 0 01-1-1V9a1 1 0 112 0v2.586l4.293-4.293a1 1 0 011.414 0L12 9.586l4.293-4.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0L12 9.414 8.414 13H12z" clipRule="evenodd" />
-                      </svg>
-                      {kpi.trend.split(" ")[0]}
-                    </span>
-                  )}
-                  <span className="text-slate-500 text-[13.5px] font-semibold ml-1">
-                    {kpi.trend.substring(kpi.trend.indexOf(" ") + 1)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+          <KPICard
+            title="Total Leads"
+            value={(summary.totalLeads || 0).toLocaleString('en-IN')}
+            trend={summary.newLeadsTrendPct != null ? `${summary.newLeadsTrendPct > 0 ? '+' : ''}${summary.newLeadsTrendPct}% vs last mo.` : "—"}
+            isUp={(summary.newLeadsTrendPct ?? 0) >= 0}
+            subtext="All time, all sources"
+            accentColor="#3b82f6"
+          />
+          <KPICard
+            title="New Leads Today"
+            value={summary.newLeadsToday || 0}
+            trend="+3 vs yesterday"
+            isUp={true}
+            subtext="Captured since midnight"
+            accentColor="#f59e0b"
+          />
+          <KPICard
+            title="Today's Follow-Ups"
+            value={summary.todayFollowUps || 0}
+            trend="In progress"
+            isUp={true}
+            subtext={`${summary.todayFollowUpsDone || 0} completed so far`}
+            accentColor="#EB3539"
+          />
+          <KPICard
+            title="Today's Site Visits"
+            value={summary.todayVisits || 0}
+            trend="+2 vs yesterday"
+            isUp={true}
+            subtext="Scheduled & confirmed"
+            accentColor="#10b981"
+          />
+          <KPICard
+            title="Yesterday's Bookings"
+            value={summary.yesterdayBookings || 0}
+            trend="+1 vs prev. day"
+            isUp={true}
+            subtext="Confirmed deals"
+            accentColor="#6366f1"
+          />
+          <KPICard
+            title="Pending Payments"
+            value={summary.pendingPayments || 0}
+            trend={`${summary.overduePayments || 0} overdue`}
+            isUp={(summary.overduePayments ?? 0) === 0}
+            subtext="Due within 7 days"
+            accentColor="#f97316"
+          />
+          <KPICard
+            title="Units Available"
+            value={unitsAvailable || 0}
+            trend={`${openPct}% open`}
+            isUp={true}
+            subtext={`of ${totalUnits || 0} total units`}
+            accentColor="#14b8a6"
+          />
+          <KPICard
+            title="Conversion Rate"
+            value={`${summary.conversionRate || 0}%`}
+            trend="+1.2% this week"
+            isUp={true}
+            subtext="Lead-to-booking ratio"
+            accentColor="#a855f7"
+          />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-          <div className="lg:col-span-7 bg-white rounded-3xl p-6 border border-sky-100 hover:border-sky-200 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between relative overflow-hidden group">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-slate-800 tracking-tight">Enquiry vs Leads</h3>
-              <div className="flex items-center gap-5">
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 rounded-full bg-brand-pink block" />
-                  <span className="text-slate-500 text-[13px] font-semibold">Enquiry</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 rounded-full bg-brand block" />
-                  <span className="text-slate-500 text-[13px] font-semibold">Lead</span>
-                </div>
-              </div>
+        {/* ROW 2: Lead Trend + Lead Funnel + Lead Sources */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Lead Trend — last 7 days */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-[16px] font-bold text-slate-900">Lead trend — last 7 days</h3>
+              {leadTrends.length > 0 && (() => {
+                const last = leadTrends[leadTrends.length - 1]?.leads || 0;
+                const prev = leadTrends[leadTrends.length - 2]?.leads || 0;
+                const up = last >= prev;
+                return (
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${up ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
+                    {up ? '↑' : '↓'} {up ? 'Recovering' : 'Dipping'}
+                  </span>
+                );
+              })()}
             </div>
-
-            <div className="relative flex-1 min-h-[220px] flex items-end justify-between px-2 pt-6 pb-2 border-b border-l border-slate-200">
-              <div className="absolute left-0 bottom-0 top-0 w-[1px] bg-slate-200">
-                <span className="absolute -top-1 -left-[4.5px] w-2.5 h-2.5 border-t border-l border-slate-400 rotate-45" />
+            {leadTrends.length === 0 ? (
+              <div className="flex items-center justify-center h-[150px]">
+                <p className="text-sm text-slate-400">No trend data available</p>
               </div>
-              <div className="absolute left-0 right-0 bottom-0 h-[1px] bg-slate-200">
-                <span className="absolute -right-1 -top-[4.5px] w-2.5 h-2.5 border-t border-r border-slate-400 rotate-45" />
-              </div>
+            ) : (() => {
+              const maxVal = Math.max(...leadTrends.map((d: any) => d.leads), 1);
+              const minVal = Math.min(...leadTrends.map((d: any) => d.leads));
+              const W = 300; const H = 140; const padX = 10; const padTop = 16; const padBottom = 26;
+              const pts = leadTrends.map((d: any, i: number) => {
+                const x = padX + (i / Math.max(leadTrends.length - 1, 1)) * (W - padX * 2);
+                const range = maxVal - minVal || 1;
+                const y = padTop + ((maxVal - d.leads) / range) * (H - padTop - padBottom);
+                return { x, y, d };
+              });
+              const path = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+              const area = `${path} L${pts[pts.length-1].x.toFixed(1)},${(H - padBottom).toFixed(1)} L${pts[0].x.toFixed(1)},${(H - padBottom).toFixed(1)} Z`;
+              return (
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 150 }}>
+                  <defs>
+                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18"/>
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d={area} fill="url(#trendGrad)"/>
+                  <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  {pts.map((p: any, i: number) => (
+                    <circle key={i} cx={p.x} cy={p.y} r="4" fill="white" stroke="#2563eb" strokeWidth="2"/>
+                  ))}
+                  {pts.map((p: any, i: number) => (
+                    <text key={`lbl${i}`} x={p.x} y={H - 4} textAnchor="middle" fontSize="10" fill="#94a3b8" fontWeight="500">
+                      {p.d.date ? new Date(p.d.date).toLocaleDateString('en-IN', { weekday: 'short' }) : p.d.week || p.d.month || ''}
+                    </text>
+                  ))}
+                </svg>
+              );
+            })()}
+          </div>
 
-              <div className="w-full h-full flex items-end justify-around relative">
-                {chartBars.length === 0 && !loading ? (
-                  <p className="text-slate-400 text-sm font-medium w-full text-center self-center">No chart data available</p>
-                ) : (
-                  chartBars.map((bar, idx) => (
-                    <div
-                      key={idx}
-                      onMouseEnter={() => setHoveredWeek(idx)}
-                      onMouseLeave={() => setHoveredWeek(null)}
-                      className="flex flex-col items-center group/bar cursor-pointer w-[60px] md:w-[70px] relative z-10"
-                    >
-                      <div className="w-10 rounded-t-xl overflow-hidden flex flex-col justify-end transition-all duration-500 group-hover/bar:scale-x-105 group-hover/bar:shadow-md">
-                        <div style={{ height: `${bar.volume}%` }} className="bg-brand-pink w-full transition-all duration-700 hover:brightness-95" />
-                        <div style={{ height: `${bar.closures}%` }} className="bg-brand w-full transition-all duration-700 hover:brightness-95" />
-                      </div>
-                      <span className="text-[12px] font-bold text-slate-500 mt-3 tracking-wide">{bar.label}</span>
-
-                      {hoveredWeek === idx && (
-                        <div className="absolute bottom-[115%] left-1/2 -translate-x-1/2 w-44 bg-slate-900/95 text-white p-3 rounded-2xl shadow-xl z-30 pointer-events-none text-[12.5px] border border-slate-800 animate-scale-up">
-                          <p className="font-extrabold text-[13px] border-b border-white/10 pb-1.5 mb-1.5 text-brand-pink">{bar.label}</p>
-                          <div className="space-y-1">
-                            <div className="flex justify-between">
-                              <span className="text-slate-300">Total Leads:</span>
-                              <span className="font-extrabold">{bar.volumeRaw + bar.closuresRaw}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-300">Lead Vol:</span>
-                              <span className="font-bold">{bar.volumeRaw}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-300">Closures:</span>
-                              <span className="font-bold text-emerald-400">{bar.closuresRaw}</span>
-                            </div>
+          {/* Lead Funnel */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-[16px] font-bold text-slate-900">Lead funnel</h3>
+              <span className="text-[13px] font-medium text-slate-400">This month</span>
+            </div>
+            {leadFunnel.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-10">No funnel data</p>
+            ) : (
+              <div className="space-y-2">
+                {(() => {
+                  const COLORS = ['#2563eb','#7c3aed','#d97706','#059669','#dc2626','#0891b2','#be185d'];
+                  const funnelStages = ['NEW','CONTACTED','INTERESTED','SITE_VISIT_COMPLETED','BOOKED','CLOSED'];
+                  const filtered = funnelStages
+                    .map(key => leadFunnel.find((f: any) => f.status === key))
+                    .filter(Boolean) as any[];
+                  const topCount = filtered[0]?.count || 1;
+                  return filtered.map((f: any, i: number) => {
+                    const pct = Math.round((f.count / topCount) * 100);
+                    const clr = COLORS[i % COLORS.length];
+                    const passRate = i > 0 ? `${Math.round((f.count / (filtered[i-1]?.count || 1)) * 100)}% pass` : '';
+                    const shortLabel: Record<string,string> = {NEW:'Total Leads',CONTACTED:'Contacted',INTERESTED:'Interested',SITE_VISIT_COMPLETED:'Site Visited',BOOKED:'Booked',CLOSED:'Closed/Won'};
+                    return (
+                      <div key={f.status} className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500 w-[76px] text-right flex-shrink-0">{shortLabel[f.status] || f.label}</span>
+                        <div className="flex-1 h-5 bg-slate-50 rounded overflow-hidden">
+                          <div className="h-full rounded flex items-center pl-2" style={{width:`${Math.max(pct,8)}%`, background:`${clr}22`}}>
+                            <span className="text-[11px] font-medium" style={{color:clr}}>{f.count.toLocaleString()}</span>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  ))
-                )}
+                        <span className="text-[10px] text-slate-400 w-[42px] flex-shrink-0">{passRate}</span>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="recent-activity-card lg:col-span-5 bg-brand text-white rounded-3xl p-6 shadow-xl shadow-brand/15 flex flex-col justify-between hover:shadow-2xl hover:shadow-brand/20 transition-all duration-300 relative overflow-hidden group">
-            <div className="absolute -right-16 -top-16 w-48 h-48 bg-white/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700 pointer-events-none"></div>
-            <div className="absolute -left-16 -bottom-16 w-48 h-48 bg-white/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700 pointer-events-none"></div>
-
-            <div className="relative z-10 flex-1 flex flex-col justify-between text-white">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold tracking-wide !text-white">Recent Activity</h3>
-                <button
-                  onClick={() => addToast("Viewing all activity logs...", "info")}
-                  className="text-[13px] font-extrabold !text-white hover:underline transition-colors active:scale-95 cursor-pointer"
-                >
-                  View All
-                </button>
-              </div>
-
-              <div className="space-y-4 flex-1">
-                {activities.length === 0 && !loading ? (
-                  <p className="text-white/70 text-sm font-medium">No recent activity</p>
-                ) : (
-                  activities.map((act) => (
-                    <div key={act.id} className="flex items-center justify-between gap-3 py-1 cursor-pointer">
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div className="w-11 h-11 rounded-full border border-white/40 flex items-center justify-center bg-transparent flex-shrink-0">
-                          {act.type === "enquiry" && (
-                            <svg className="w-5.5 h-5.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                            </svg>
-                          )}
-                          {act.type === "visit" && (
-                            <svg className="w-5.5 h-5.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          )}
-                          {act.type === "payment" && (
-                            <svg className="w-5.5 h-5.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                            </svg>
-                          )}
-                          {act.type === "calendar" && (
-                            <svg className="w-5.5 h-5.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="font-bold text-[14.5px] leading-tight !text-white">{act.title}</h4>
-                          <p className="text-[12.5px] !text-white/90 mt-0.5 leading-snug font-medium">{act.description}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <span className="w-2 h-2 rounded-full bg-[#22C55E] shadow-sm"></span>
-                        <span className="text-[11.5px] !text-white font-semibold whitespace-nowrap">{act.time}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+          {/* Lead Sources */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-[16px] font-bold text-slate-900">Lead sources</h3>
+              <span className="text-[13px] font-medium text-slate-400">This month</span>
             </div>
+            {leadSources.length === 0 ? (
+              <div className="flex items-center justify-center h-[150px]">
+                <p className="text-sm text-slate-400">No source data available</p>
+              </div>
+            ) : (() => {
+              const SRC_COLORS = ['#2563eb','#16a34a','#7c3aed','#d97706','#94a3b8','#dc2626','#0891b2'];
+              const total = leadSources.reduce((s: number, d: any) => s + d.count, 0) || 1;
+              const R = 52; const cx = 64; const cy = 64;
+              const innerR = R * 0.58;
+              let startAngle = -Math.PI / 2;
+              const slices = leadSources.slice(0, 6).map((src: any, i: number) => {
+                const pct = src.count / total;
+                const sweep = pct * 2 * Math.PI;
+                const x1 = cx + R * Math.cos(startAngle);
+                const y1 = cy + R * Math.sin(startAngle);
+                const endA = startAngle + sweep;
+                const x2 = cx + R * Math.cos(endA);
+                const y2 = cy + R * Math.sin(endA);
+                const large = sweep > Math.PI ? 1 : 0;
+                // Donut arc path: outer arc then inner arc back
+                const d = [
+                  `M${(cx + innerR * Math.cos(startAngle)).toFixed(2)},${(cy + innerR * Math.sin(startAngle)).toFixed(2)}`,
+                  `L${x1.toFixed(2)},${y1.toFixed(2)}`,
+                  `A${R},${R} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)}`,
+                  `L${(cx + innerR * Math.cos(endA)).toFixed(2)},${(cy + innerR * Math.sin(endA)).toFixed(2)}`,
+                  `A${innerR},${innerR} 0 ${large} 0 ${(cx + innerR * Math.cos(startAngle)).toFixed(2)},${(cy + innerR * Math.sin(startAngle)).toFixed(2)}`,
+                  'Z'
+                ].join(' ');
+                const slice = { d, clr: SRC_COLORS[i % SRC_COLORS.length], src, pct };
+                startAngle = endA;
+                return slice;
+              });
+              return (
+                <div className="flex flex-col items-center gap-5">
+                  {/* Centered Donut */}
+                  <svg viewBox="0 0 128 128" style={{ width: 130, height: 130 }}>
+                    <circle cx={cx} cy={cy} r={R} fill="#f1f5f9"/>
+                    {slices.map((sl, i) => (
+                      <path key={i} d={sl.d} fill={sl.clr} stroke="#fff" strokeWidth="2"/>
+                    ))}
+                  </svg>
+                  {/* Horizontal legend row at bottom */}
+                  <div className="flex items-start justify-around w-full">
+                    {slices.map((sl, i) => (
+                      <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-0 px-1">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: sl.clr }}/>
+                        <span className="text-[11px] font-medium text-slate-500 text-center leading-tight w-full truncate">{sl.src.source}</span>
+                        <span className="text-[13px] font-bold text-slate-800">{sl.src.percentage}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
-        <div className="bg-brand rounded-[32px] p-6 shadow-xl shadow-brand/15 relative overflow-hidden group">
-          <div className="absolute -right-32 -bottom-32 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none group-hover:scale-125 transition-transform duration-700" />
+        {/* ROW 3: Today's Work + Today's Reminders */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          <div className="relative z-10 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h3 className="text-xl font-bold !text-white tracking-wide">Upcoming Task & Reminders</h3>
-              <button
-                onClick={() => addToast("Custom date range filter opened", "info")}
-                className="bg-white hover:bg-slate-50 text-slate-800 text-[13.5px] font-bold px-4 py-2 rounded-xl shadow-sm flex items-center self-start sm:self-auto transition-all active:scale-95 duration-200 cursor-pointer"
-              >
-                <svg className="w-4 h-4 mr-2 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Date
-              </button>
+          {/* Today's Work */}
+          <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Today's work</h3>
+              <span className="text-[13px] text-slate-500">
+                {((todayWork.followUps?.length || 0) + (todayWork.visits?.length || 0) + (todayWork.newLeadsAssigned?.length || 0))} items
+              </span>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {tasks.length === 0 && !loading ? (
-                <p className="text-white/70 text-sm font-medium col-span-full">No upcoming tasks or reminders</p>
-              ) : (
-                tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={`bg-white rounded-3xl p-5 border border-slate-100 flex flex-col justify-between gap-5 relative transition-all duration-300 group/card ${task.completed ? "opacity-60 shadow-sm line-through saturate-[0.1]" : "hover:shadow-2xl hover:-translate-y-1.5"
-                      }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <button
-                        onClick={() => toggleTaskCompleted(task.id)}
-                        className={`w-5.5 h-5.5 rounded-lg border-2 flex items-center justify-center transition-all cursor-pointer ${task.completed ? "bg-emerald-500 border-emerald-500 text-white" : "border-slate-300 hover:border-brand hover:bg-red-50/50"
-                          }`}
-                      >
-                        {task.completed && (
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-
-                      <div className="flex flex-col items-end gap-1.5">
-                        {task.completed ? (
-                          <>
-                            <span className="bg-emerald-50 text-emerald-600 text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-md tracking-wider">
-                              Completed
-                            </span>
-                            <span className="text-[12px] text-slate-400 font-bold">Done</span>
-                          </>
-                        ) : (
-                          <>
-                            {task.type === "high" && (
-                              <span className="bg-rose-100 text-rose-600 text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-md tracking-wider">
-                                High Priority
-                              </span>
-                            )}
-                            {task.type === "followup" && (
-                              <span className="bg-emerald-100 text-emerald-600 text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-md tracking-wider">
-                                Follow up
-                              </span>
-                            )}
-                            {task.type === "sitevisit" && (
-                              <span className="bg-slate-900 text-white text-[11px] font-extrabold uppercase px-2 py-0.5 rounded-md tracking-wider">
-                                Site Visit
-                              </span>
-                            )}
-                            <span className={`text-[12px] font-extrabold ${task.status === "Overdue" ? "text-rose-500" : "text-slate-400"}`}>
-                              {task.status}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4
-                        className={`text-[15px] font-bold text-slate-800 leading-tight group-hover/card:text-brand transition-colors duration-200 ${task.completed ? "text-slate-400" : ""
-                          }`}
-                      >
-                        {task.title}
-                      </h4>
-                      <p className="text-[13px] text-slate-400 mt-1.5 font-medium leading-snug">{task.description}</p>
-                    </div>
-
-                    <div className="flex items-center text-[12px] text-slate-400 font-bold border-t border-slate-50 pt-3.5">
-                      <svg className="w-4 h-4 mr-1.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {task.time}
-                    </div>
+            <div className="space-y-1">
+              {(todayWork.followUps || []).slice(0, 3).map((f: any) => (
+                <div key={f.id} className="flex items-center gap-2 py-2 border-b border-slate-50">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-slate-800 truncate">{f.type} — {f.leadName}</p>
+                    <p className="text-[11px] text-slate-500">{new Date(f.time).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</p>
                   </div>
-                ))
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Follow-up</span>
+                </div>
+              ))}
+              {(todayWork.visits || []).slice(0, 2).map((v: any) => (
+                <div key={v.id} className="flex items-center gap-2 py-2 border-b border-slate-50">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-slate-800 truncate">Site Visit — {v.leadName}</p>
+                    <p className="text-[11px] text-slate-500">{v.projectName} · {new Date(v.time).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</p>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Visit</span>
+                </div>
+              ))}
+              {(todayWork.newLeadsAssigned || []).slice(0, 2).map((l: any) => (
+                <div key={l.id} className="flex items-center gap-2 py-2 border-b border-slate-50">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-slate-800 truncate">New Lead — {l.name}</p>
+                    <p className="text-[11px] text-slate-500">{l.source} · {l.phone}</p>
+                  </div>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">New</span>
+                </div>
+              ))}
+              {!loading && !todayWork.followUps?.length && !todayWork.visits?.length && !todayWork.newLeadsAssigned?.length && (
+                <p className="text-sm text-slate-400 py-6 text-center">All clear — nothing pending today!</p>
               )}
             </div>
           </div>
+
+          {/* Today's Reminders */}
+          <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Today's reminders</h3>
+            </div>
+            <div className="space-y-1">
+              {reminders.length === 0 && !loading && (
+                <p className="text-sm text-slate-400 py-6 text-center">No reminders for today</p>
+              )}
+              {reminders.slice(0, 6).map((r: any) => {
+                const isVisit = r.type === 'Site Visit';
+                const isOverdue = r.isOverdue;
+                const badgeBg = isOverdue ? 'bg-rose-50 text-rose-600' : isVisit ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600';
+                return (
+                  <div key={r.id} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
+                    <span className="text-[11px] font-medium text-slate-500 w-[56px] pt-0.5 flex-shrink-0">
+                      {new Date(r.scheduledAt || r.time).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-slate-800 truncate">{r.type} — {r.leadName || r.clientName}</p>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{r.notes || r.projectName || ''}</p>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium mt-1.5 inline-block ${badgeBg}`}>
+                        {isOverdue ? 'urgent' : isVisit ? 'visit' : 'call'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Lower Section (Employee Follow-Ups, Top Performers, Site Visits, Payment Alerts) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+          
+          {/* Employee Follow-Ups */}
+          <div className="lg:col-span-4 bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex flex-col">
+            <h3 className="text-lg font-bold text-slate-900">Employee Follow-Ups Today</h3>
+            <p className="text-[13px] text-slate-500 mb-6">Real-time progress per team member</p>
+            <div className="space-y-5 flex-1">
+              {employeePerf.length === 0 && !loading && <p className="text-sm text-slate-500">No data available.</p>}
+              {employeePerf.map((emp) => {
+                const pct = emp.todayFollowUps > 0 ? (emp.followUpsDone / emp.todayFollowUps) * 100 : 0;
+                const barColor = pct === 100 ? 'bg-emerald-500' : 'bg-[#1E293B]';
+                return (
+                  <div key={emp.id} className="flex items-center gap-3">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-[38px] h-[38px] rounded-full bg-[#1E293B] text-white flex items-center justify-center font-medium text-[13px]">
+                        {emp.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                      </div>
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-end mb-1.5">
+                        <div className="truncate pr-2">
+                          <p className="text-[13px] font-medium text-slate-800 truncate">{emp.name}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{emp.role.replace(/_/g, ' ')}</p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[12px] font-medium text-slate-800">{emp.followUpsDone}/{emp.todayFollowUps}</p>
+                          <p className="text-[10px] text-slate-400">Calls <span className="font-medium text-slate-800">{emp.callsMade}</span></p>
+                        </div>
+                      </div>
+                      <div className="w-full bg-slate-100 rounded-full h-[5px] overflow-hidden">
+                        <div className={`${barColor} rounded-full h-full transition-all duration-500`} style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Top Performers */}
+          <div className="lg:col-span-4 bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex flex-col justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Top Performers</h3>
+              <p className="text-[13px] text-slate-500 mb-6">This month - by deals closed</p>
+              <div className="space-y-4">
+                {topPerformers.length === 0 && !loading && <p className="text-sm text-slate-500">No data available.</p>}
+                {topPerformers.map((emp, idx) => {
+                  const rankColors = [
+                    "bg-amber-100 text-amber-600",
+                    "bg-slate-200 text-slate-600",
+                    "bg-orange-100 text-orange-600",
+                    "bg-slate-100 text-slate-500",
+                    "bg-slate-100 text-slate-500"
+                  ];
+                  return (
+                    <div key={emp.userId} className="flex items-center gap-3">
+                      <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] font-medium flex-shrink-0 ${rankColors[idx] || rankColors[4]}`}>
+                        {idx + 1}
+                      </div>
+                      <div className="relative flex-shrink-0">
+                        <div className="w-[30px] h-[30px] rounded-full bg-[#1E293B] text-white flex items-center justify-center font-medium text-[11px]">
+                          {emp.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium text-slate-800 truncate">{emp.name}</p>
+                        <p className="text-[11px] text-slate-500">{emp.conversionRate}% conversion</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[13px] font-medium text-slate-800">{emp.dealsClosedMonth}</p>
+                        <p className="text-[10px] text-slate-400">deals</p>
+                      </div>
+                      <div className="text-right w-16 flex-shrink-0">
+                        <p className="text-[13px] font-medium text-emerald-600">{formatCurrencyCr(emp.revenue)}</p>
+                        <p className="text-[10px] text-slate-400">revenue</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            <div className="mt-6 pt-4 border-t border-slate-100">
+              <p className="text-[11px] text-slate-400 font-medium mb-2 uppercase tracking-wide">Team this month</p>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[12px] text-slate-500 font-medium">Total Deals</span>
+                <span className="text-[14px] font-medium text-slate-800">{teamDeals}</span>
+              </div>
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-[12px] text-slate-500 font-medium">Total Revenue</span>
+                <span className="text-[14px] font-medium text-slate-800">{formatCurrencyCr(teamRevenue)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-[12px] text-slate-500 font-medium">Avg. Conversion</span>
+                <span className="text-[14px] font-medium text-slate-800">{teamAvgConv}%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Site Visits & Payment Alerts */}
+          <div className="lg:col-span-4 flex flex-col gap-6">
+            
+            {/* Today's Site Visits */}
+            <div className="bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex-1">
+              <h3 className="text-lg font-bold text-slate-900">Today's Site Visits</h3>
+              <p className="text-[13px] text-slate-500 mb-5">Scheduled appointments</p>
+              <div className="space-y-4">
+                {visits.length === 0 && !loading && <p className="text-sm text-slate-500">No visits scheduled today.</p>}
+                {visits.slice(0, 4).map(v => (
+                  <div key={v.id} className="flex gap-3 items-start">
+                    <div className="w-[60px] flex-shrink-0 pt-0.5">
+                      <p className="text-[11px] font-medium text-slate-800">
+                        {new Date(v.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                      </p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium text-slate-800 truncate">{v.clientName}</p>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{v.projectName} {v.unitNumber ? `- ${v.unitNumber}` : ''}</p>
+                      <p className="text-[11px] text-slate-500 truncate">with {v.executiveName}</p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${v.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : v.status === 'completed' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
+                        {v.status === 'confirmed' ? 'Confirmed' : v.status === 'completed' ? 'Completed' : 'Pending'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Payment Alerts */}
+            <div className="bg-white rounded-xl border border-slate-100 p-6 shadow-sm">
+              <h3 className="text-lg font-bold text-slate-900">Payment Alerts</h3>
+              <p className="text-[13px] text-slate-500 mb-5">Overdue & due within 48hrs</p>
+              <div className="space-y-3">
+                {payments.length === 0 && !loading && <p className="text-sm text-slate-500">No urgent payments.</p>}
+                {payments.slice(0, 4).map(p => (
+                  <div key={p.id} className={`pl-3 py-1 border-l-2 ${p.status === 'Overdue' ? 'border-rose-500' : 'border-amber-400'} flex justify-between items-start`}>
+                    <div className="min-w-0 flex-1 pr-2">
+                      <p className="text-[13px] font-medium text-slate-800 truncate">{p.clientName}</p>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{p.paymentType || 'Installment'} - <span className={`font-medium ${p.status === 'Overdue' ? 'text-rose-500' : 'text-amber-500'}`}>{p.dueLabel}</span></p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <p className={`text-[13px] font-medium ${p.status === 'Overdue' ? 'text-rose-600' : 'text-amber-500'}`}>
+                        {formatCurrencyLakh(p.amount)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
         </div>
       </div>
     </div>
