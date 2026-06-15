@@ -10,7 +10,15 @@ ensureUploadsDir();
 
 const app: Application = express();
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      imgSrc: ["'self'", 'data:', 'http://localhost:*', 'https://*'],
+    },
+  },
+  // Allow the Next.js app (different port) to embed uploaded images.
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
