@@ -31,6 +31,7 @@ export const updateProjectSchema = Joi.object({
     status:         Joi.string().valid(...PROJECT_STATUSES),
     brochure:       urlSchema.allow(''),
     reraNumber:     Joi.string().trim().allow(''),
+    images:         Joi.array().items(urlSchema).optional(),
 }).min(1);
 
 export const updateProjectImagesSchema = Joi.object({

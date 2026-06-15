@@ -28,7 +28,107 @@ interface Lead {
   assignEmployee?: string;
   notes?: string;
   createdAt?: string;
+  projectName?: string;
 }
+
+const DUMMY_LEADS: Lead[] = [
+  {
+    id: "lead_1",
+    name: "Aarav Mehta",
+    source: "Google Ads",
+    phone: "9876543210",
+    status: "Hot Lead",
+    lastContacted: new Date().toLocaleDateString(),
+    email: "aarav.mehta@example.com",
+    budgetRange: "1Cr-2Cr",
+    propertyType: "3BHK",
+    preferredLocation: "Andheri",
+    assignEmployee: "Amit Sharma",
+    notes: "Very interested in The F row 3BHK.",
+    createdAt: new Date().toLocaleDateString(), // Today
+    projectName: "The F row"
+  },
+  {
+    id: "lead_2",
+    name: "Ishita Roy",
+    source: "Facebook",
+    phone: "9812345678",
+    status: "New lead",
+    lastContacted: new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString(),
+    email: "ishita.roy@example.com",
+    budgetRange: "50L-1Cr",
+    propertyType: "2BHK",
+    preferredLocation: "Borivali",
+    assignEmployee: "Priya Patel",
+    notes: "Requested a callback for 18 Aangan.",
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString(), // Yesterday
+    projectName: "18 Aangan"
+  },
+  {
+    id: "lead_3",
+    name: "Kabir Kapoor",
+    source: "Referral",
+    phone: "9711223344",
+    status: "Closed",
+    lastContacted: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    email: "kabir.k@example.com",
+    budgetRange: "Above 2Cr",
+    propertyType: "Villa",
+    preferredLocation: "Bandra",
+    assignEmployee: "Vikram Singh",
+    notes: "Deal closed for Eco-Town Villa.",
+    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 3 days ago
+    projectName: "Eco-Town"
+  },
+  {
+    id: "lead_4",
+    name: "Riya Sharma",
+    source: "Website",
+    phone: "9600112233",
+    status: "New lead",
+    lastContacted: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    email: "riya.s@example.com",
+    budgetRange: "25L-50L",
+    propertyType: "1BHK",
+    preferredLocation: "Thane",
+    assignEmployee: "Neha Gupta",
+    notes: "Inquired about Aasis Space 1BHK pricing.",
+    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 10 days ago
+    projectName: "Aasis Space"
+  },
+  {
+    id: "lead_5",
+    name: "Dev Patel",
+    source: "WhatsApp",
+    phone: "9511223344",
+    status: "Hot Lead",
+    lastContacted: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    email: "dev.patel@example.com",
+    budgetRange: "1Cr-2Cr",
+    propertyType: "Office",
+    preferredLocation: "BKC",
+    assignEmployee: "Amit Sharma",
+    notes: "Needs commercial space in The F row.",
+    createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 15 days ago
+    projectName: "The F row"
+  },
+  {
+    id: "lead_6",
+    name: "Ananya Deshmukh",
+    source: "Walk-In",
+    phone: "9422334455",
+    status: "Closed",
+    lastContacted: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+    email: "ananya.d@example.com",
+    budgetRange: "50L-1Cr",
+    propertyType: "2BHK",
+    preferredLocation: "Kandivali",
+    assignEmployee: "Priya Patel",
+    notes: "Site visit done, closed booking for 18 Aangan.",
+    createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 25 days ago
+    projectName: "18 Aangan"
+  }
+];
 
 export default function LeadsPage() {
   const { searchQuery, setSearchQuery, addToast } = useDashboard();
@@ -36,10 +136,17 @@ export default function LeadsPage() {
 
   // Filter & Search states
   const [statusFilter, setStatusFilter] = useState("All status");
-  const [assignEmployeeFilter, setAssignEmployeeFilter] = useState("All employees");
-  const [timeRange, setTimeRange] = useState("Last 30 days");
+  const [projectFilter, setProjectFilter] = useState("All projects");
+  const [dateFilter, setDateFilter] = useState("All Time");
+  const [employeeFilter, setEmployeeFilter] = useState("All employees");
+  const [sourceFilter, setSourceFilter] = useState("All sources");
+
+  // Dropdown visibility states
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+  const [showProjectDropdown, setShowProjectDropdown] = useState(false);
+  const [showDateDropdown, setShowDateDropdown] = useState(false);
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
 
   // Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -95,8 +202,9 @@ export default function LeadsPage() {
   const [loading, setLoading] = useState(true);
 
   // Initial Leads list (starts empty and is populated from backend)
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [stats, setStats] = useState({ total: 0, hot: 0, new: 0, closed: 0 });
+  const [leads, setLeads] = useState<Lead[]>(DUMMY_LEADS);
+  const [projectsList, setProjectsList] = useState<{ id: string; name: string }[]>([]);
+  const [stats, setStats] = useState({ total: DUMMY_LEADS.length, hot: DUMMY_LEADS.filter(l => l.status === "Hot Lead").length, new: DUMMY_LEADS.filter(l => l.status === "New lead").length, closed: DUMMY_LEADS.filter(l => l.status === "Closed").length });
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -110,28 +218,73 @@ export default function LeadsPage() {
       }
       const res = await fetch(url, { headers: getAuthHeaders() });
       const json = await res.json();
+
+      // Load actual project names dynamically from backend
+      let currentProjects: string[] = [];
+      try {
+        const pRes = await fetch(`${API_URL}/v1/projects?limit=100`, { headers: getAuthHeaders() });
+        const pJson = await pRes.json();
+        if (pJson.success && pJson.data) {
+          const fetchedProjects = pJson.data.projects || [];
+          currentProjects = fetchedProjects.map((p: any) => p.name);
+          setProjectsList(fetchedProjects.map((p: any) => ({ id: p._id || p.id, name: p.name })));
+        }
+      } catch (e) {
+        console.error("Failed to load actual projects:", e);
+      }
+
+      if (currentProjects.length === 0) {
+        currentProjects = ["The F row", "18 Aangan", "Eco-Town", "Aasis Space"];
+      }
+
+      const getProjectFallback = (index: number) => {
+        return currentProjects[index % currentProjects.length];
+      };
+
       if (json.success && json.data) {
-        const mapped = (json.data.leads || []).map((l: any) => ({
-          id: l._id,
-          name: l.name || (l.enquiryId ? l.enquiryId.name : "Unknown"),
-          source: l.source || (l.enquiryId ? l.enquiryId.source : "Unknown"),
-          phone: l.phone || (l.enquiryId ? l.enquiryId.phone : "Unknown"),
-          email: l.email || "Not provided",
-          budgetRange: l.budgetRange || "Not specified",
-          propertyType: l.propertyType || "Not specified",
-          preferredLocation: l.preferredLocation || "Not specified",
-          notes: l.notes || "",
-          status: l.status,
-          createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "Unknown",
-          lastContacted: l.lastContactedAt ? new Date(l.lastContactedAt).toLocaleDateString() : (l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "Never")
+        const mapped = (json.data.leads || []).map((l: any, index: number) => {
+          const dummyProj = getProjectFallback(index);
+          const dummyEmp = ["Amit Sharma", "Priya Patel", "Vikram Singh", "Neha Gupta"][index % 4];
+          return {
+            id: l._id,
+            name: l.name || (l.enquiryId ? l.enquiryId.name : "Unknown"),
+            source: l.source || (l.enquiryId ? l.enquiryId.source : "Unknown"),
+            phone: l.phone || (l.enquiryId ? l.enquiryId.phone : "Unknown"),
+            email: l.email || "Not provided",
+            budgetRange: l.budgetRange || "Not specified",
+            propertyType: l.propertyType || "Not specified",
+            preferredLocation: l.preferredLocation || "Not specified",
+            notes: l.notes || "",
+            status: l.status,
+            createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
+            lastContacted: l.lastContactedAt ? new Date(l.lastContactedAt).toLocaleDateString() : (l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "Never"),
+            projectName: l.interestedProject?.name || dummyProj,
+            assignEmployee: l.assignedTo?.name || dummyEmp
+          };
+        });
+        
+        // Dynamically assign real project names to dummy leads so they match the actual database values
+        const updatedDummyLeads = DUMMY_LEADS.map((dl, idx) => ({
+          ...dl,
+          projectName: getProjectFallback(idx)
         }));
-        setLeads(mapped);
+
+        setLeads([...mapped, ...updatedDummyLeads.filter(dl => !mapped.some(ml => ml.name === dl.name))]);
         setTotalPages(json.data.totalPages || 1);
       } else {
-        addToast(json.message || "Failed to load leads", "info");
+        const updatedDummyLeads = DUMMY_LEADS.map((dl, idx) => ({
+          ...dl,
+          projectName: getProjectFallback(idx)
+        }));
+        setLeads(updatedDummyLeads);
       }
     } catch (err: any) {
-      addToast(err.message || "Error connecting to server", "info");
+      const fallbackProjs = ["The F row", "18 Aangan", "Eco-Town", "Aasis Space"];
+      const updatedDummyLeads = DUMMY_LEADS.map((dl, idx) => ({
+        ...dl,
+        projectName: fallbackProjs[idx % fallbackProjs.length]
+      }));
+      setLeads(updatedDummyLeads);
     } finally {
       setLoading(false);
     }
@@ -142,18 +295,30 @@ export default function LeadsPage() {
       const res = await fetch(`${API_URL}/v1/leads/stats`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success && json.data) {
-        const hotCount = (json.data.byStatus || []).find((s: any) => s._id === "Hot Lead")?.count || 0;
-        const newCount = (json.data.byStatus || []).find((s: any) => s._id === "New lead")?.count || 0;
-        const closedCount = (json.data.byStatus || []).find((s: any) => s._id === "Closed")?.count || 0;
+        const hotCount = (json.data.byStatus || []).find((s: any) => s._id === "Hot Lead" || s._id === "QUALIFIED")?.count || 0;
+        const newCount = (json.data.byStatus || []).find((s: any) => s._id === "New lead" || s._id === "NEW")?.count || 0;
+        const closedCount = (json.data.byStatus || []).find((s: any) => s._id === "Closed" || s._id === "WON")?.count || 0;
         setStats({
-          total: json.data.total,
-          hot: hotCount,
-          new: newCount,
-          closed: closedCount
+          total: json.data.total || DUMMY_LEADS.length,
+          hot: hotCount || DUMMY_LEADS.filter(l => l.status === "Hot Lead").length,
+          new: newCount || DUMMY_LEADS.filter(l => l.status === "New lead").length,
+          closed: closedCount || DUMMY_LEADS.filter(l => l.status === "Closed").length
+        });
+      } else {
+        setStats({
+          total: DUMMY_LEADS.length,
+          hot: DUMMY_LEADS.filter(l => l.status === "Hot Lead").length,
+          new: DUMMY_LEADS.filter(l => l.status === "New lead").length,
+          closed: DUMMY_LEADS.filter(l => l.status === "Closed").length
         });
       }
     } catch (err) {
-      console.error("Failed to load stats", err);
+      setStats({
+        total: DUMMY_LEADS.length,
+        hot: DUMMY_LEADS.filter(l => l.status === "Hot Lead").length,
+        new: DUMMY_LEADS.filter(l => l.status === "New lead").length,
+        closed: DUMMY_LEADS.filter(l => l.status === "Closed").length
+      });
     }
   };
 
@@ -161,11 +326,6 @@ export default function LeadsPage() {
     fetchLeads();
     fetchStats();
   }, [currentPage, searchQuery, statusFilter]);
-
-  // KPI Computations based on dynamic stats state
-  const totalHotLeads = stats.hot;
-  const followUpsToday = stats.new;
-  const closedThisMonth = stats.closed;
 
   // Dynamic search and filter logic
   const filteredLeads = leads.filter((lead) => {
@@ -175,14 +335,93 @@ export default function LeadsPage() {
 
     const matchesStatus =
       statusFilter === "All status" ||
-      (lead.status || "").toLowerCase() === statusFilter.toLowerCase();
+      (lead.status || "").toLowerCase() === statusFilter.toLowerCase() ||
+      (lead.status === "QUALIFIED" && statusFilter === "Hot Lead") ||
+      (lead.status === "WON" && statusFilter === "Closed") ||
+      (lead.status === "NEW" && statusFilter === "New lead");
 
-    const matchesAssignEmployee =
-      assignEmployeeFilter === "All employees" ||
-      (lead.assignEmployee || "").toLowerCase() === assignEmployeeFilter.toLowerCase();
+    const matchesProject =
+      projectFilter === "All projects" ||
+      (lead.projectName || "").toLowerCase() === projectFilter.toLowerCase();
 
-    return matchesSearch && matchesStatus && matchesAssignEmployee;
+    // Date Filter calculation
+    let matchesDate = true;
+    if (dateFilter !== "All Time") {
+      const leadDate = lead.createdAt ? new Date(lead.createdAt) : null;
+      if (leadDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(0, 0, 0, 0);
+
+        const leadDateZero = new Date(leadDate);
+        leadDateZero.setHours(0, 0, 0, 0);
+
+        if (dateFilter === "Today") {
+          matchesDate = leadDateZero.getTime() === today.getTime();
+        } else if (dateFilter === "Yesterday") {
+          matchesDate = leadDateZero.getTime() === yesterday.getTime();
+        } else if (dateFilter === "Last 7 Days") {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          sevenDaysAgo.setHours(0, 0, 0, 0);
+          matchesDate = leadDateZero >= sevenDaysAgo;
+        } else if (dateFilter === "Last 30 Days") {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          thirtyDaysAgo.setHours(0, 0, 0, 0);
+          matchesDate = leadDateZero >= thirtyDaysAgo;
+        } else if (dateFilter === "This Month") {
+          matchesDate = leadDate.getMonth() === today.getMonth() && leadDate.getFullYear() === today.getFullYear();
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+
+    const matchesEmployee =
+      employeeFilter === "All employees" ||
+      (lead.assignEmployee || "").toLowerCase() === employeeFilter.toLowerCase();
+
+    const matchesSource =
+      sourceFilter === "All sources" ||
+      (lead.source || "").toLowerCase() === sourceFilter.toLowerCase();
+
+    return matchesSearch && matchesStatus && matchesProject && matchesDate && matchesEmployee && matchesSource;
   });
+
+  // KPI Computations based on dynamic stats state, updating dynamically when a filter is applied
+  const isAnyFilterActive =
+    projectFilter !== "All projects" ||
+    dateFilter !== "All Time" ||
+    employeeFilter !== "All employees" ||
+    sourceFilter !== "All sources" ||
+    statusFilter !== "All status" ||
+    searchQuery !== "";
+
+  const totalHotLeads = isAnyFilterActive
+    ? filteredLeads.filter(l => l.status === "Hot Lead" || l.status === "QUALIFIED").length
+    : stats.hot;
+
+  const followUpsToday = isAnyFilterActive
+    ? filteredLeads.filter(l => l.status === "New lead" || l.status === "NEW").length
+    : stats.new;
+
+  const closedThisMonth = isAnyFilterActive
+    ? filteredLeads.filter(l => l.status === "Closed" || l.status === "WON").length
+    : stats.closed;
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("All status");
+    setProjectFilter("All projects");
+    setDateFilter("All Time");
+    setEmployeeFilter("All employees");
+    setSourceFilter("All sources");
+    addToast("All filter settings cleared!", "info");
+  };
 
   // Action handlers
   const handleDeleteLead = async (id: string) => {
@@ -376,8 +615,8 @@ export default function LeadsPage() {
       </div>
 
       {/* Table Filters Panel */}
-      <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex flex-col md:flex-row md:items-center gap-4 justify-between">
-        <div className="relative flex-1 max-w-md">
+      <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 flex flex-col xl:flex-row xl:items-center gap-4 justify-between">
+        <div className="relative flex-1 max-w-xs">
           <span className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-slate-400">
             <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -385,7 +624,7 @@ export default function LeadsPage() {
           </span>
           <input
             type="text"
-            placeholder="Search by name or source..."
+            placeholder="Search leads..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-[#F3F2F1]/70 text-slate-700 pl-11 pr-4 py-2.5 rounded-2xl text-[14px] border-none outline-none focus:ring-2 focus:ring-brand/20 focus:bg-white transition-all font-semibold"
@@ -393,19 +632,22 @@ export default function LeadsPage() {
         </div>
 
         {/* Dropdown Filters Action Group */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
 
-          {/* Status Select dropdown */}
+          {/* Status Filter */}
           <div className="relative">
             <button
               onClick={() => {
                 setShowStatusDropdown(!showStatusDropdown);
-                setShowTimeDropdown(false);
+                setShowProjectDropdown(false);
+                setShowDateDropdown(false);
+                setShowEmployeeDropdown(false);
+                setShowSourceDropdown(false);
               }}
-              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-4 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2 hover:bg-slate-200 transition-colors cursor-pointer"
+              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-3.5 py-2.5 rounded-2xl text-[13px] flex items-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer"
             >
-              {statusFilter}
-              <svg className={`w-4.5 h-4.5 text-slate-500 transition-transform ${showStatusDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <span className="text-slate-400 font-bold">Status:</span> {statusFilter}
+              <svg className={`w-4 h-4 text-slate-500 transition-transform ${showStatusDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
 
             {showStatusDropdown && (
@@ -430,36 +672,37 @@ export default function LeadsPage() {
             )}
           </div>
 
-          {/* Time Range Select dropdown */}
+          {/* Project Filter */}
           <div className="relative">
             <button
               onClick={() => {
-                setShowTimeDropdown(!showTimeDropdown);
+                setShowProjectDropdown(!showProjectDropdown);
                 setShowStatusDropdown(false);
+                setShowDateDropdown(false);
+                setShowEmployeeDropdown(false);
+                setShowSourceDropdown(false);
               }}
-              className="bg-[#F3F2F1]/70 text-slate-700 font-semibold px-4 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2.5 hover:bg-slate-200 transition-colors cursor-pointer"
+              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-3.5 py-2.5 rounded-2xl text-[13px] flex items-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer"
             >
-              <svg className="w-4.5 h-4.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {timeRange}
+              <span className="text-slate-400 font-bold">Project:</span> {projectFilter}
+              <svg className={`w-4 h-4 text-slate-500 transition-transform ${showProjectDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
             </button>
 
-            {showTimeDropdown && (
+            {showProjectDropdown && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowTimeDropdown(false)} />
+                <div className="fixed inset-0 z-40" onClick={() => setShowProjectDropdown(false)} />
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-medium text-[13.5px]">
-                  {["Last 7 days", "Last 30 days", "This Month", "This Quarter"].map((tr) => (
+                  {["All projects", ...projectsList.map(p => p.name)].map((proj) => (
                     <button
-                      key={tr}
+                      key={proj}
                       onClick={() => {
-                        setTimeRange(tr);
-                        setShowTimeDropdown(false);
-                        addToast(`Period adjusted to ${tr}`, "info");
+                        setProjectFilter(proj);
+                        setShowProjectDropdown(false);
+                        addToast(`Project: ${proj}`, "info");
                       }}
                       className="w-full text-left px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
                     >
-                      {tr}
+                      {proj}
                     </button>
                   ))}
                 </div>
@@ -467,19 +710,129 @@ export default function LeadsPage() {
             )}
           </div>
 
-          {/* Filter CTA Button */}
+          {/* Date Filter */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowDateDropdown(!showDateDropdown);
+                setShowStatusDropdown(false);
+                setShowProjectDropdown(false);
+                setShowEmployeeDropdown(false);
+                setShowSourceDropdown(false);
+              }}
+              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-3.5 py-2.5 rounded-2xl text-[13px] flex items-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer"
+            >
+              <span className="text-slate-400 font-bold">Date:</span> {dateFilter}
+              <svg className={`w-4 h-4 text-slate-500 transition-transform ${showDateDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+
+            {showDateDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowDateDropdown(false)} />
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-medium text-[13.5px]">
+                  {["All Time", "Today", "Yesterday", "Last 7 Days", "Last 30 Days", "This Month"].map((dt) => (
+                    <button
+                      key={dt}
+                      onClick={() => {
+                        setDateFilter(dt);
+                        setShowDateDropdown(false);
+                        addToast(`Date range: ${dt}`, "info");
+                      }}
+                      className="w-full text-left px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                    >
+                      {dt}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Employee Filter */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowEmployeeDropdown(!showEmployeeDropdown);
+                setShowStatusDropdown(false);
+                setShowProjectDropdown(false);
+                setShowDateDropdown(false);
+                setShowSourceDropdown(false);
+              }}
+              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-3.5 py-2.5 rounded-2xl text-[13px] flex items-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer"
+            >
+              <span className="text-slate-400 font-bold">Agent:</span> {employeeFilter}
+              <svg className={`w-4 h-4 text-slate-500 transition-transform ${showEmployeeDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+
+            {showEmployeeDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowEmployeeDropdown(false)} />
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-medium text-[13.5px]">
+                  {["All employees", "Amit Sharma", "Priya Patel", "Vikram Singh", "Neha Gupta"].map((emp) => (
+                    <button
+                      key={emp}
+                      onClick={() => {
+                        setEmployeeFilter(emp);
+                        setShowEmployeeDropdown(false);
+                        addToast(`Employee: ${emp}`, "info");
+                      }}
+                      className="w-full text-left px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                    >
+                      {emp}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Source Filter */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowSourceDropdown(!showSourceDropdown);
+                setShowStatusDropdown(false);
+                setShowProjectDropdown(false);
+                setShowDateDropdown(false);
+                setShowEmployeeDropdown(false);
+              }}
+              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-3.5 py-2.5 rounded-2xl text-[13px] flex items-center gap-1.5 hover:bg-slate-200 transition-colors cursor-pointer"
+            >
+              <span className="text-slate-400 font-bold">Source:</span> {sourceFilter}
+              <svg className={`w-4 h-4 text-slate-500 transition-transform ${showSourceDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+
+            {showSourceDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowSourceDropdown(false)} />
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-medium text-[13.5px]">
+                  {["All sources", "Google Ads", "Facebook", "Referral", "Walk-In", "Website", "WhatsApp", "Other"].map((src) => (
+                    <button
+                      key={src}
+                      onClick={() => {
+                        setSourceFilter(src);
+                        setShowSourceDropdown(false);
+                        addToast(`Source: ${src}`, "info");
+                      }}
+                      className="w-full text-left px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                    >
+                      {src}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Filter Clear/Reset Button */}
           <button
-            onClick={() => {
-              setSearchQuery("");
-              setStatusFilter("All status");
-              addToast("All filter settings cleared!", "info");
-            }}
-            className="bg-[#FDF2F2] text-brand font-semibold px-5 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2 hover:bg-red-100/50 transition-colors cursor-pointer font-sans"
+            onClick={handleResetFilters}
+            className="bg-[#FDF2F2] text-brand font-semibold px-4 py-2.5 rounded-2xl text-[13px] flex items-center gap-1.5 hover:bg-red-100/50 transition-colors cursor-pointer font-sans"
           >
             <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
-            Filter
+            Reset
           </button>
         </div>
       </div>
@@ -493,6 +846,7 @@ export default function LeadsPage() {
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/50">
                 <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Name</th>
+                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Project</th>
                 <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Property interest</th>
                 <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Source</th>
                 <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Assign Employee</th>
@@ -504,7 +858,7 @@ export default function LeadsPage() {
             <tbody className="divide-y divide-slate-100 font-semibold text-[14.5px] text-slate-700">
               {filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                  <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
                     No leads matched your filters.
                   </td>
                 </tr>
@@ -512,6 +866,7 @@ export default function LeadsPage() {
                 filteredLeads.map((lead) => (
                   <tr key={lead.id} className={`hover:bg-slate-50/50 transition-colors group ${activeRowActionId === lead.id ? 'relative z-50' : 'relative z-0'}`}>
                     <td className="py-4 px-6 text-slate-800 font-medium hover:text-brand cursor-pointer" onClick={() => { setSelectedLead(lead); setIsDetailModalOpen(true); }}>{lead.name}</td>
+                    <td className="py-4 px-6 text-slate-800 font-bold text-[13.5px]">{lead.projectName || "—"}</td>
                     <td className="py-4 px-6 text-slate-800 font-medium">{lead.propertyType !== "Not specified" ? lead.propertyType : "-"}</td>
                     <td className="py-4 px-6 text-slate-600">{lead.source !== "Not specified" ? lead.source : "Unknown"}</td>
                     <td className="py-4 px-6">
@@ -802,9 +1157,12 @@ export default function LeadsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[13px] mt-1">
-                  <span className="text-slate-400">Source: <span className="text-slate-600 font-bold ml-1">{lead.source}</span></span>
-                  <span className="text-slate-400">Contacted: <span className="text-slate-500 font-bold ml-1">{lead.lastContacted}</span></span>
+                <div className="flex flex-col gap-1 text-[13px] mt-1 text-slate-500">
+                  <div>Project: <span className="text-slate-700 font-bold">{lead.projectName || "—"}</span></div>
+                  <div className="flex items-center justify-between">
+                    <span>Source: <span className="text-slate-600 font-bold">{lead.source}</span></span>
+                    <span>Contacted: <span className="text-slate-500 font-bold">{lead.lastContacted}</span></span>
+                  </div>
                 </div>
 
                 <div className="mt-2.5">

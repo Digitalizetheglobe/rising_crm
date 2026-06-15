@@ -28,6 +28,7 @@ export default function Home() {
   const { userName, addToast } = useDashboard();
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState("all");
+  const [projectsList, setProjectsList] = useState<any[]>([]);
 
   const [summary, setSummary] = useState<any>({});
   const [inventory, setInventory] = useState<any[]>([]);
@@ -44,64 +45,18 @@ export default function Home() {
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
 
-    if (selectedProject !== 'all') {
-      setTimeout(() => {
-        setSummary({
-          totalLeads: Math.floor(Math.random() * 500) + 100,
-          newLeadsToday: Math.floor(Math.random() * 20),
-          newLeadsTrendPct: Math.floor(Math.random() * 20) - 5,
-          todayFollowUps: Math.floor(Math.random() * 30),
-          todayFollowUpsDone: Math.floor(Math.random() * 15),
-          todayVisits: Math.floor(Math.random() * 10),
-          yesterdayBookings: Math.floor(Math.random() * 5),
-          pendingPayments: Math.floor(Math.random() * 50),
-          overduePayments: Math.floor(Math.random() * 10),
-          conversionRate: (Math.random() * 15 + 5).toFixed(1)
-        });
-        setInventory([{ totalUnits: 100, available: Math.floor(Math.random() * 50) + 10 }]);
-        setEmployeePerf([]);
-        setTopPerformers([]);
-        setVisits([]);
-        setPayments([]);
-        setLeadTrends([
-          { leads: Math.floor(Math.random() * 10) + 5, date: new Date(Date.now() - 4 * 86400000).toISOString() },
-          { leads: Math.floor(Math.random() * 20) + 5, date: new Date(Date.now() - 3 * 86400000).toISOString() },
-          { leads: Math.floor(Math.random() * 15) + 5, date: new Date(Date.now() - 2 * 86400000).toISOString() },
-          { leads: Math.floor(Math.random() * 35) + 10, date: new Date(Date.now() - 86400000).toISOString() },
-          { leads: Math.floor(Math.random() * 25) + 10, date: new Date().toISOString() }
-        ]);
-        setLeadFunnel([
-          { status: 'NEW', count: Math.floor(Math.random() * 200) + 50 },
-          { status: 'CONTACTED', count: Math.floor(Math.random() * 100) + 20 },
-          { status: 'INTERESTED', count: Math.floor(Math.random() * 50) + 10 },
-          { status: 'SITE_VISIT_COMPLETED', count: Math.floor(Math.random() * 20) + 5 },
-          { status: 'BOOKED', count: Math.floor(Math.random() * 10) + 2 },
-          { status: 'CLOSED', count: Math.floor(Math.random() * 5) + 1 }
-        ]);
-        setLeadSources([
-          { source: 'Facebook', count: Math.floor(Math.random() * 100) + 20, percentage: 40 },
-          { source: 'Google', count: Math.floor(Math.random() * 50) + 10, percentage: 20 },
-          { source: 'Referral', count: Math.floor(Math.random() * 30) + 5, percentage: 10 }
-        ]);
-        setTodayWork({});
-        setReminders([]);
-        setLoading(false);
-      }, 500);
-      return;
-    }
-
     try {
       const headers = getAuthHeaders();
       const requests = [
-        fetch(`${API_URL}/v1/dashboard/summary`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/project-inventory`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/summary?projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/project-inventory?projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
         fetch(`${API_URL}/v1/dashboard/employee-performance`, { headers }).then(r => r.ok ? r.json() : null),
         fetch(`${API_URL}/v1/dashboard/top-performers`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/today-visits`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/today-visits?projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
         fetch(`${API_URL}/v1/dashboard/payment-alerts`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/lead-trends?period=daily&range=7`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/lead-funnel`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/lead-sources?period=thisMonth`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/lead-trends?period=daily&range=7&projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/lead-funnel?projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`${API_URL}/v1/dashboard/lead-sources?period=thisMonth&projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
         fetch(`${API_URL}/v1/dashboard/today-work`, { headers }).then(r => r.ok ? r.json() : null),
         fetch(`${API_URL}/v1/dashboard/reminders`, { headers }).then(r => r.ok ? r.json() : null),
       ];
@@ -134,6 +89,23 @@ export default function Home() {
   }, [addToast, selectedProject]);
 
   useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch(`${API_URL}/v1/projects?limit=100`, {
+          headers: getAuthHeaders(),
+        });
+        const json = await res.json();
+        if (json.success && json.data) {
+          setProjectsList(json.data.projects || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch projects list", err);
+      }
+    };
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
@@ -161,10 +133,11 @@ export default function Home() {
                 onChange={(e) => setSelectedProject(e.target.value)}
               >
                 <option value="all" className="text-slate-800 font-medium">All Projects</option>
-                <option value="the_f_row" className="text-slate-800 font-medium">The F row</option>
-                <option value="18_aangan" className="text-slate-800 font-medium">18 Aangan</option>
-                <option value="eco_town" className="text-slate-800 font-medium">Eco-Town</option>
-                <option value="aasis_scahe" className="text-slate-800 font-medium">aasis scahe</option>
+                {projectsList.map((p) => (
+                  <option key={p._id} value={p._id} className="text-slate-800 font-medium">
+                    {p.name}
+                  </option>
+                ))}
               </select>
               <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-rose-50 rounded-md flex items-center justify-center group-hover:bg-[#EB3539] transition-colors">
                 <ChevronDown className="w-3.5 h-3.5 text-[#EB3539] group-hover:text-white transition-colors" />

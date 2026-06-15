@@ -18,9 +18,9 @@ const getCardIcon = (title: string) => {
 
 export const KPICard = ({ title, value, subtext = "", trend = "", isUp = true, accentColor = "#3b82f6" }: any) => {
   const { icon, bg } = getCardIcon(title);
-  
+
   const hasTrend = trend && trend !== "" && trend !== "—";
-  
+
   let trendColor = "text-emerald-600 bg-emerald-50";
   let trendIcon = "▲";
 
@@ -40,7 +40,7 @@ export const KPICard = ({ title, value, subtext = "", trend = "", isUp = true, a
     <div className="bg-white rounded-[26px] p-5 shadow-sm hover:shadow-xl border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1.5 group cursor-default relative overflow-hidden">
       {/* Accent Bar */}
       <div className="absolute top-0 left-0 right-0 h-[6px] rounded-t-full" style={{ backgroundColor: accentColor }} />
-      
+
       {/* Icon + Trend Row */}
       <div className="flex justify-between items-center mt-1 mb-4">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg} shadow-sm`}>
@@ -53,13 +53,13 @@ export const KPICard = ({ title, value, subtext = "", trend = "", isUp = true, a
           </div>
         ) : null}
       </div>
-      
+
       {/* Value */}
       <h3 className="text-[32px] font-extrabold text-[#1E293B] leading-none group-hover:scale-[1.02] transition-transform origin-left duration-300">{value}</h3>
-      
+
       {/* Title */}
       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-2">{title}</p>
-      
+
       {/* Subtext */}
       {subtext && (
         <p className="text-[12px] text-slate-400 mt-1">{subtext}</p>

@@ -8,6 +8,7 @@ import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders, getToken } from "../../lib/auth";
 import KPICard from "../../Components/KPICard";
+import ProjectDetailModule, { ProjectDetail } from "../../Components/projectDetailModule";
 
 const API_BASE = API_URL.replace(/\/api$/, "");
 
@@ -162,6 +163,8 @@ export default function ProjectsPage() {
     soldUnits: 0,
   });
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedProjectDetail, setSelectedProjectDetail] = useState<ProjectDetail | null>(null);
   const [form, setForm] = useState(EMPTY_PROJECT_FORM);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
@@ -461,6 +464,75 @@ export default function ProjectsPage() {
     }
   };
 
+  const handleOpenDetails = async (projectId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/v1/projects/${projectId}`, {
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const p = json.data;
+        setSelectedProjectDetail({
+          id: p._id,
+          name: p.name,
+          location: p.location,
+          description: p.description || "",
+          type: p.type,
+          totalUnits: p.totalUnits,
+          status: p.status,
+          launchDate: p.launchDate || "",
+          completionDate: p.completionDate || "",
+          reraNumber: p.reraNumber || "",
+          amenities: p.amenities || [],
+          image: p.images?.[0] || null,
+        });
+        setIsDetailModalOpen(true);
+      } else {
+        addToast(json.message || "Failed to load project details", "info");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error connecting to server";
+      addToast(message, "info");
+    }
+  };
+
+  const handleSaveProject = async (updated: ProjectDetail) => {
+    try {
+      const payload: Record<string, any> = {
+        name: updated.name.trim(),
+        location: updated.location.trim(),
+        description: updated.description.trim(),
+        type: updated.type,
+        totalUnits: updated.totalUnits,
+        status: updated.status,
+        amenities: updated.amenities,
+      };
+      if (updated.launchDate) payload.launchDate = updated.launchDate;
+      if (updated.completionDate) payload.completionDate = updated.completionDate;
+      payload.reraNumber = updated.reraNumber ? updated.reraNumber.trim() : "";
+      payload.images = updated.image ? [updated.image] : [];
+
+      const res = await fetch(`${API_URL}/v1/projects/${updated.id}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (json.success) {
+        addToast(`Project "${updated.name}" updated successfully`, "success");
+        setIsDetailModalOpen(false);
+        fetchProjects();
+        fetchStats();
+        fetchLocations();
+      } else {
+        addToast(json.message || "Failed to update project", "info");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error connecting to server";
+      addToast(message, "info");
+    }
+  };
+
   return (
     <div className={PAGE_CONTAINER_CLASS}>
       <PageHeader
@@ -692,7 +764,7 @@ export default function ProjectsPage() {
               </div>
 
               <button
-                onClick={() => addToast(`Opening details for ${project.name}`, "info")}
+                onClick={() => handleOpenDetails(project.id)}
                 className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-white font-bold text-[14px] py-3 rounded-2xl transition-colors cursor-pointer"
               >
                 View Details
@@ -895,6 +967,14 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
+
+      <ProjectDetailModule
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        project={selectedProjectDetail}
+        onSave={handleSaveProject}
+        addToast={addToast}
+      />
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center py-4 gap-2">
