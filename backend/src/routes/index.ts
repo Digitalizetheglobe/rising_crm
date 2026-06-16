@@ -20,6 +20,7 @@ import dashboardRoutes from '../modules/dashboard/dashboard.routes';
 import reportRoutes from '../modules/reports/report.routes';
 import uploadRoutes from '../modules/uploads/upload.routes';
 import importExportRoutes from '../modules/imports-exports/importExport.routes';
+import sitevisitRoutes from '../modules/sitevisits/sitevisit.routes';
 
 const router = Router();
 
@@ -42,6 +43,7 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/reports', reportRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/data', importExportRoutes);
+router.use('/sitevisits', sitevisitRoutes);
 
 router.get('/health', (_req, res) => {
     res.json({ success: true, message: 'CRM API is running.' });

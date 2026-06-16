@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { API_URL } from "../config/api.config";
 import { getAuthHeaders } from "../lib/auth";
 import PageHeader from "../Components/PageHeader";
@@ -41,7 +41,8 @@ export default function Home() {
   const [leadSources, setLeadSources] = useState<any[]>([]);
   const [todayWork, setTodayWork] = useState<any>({});
   const [reminders, setReminders] = useState<any[]>([]);
-
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+const svgRef = useRef<SVGSVGElement>(null);
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
 
@@ -76,7 +77,7 @@ export default function Home() {
       if (remData?.success) {
         // reminders returns { upcoming: [...], overdue: [...] }
         const upcoming = (remData.data?.upcoming || []).map((r: any) => ({ ...r, isOverdue: false }));
-        const overdue  = (remData.data?.overdue  || []).map((r: any) => ({ ...r, isOverdue: true  }));
+        const overdue = (remData.data?.overdue || []).map((r: any) => ({ ...r, isOverdue: true }));
         setReminders([...overdue, ...upcoming]);
       }
 
@@ -113,7 +114,7 @@ export default function Home() {
   const totalUnits = inventory.reduce((sum, inv) => sum + (inv.totalUnits || 0), 0);
   const unitsAvailable = inventory.reduce((sum, inv) => sum + (inv.available || 0), 0);
   const openPct = totalUnits > 0 ? Math.round((unitsAvailable / totalUnits) * 100) : 0;
-  
+
   const teamDeals = topPerformers.reduce((sum, p) => sum + (p.dealsClosedMonth || 0), 0);
   const teamRevenue = topPerformers.reduce((sum, p) => sum + (p.revenue || 0), 0);
   const teamAvgConv = topPerformers.length > 0 ? (topPerformers.reduce((sum, p) => sum + (p.conversionRate || 0), 0) / topPerformers.length).toFixed(1) : "0";
@@ -125,23 +126,61 @@ export default function Home() {
           title={<>Welcome Back, <span className="text-brand">{userName}</span></>}
           subtitle="Here's what requires your attention today"
           actions={
-            <div className="flex items-center gap-2 bg-white border border-rose-200 hover:border-[#EB3539]/50 shadow-sm rounded-xl px-4 py-2.5 relative transition-all group w-[280px] cursor-pointer">
-              <span className="text-slate-500 text-[13px] font-medium whitespace-nowrap">Project:</span>
-              <select 
-                className="bg-transparent border-none text-[#EB3539] font-bold text-[14px] outline-none cursor-pointer pr-8 focus:ring-0 appearance-none flex-1 w-full"
+            // <div className="flex items-center gap-2 bg-white border border-rose-200 hover:border-[#EB3539]/50 shadow-sm rounded-xl px-4 py-2.5 relative transition-all group w-[280px] cursor-pointer">
+            //   <span className="text-slate-500 text-[13px] font-medium whitespace-nowrap">Project:</span>
+            //   <select 
+            //     className="bg-transparent border-none text-[#EB3539] font-bold text-[14px] outline-none cursor-pointer pr-8 focus:ring-0 appearance-none flex-1 w-full"
+            //     value={selectedProject}
+            //     onChange={(e) => setSelectedProject(e.target.value)}
+            //   >
+            //     <option value="all" className="text-slate-800 font-medium">All Projects</option>
+            //     {projectsList.map((p) => (
+            //       <option key={p._id} value={p._id} className="text-slate-800 font-medium">
+            //         {p.name}
+            //       </option>
+            //     ))}
+            //   </select>
+            //   <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-rose-50 rounded-md flex items-center justify-center group-hover:bg-[#EB3539] transition-colors">
+            //     <ChevronDown className="w-3.5 h-3.5 text-[#EB3539] group-hover:text-white transition-colors" />
+            //   </div>
+            // </div>
+            <div className="relative w-[280px]">
+              <select
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}
+                className="
+      w-full
+      h-12
+      pl-4
+      pr-12
+      rounded-xl
+      border border-rose-200
+      bg-white
+      text-[#EB3539]
+      font-semibold
+      text-sm
+      shadow-sm
+      outline-none
+      appearance-none
+      hover:border-[#EB3539]/50
+      focus:border-[#EB3539]
+      focus:ring-2
+      focus:ring-[#EB3539]/20
+      cursor-pointer
+    "
               >
-                <option value="all" className="text-slate-800 font-medium">All Projects</option>
+                <option value="all">All Projects</option>
+
                 {projectsList.map((p) => (
-                  <option key={p._id} value={p._id} className="text-slate-800 font-medium">
+                  <option key={p._id} value={p._id}>
                     {p.name}
                   </option>
                 ))}
               </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-rose-50 rounded-md flex items-center justify-center group-hover:bg-[#EB3539] transition-colors">
-                <ChevronDown className="w-3.5 h-3.5 text-[#EB3539] group-hover:text-white transition-colors" />
-              </div>
+
+              <ChevronDown
+                className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EB3539] pointer-events-none"
+              />
             </div>
           }
         />
@@ -218,7 +257,7 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Lead Trend — last 7 days */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
+          {/* <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-5">
               <h3 className="text-[16px] font-bold text-slate-900">Lead trend — last 7 days</h3>
               {leadTrends.length > 0 && (() => {
@@ -247,19 +286,19 @@ export default function Home() {
                 return { x, y, d };
               });
               const path = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-              const area = `${path} L${pts[pts.length-1].x.toFixed(1)},${(H - padBottom).toFixed(1)} L${pts[0].x.toFixed(1)},${(H - padBottom).toFixed(1)} Z`;
+              const area = `${path} L${pts[pts.length - 1].x.toFixed(1)},${(H - padBottom).toFixed(1)} L${pts[0].x.toFixed(1)},${(H - padBottom).toFixed(1)} Z`;
               return (
                 <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 150 }}>
                   <defs>
                     <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18"/>
-                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0"/>
+                      <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
                     </linearGradient>
                   </defs>
-                  <path d={area} fill="url(#trendGrad)"/>
-                  <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d={area} fill="url(#trendGrad)" />
+                  <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                   {pts.map((p: any, i: number) => (
-                    <circle key={i} cx={p.x} cy={p.y} r="4" fill="white" stroke="#2563eb" strokeWidth="2"/>
+                    <circle key={i} cx={p.x} cy={p.y} r="4" fill="white" stroke="#2563eb" strokeWidth="2" />
                   ))}
                   {pts.map((p: any, i: number) => (
                     <text key={`lbl${i}`} x={p.x} y={H - 4} textAnchor="middle" fontSize="10" fill="#94a3b8" fontWeight="500">
@@ -269,8 +308,151 @@ export default function Home() {
                 </svg>
               );
             })()}
-          </div>
+          </div> */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm relative">
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="text-[16px] font-bold text-slate-900">Lead trend — last 7 days</h3>
+              {leadTrends.length > 0 && (() => {
+                const last = leadTrends[leadTrends.length - 1]?.leads || 0;
+                const prev = leadTrends[leadTrends.length - 2]?.leads || 0;
+                const up = last >= prev;
+                return (
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${up ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
+                    {up ? '↑' : '↓'} {up ? 'Recovering' : 'Dipping'}
+                  </span>
+                );
+              })()}
+            </div>
 
+            {leadTrends.length === 0 ? (
+              <div className="flex items-center justify-center h-[150px]">
+                <p className="text-sm text-slate-400">No trend data available</p>
+              </div>
+            ) : (() => {
+              const maxVal = Math.max(...leadTrends.map((d: any) => d.leads), 1);
+              const minVal = Math.min(...leadTrends.map((d: any) => d.leads));
+              const W = 300; const H = 140; const padX = 10; const padTop = 16; const padBottom = 26;
+
+              const pts = leadTrends.map((d: any, i: number) => {
+                const x = padX + (i / Math.max(leadTrends.length - 1, 1)) * (W - padX * 2);
+                const range = maxVal - minVal || 1;
+                const y = padTop + ((maxVal - d.leads) / range) * (H - padTop - padBottom);
+                return { x, y, d };
+              });
+
+              const path = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+              const area = `${path} L${pts[pts.length - 1].x.toFixed(1)},${(H - padBottom).toFixed(1)} L${pts[0].x.toFixed(1)},${(H - padBottom).toFixed(1)} Z`;
+
+              // Mouse move handling function for connectivity tracking
+              const handleMouseMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+                if (!svgRef.current || pts.length === 0) return;
+
+                // SVG ki actual screen width aur positioning nikalne ke liye
+                const rect = svgRef.current.getBoundingClientRect();
+                // Mouse ka X position SVG ke andar kitna hai (0 se lekar rect.width tak)
+                const mouseXInSvg = e.clientX - rect.left;
+                // Usko SVG ke internal coordinate matrix (0 se 300 W) mein convert kiya
+                const svgX = (mouseXInSvg / rect.width) * W;
+
+                // Sabse nikat (closest) point find karne ka logic
+                let closestIdx = 0;
+                let minDiff = Math.abs(pts[0].x - svgX);
+
+                for (let i = 1; i < pts.length; i++) {
+                  const diff = Math.abs(pts[i].x - svgX);
+                  if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIdx = i;
+                  }
+                }
+                setHoveredIdx(closestIdx);
+              };
+
+              return (
+                <svg
+                  ref={svgRef}
+                  viewBox={`0 0 ${W} ${H}`}
+                  className="w-full"
+                  style={{ height: 150, cursor: 'pointer' }}
+                  onMouseMove={handleMouseMove}
+                  onMouseLeave={() => setHoveredIdx(null)}
+                >
+                  <defs>
+                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Area under the curve */}
+                  <path d={area} fill="url(#trendGrad)" />
+
+                  {/* Main Connectivity Line */}
+                  <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+                  {/* Vertical Guide Line - Jab connectivity line par hover hoga tab dikhegi */}
+                  {hoveredIdx !== null && (
+                    <line
+                      x1={pts[hoveredIdx].x}
+                      y1={padTop}
+                      x2={pts[hoveredIdx].x}
+                      y2={H - padBottom}
+                      stroke="#e2e8f0"
+                      strokeWidth="1"
+                      strokeDasharray="3,3"
+                    />
+                  )}
+
+                  {/* Graphical Dots */}
+                  {pts.map((p: any, i: number) => (
+                    <circle
+                      key={i}
+                      cx={p.x}
+                      cy={p.y}
+                      r={hoveredIdx === i ? "5.5" : "4"}
+                      fill={hoveredIdx === i ? "#2563eb" : "white"}
+                      stroke="#2563eb"
+                      strokeWidth={hoveredIdx === i ? "2.5" : "2"}
+                      style={{ transition: 'all 0.1s ease', pointerEvents: 'none' }}
+                    />
+                  ))}
+
+                  {/* X-Axis Labels */}
+                  {pts.map((p: any, i: number) => (
+                    <text key={`lbl${i}`} x={p.x} y={H - 4} textAnchor="middle" fontSize="10" fill={hoveredIdx === i ? "#2563eb" : "#94a3b8"} fontWeight={hoveredIdx === i ? "600" : "500"} style={{ transition: 'color 0.1s ease' }}>
+                      {p.d.date ? new Date(p.d.date).toLocaleDateString('en-IN', { weekday: 'short' }) : p.d.week || p.d.month || ''}
+                    </text>
+                  ))}
+
+                  {/* Perfect SVG Tooltip over the connection point */}
+                  {hoveredIdx !== null && (
+                    <g transform={`translate(${pts[hoveredIdx].x}, ${pts[hoveredIdx].y - 14})`}>
+                      {/* Tooltip Card Background */}
+                      <rect
+                        x="-28"
+                        y="-16"
+                        width="56"
+                        height="20"
+                        rx="5"
+                        fill="#0f172a"
+                        className="shadow-lg"
+                      />
+                      {/* Tooltip Content */}
+                      <text
+                        textAnchor="middle"
+                        y="-3"
+                        fill="#ffffff"
+                        fontSize="10"
+                        fontWeight="600"
+                      >
+                        {pts[hoveredIdx].d.leads} Lds
+                      </text>
+                    </g>
+                  )}
+                </svg>
+              );
+            })()}
+          </div>
           {/* Lead Funnel */}
           <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-5">
@@ -282,8 +464,8 @@ export default function Home() {
             ) : (
               <div className="space-y-2">
                 {(() => {
-                  const COLORS = ['#2563eb','#7c3aed','#d97706','#059669','#dc2626','#0891b2','#be185d'];
-                  const funnelStages = ['NEW','CONTACTED','INTERESTED','SITE_VISIT_COMPLETED','BOOKED','CLOSED'];
+                  const COLORS = ['#2563eb', '#7c3aed', '#d97706', '#059669', '#dc2626', '#0891b2', '#be185d'];
+                  const funnelStages = ['NEW', 'CONTACTED', 'INTERESTED', 'SITE_VISIT_COMPLETED', 'BOOKED', 'CLOSED'];
                   const filtered = funnelStages
                     .map(key => leadFunnel.find((f: any) => f.status === key))
                     .filter(Boolean) as any[];
@@ -291,14 +473,14 @@ export default function Home() {
                   return filtered.map((f: any, i: number) => {
                     const pct = Math.round((f.count / topCount) * 100);
                     const clr = COLORS[i % COLORS.length];
-                    const passRate = i > 0 ? `${Math.round((f.count / (filtered[i-1]?.count || 1)) * 100)}% pass` : '';
-                    const shortLabel: Record<string,string> = {NEW:'Total Leads',CONTACTED:'Contacted',INTERESTED:'Interested',SITE_VISIT_COMPLETED:'Site Visited',BOOKED:'Booked',CLOSED:'Closed/Won'};
+                    const passRate = i > 0 ? `${Math.round((f.count / (filtered[i - 1]?.count || 1)) * 100)}% pass` : '';
+                    const shortLabel: Record<string, string> = { NEW: 'Total Leads', CONTACTED: 'Contacted', INTERESTED: 'Interested', SITE_VISIT_COMPLETED: 'Site Visited', BOOKED: 'Booked', CLOSED: 'Closed/Won' };
                     return (
                       <div key={f.status} className="flex items-center gap-2">
                         <span className="text-[11px] text-slate-500 w-[76px] text-right flex-shrink-0">{shortLabel[f.status] || f.label}</span>
                         <div className="flex-1 h-5 bg-slate-50 rounded overflow-hidden">
-                          <div className="h-full rounded flex items-center pl-2" style={{width:`${Math.max(pct,8)}%`, background:`${clr}22`}}>
-                            <span className="text-[11px] font-medium" style={{color:clr}}>{f.count.toLocaleString()}</span>
+                          <div className="h-full rounded flex items-center pl-2" style={{ width: `${Math.max(pct, 8)}%`, background: `${clr}22` }}>
+                            <span className="text-[11px] font-medium" style={{ color: clr }}>{f.count.toLocaleString()}</span>
                           </div>
                         </div>
                         <span className="text-[10px] text-slate-400 w-[42px] flex-shrink-0">{passRate}</span>
@@ -321,7 +503,7 @@ export default function Home() {
                 <p className="text-sm text-slate-400">No source data available</p>
               </div>
             ) : (() => {
-              const SRC_COLORS = ['#2563eb','#16a34a','#7c3aed','#d97706','#94a3b8','#dc2626','#0891b2'];
+              const SRC_COLORS = ['#2563eb', '#16a34a', '#7c3aed', '#d97706', '#94a3b8', '#dc2626', '#0891b2'];
               const total = leadSources.reduce((s: number, d: any) => s + d.count, 0) || 1;
               const R = 52; const cx = 64; const cy = 64;
               const innerR = R * 0.58;
@@ -352,16 +534,16 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-5">
                   {/* Centered Donut */}
                   <svg viewBox="0 0 128 128" style={{ width: 130, height: 130 }}>
-                    <circle cx={cx} cy={cy} r={R} fill="#f1f5f9"/>
+                    <circle cx={cx} cy={cy} r={R} fill="#f1f5f9" />
                     {slices.map((sl, i) => (
-                      <path key={i} d={sl.d} fill={sl.clr} stroke="#fff" strokeWidth="2"/>
+                      <path key={i} d={sl.d} fill={sl.clr} stroke="#fff" strokeWidth="2" />
                     ))}
                   </svg>
                   {/* Horizontal legend row at bottom */}
                   <div className="flex items-start justify-around w-full">
                     {slices.map((sl, i) => (
                       <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-0 px-1">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: sl.clr }}/>
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: sl.clr }} />
                         <span className="text-[11px] font-medium text-slate-500 text-center leading-tight w-full truncate">{sl.src.source}</span>
                         <span className="text-[13px] font-bold text-slate-800">{sl.src.percentage}%</span>
                       </div>
@@ -390,7 +572,7 @@ export default function Home() {
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-slate-800 truncate">{f.type} — {f.leadName}</p>
-                    <p className="text-[11px] text-slate-500">{new Date(f.time).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</p>
+                    <p className="text-[11px] text-slate-500">{new Date(f.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Follow-up</span>
                 </div>
@@ -400,7 +582,7 @@ export default function Home() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-slate-800 truncate">Site Visit — {v.leadName}</p>
-                    <p className="text-[11px] text-slate-500">{v.projectName} · {new Date(v.time).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</p>
+                    <p className="text-[11px] text-slate-500">{v.projectName} · {new Date(v.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Visit</span>
                 </div>
@@ -437,7 +619,7 @@ export default function Home() {
                 return (
                   <div key={r.id} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
                     <span className="text-[11px] font-medium text-slate-500 w-[56px] pt-0.5 flex-shrink-0">
-                      {new Date(r.scheduledAt || r.time).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}
+                      {new Date(r.scheduledAt || r.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium text-slate-800 truncate">{r.type} — {r.leadName || r.clientName}</p>
@@ -456,7 +638,7 @@ export default function Home() {
 
         {/* Lower Section (Employee Follow-Ups, Top Performers, Site Visits, Payment Alerts) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-          
+
           {/* Employee Follow-Ups */}
           <div className="lg:col-span-4 bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex flex-col">
             <h3 className="text-lg font-bold text-slate-900">Employee Follow-Ups Today</h3>
@@ -537,7 +719,7 @@ export default function Home() {
                 })}
               </div>
             </div>
-            
+
             <div className="mt-6 pt-4 border-t border-slate-100">
               <p className="text-[11px] text-slate-400 font-medium mb-2 uppercase tracking-wide">Team this month</p>
               <div className="flex justify-between items-center mb-1">
@@ -557,7 +739,7 @@ export default function Home() {
 
           {/* Right Column: Site Visits & Payment Alerts */}
           <div className="lg:col-span-4 flex flex-col gap-6">
-            
+
             {/* Today's Site Visits */}
             <div className="bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex-1">
               <h3 className="text-lg font-bold text-slate-900">Today's Site Visits</h3>

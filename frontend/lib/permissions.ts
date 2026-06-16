@@ -30,12 +30,12 @@ export const normalizeRole = (role: string): UserRole =>
 
 /** Route paths each role may access */
 const ROLE_ROUTE_ACCESS: Record<string, string[]> = {
-  SUPER_ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee", "/followup"],
-  ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee", "/followup"],
-  SALES_MANAGER: ["/", "/enquiry", "/leads", "/client", "/projects", "/units", "/followup"],
-  SALES_EXECUTIVE: ["/", "/leads", "/client", "/projects", "/units", "/followup"],
+  SUPER_ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee", "/followup", "/sitevisit"],
+  ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee", "/followup", "/sitevisit"],
+  SALES_MANAGER: ["/", "/enquiry", "/leads", "/client", "/projects", "/units", "/followup", "/sitevisit"],
+  SALES_EXECUTIVE: ["/", "/leads", "/client", "/projects", "/units", "/followup", "/sitevisit"],
   FINANCIAL_EXECUTIVE: ["/", "/booking", "/client", "/projects", "/units", "/payments"],
-  VIEWER: ["/", "/leads", "/client", "/enquiry", "/booking", "/projects", "/units"],
+  VIEWER: ["/", "/leads", "/client", "/enquiry", "/booking", "/projects", "/units", "/sitevisit"],
 };
 
 export const canAccessRoute = (role: string, pathname: string): boolean => {

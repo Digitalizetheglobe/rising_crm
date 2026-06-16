@@ -89,7 +89,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: "Leads", href: "/leads", module: "leads" },
         { name: "Clients", href: "/client", module: "clients" },
         { name: "Follow Ups", href: "/followup", module: "clients" },
-        { name: "Site Visits", href: "#", module: "clients" },
+        { name: "Site Visits", href: "/sitevisit", module: "clients" },
 
       ],
     },
