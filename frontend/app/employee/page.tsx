@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import PageHeader from "../../Components/PageHeader";
 import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLayout";
 import { useDashboard } from "../DashboardContext";
@@ -75,6 +76,7 @@ function getPhoneError(phone: string) {
 }
 
 export default function EmployeePage() {
+  const router = useRouter();
   const { searchQuery, addToast } = useDashboard();
 
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -409,7 +411,7 @@ export default function EmployeePage() {
               {/* Action Buttons */}
               <div className="flex gap-2.5 pt-1">
                 <button
-                  onClick={() => addToast(`Viewing details for ${emp.name}`, "info")}
+                  onClick={() => router.push(`/employee/${emp.id}`)}
                   className="flex-1 bg-[#16A34A] hover:bg-[#15803d] text-white text-[13px] font-bold px-4 py-2.5 rounded-xl transition-colors cursor-pointer shadow-sm"
                 >
                   View Details
