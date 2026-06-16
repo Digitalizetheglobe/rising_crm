@@ -1025,17 +1025,17 @@ import ProjectDetailModule, { ProjectDetail } from "../../Components/projectDeta
 const API_BASE = API_URL.replace(/\/api$/, "");
 
 const PROJECT_TYPE_OPTIONS = [
-  { value: "RESIDENTIAL", label: "Apartment complex" },
+  { value: "NA_PLOT", label: "NA Plot" },
   { value: "COMMERCIAL", label: "Commercial" },
-  { value: "MIXED_USE", label: "Mixed use" },
-  { value: "PLOTTED", label: "Plotted development" },
+  { value: "RESIDENTIAL", label: "Residential" },
 ] as const;
 
 const PROJECT_STATUS_OPTIONS = [
-  { value: "UPCOMING", label: "Upcoming" },
-  { value: "ACTIVE", label: "Under construction" },
+  { value: "READY_TO_MOVE", label: "Ready to Move" },
+  { value: "NEAR_POSSESSION", label: "Near Possession" },
+  { value: "UNDER_CONSTRUCTION", label: "Under Construction" },
+  { value: "NEW_LAUNCH", label: "New Launch" },
   { value: "COMPLETED", label: "Completed" },
-  { value: "ON_HOLD", label: "On hold" },
 ] as const;
 
 const AMENITY_OPTIONS = [
@@ -1054,11 +1054,10 @@ const EMPTY_PROJECT_FORM = {
   name: "",
   location: "",
   description: "",
-  type: "RESIDENTIAL",
+  type: "NA_PLOT",
   totalUnits: "",
-  status: "ACTIVE",
+  status: "NEW_LAUNCH",
   launchDate: "",
-  completionDate: "",
   reraNumber: "",
   amenities: [] as string[],
 };
@@ -1088,17 +1087,17 @@ interface PageStats {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  UPCOMING: "Upcoming",
-  ACTIVE: "Under construction",
+  READY_TO_MOVE: "Ready to Move",
+  NEAR_POSSESSION: "Near Possession",
+  UNDER_CONSTRUCTION: "Under Construction",
+  NEW_LAUNCH: "New Launch",
   COMPLETED: "Completed",
-  ON_HOLD: "On hold",
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  RESIDENTIAL: "Apartment complex",
+  NA_PLOT: "NA Plot",
   COMMERCIAL: "Commercial",
-  MIXED_USE: "Mixed use",
-  PLOTTED: "Plotted development",
+  RESIDENTIAL: "Residential",
 };
 
 const formatPriceCompact = (amount: number): string => {
@@ -1451,11 +1450,6 @@ export default function ProjectsPage() {
       return;
     }
 
-    if (form.launchDate && form.completionDate && form.completionDate <= form.launchDate) {
-      addToast("Completion date must be after launch date", "info");
-      return;
-    }
-
     if (isUploadingImage) {
       addToast("Please wait for image upload to finish", "info");
       return;
@@ -1474,7 +1468,6 @@ export default function ProjectsPage() {
       };
 
       if (form.launchDate) payload.launchDate = form.launchDate;
-      if (form.completionDate) payload.completionDate = form.completionDate;
       if (form.reraNumber.trim()) payload.reraNumber = form.reraNumber.trim();
       if (uploadedImageUrl) payload.images = [uploadedImageUrl];
 
@@ -1957,25 +1950,14 @@ export default function ProjectsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1.5">Launch Date</label>
-                  <input
-                    type="date"
-                    value={form.launchDate}
-                    onChange={(e) => updateForm("launchDate", e.target.value)}
-                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 font-bold mb-1.5">Completion Date</label>
-                  <input
-                    type="date"
-                    value={form.completionDate}
-                    onChange={(e) => updateForm("completionDate", e.target.value)}
-                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
-                  />
-                </div>
+              <div>
+                <label className="block text-slate-600 font-bold mb-1.5">Launch Date</label>
+                <input
+                  type="date"
+                  value={form.launchDate}
+                  onChange={(e) => updateForm("launchDate", e.target.value)}
+                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                />
               </div>
 
               <div>
