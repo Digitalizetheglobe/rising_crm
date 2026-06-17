@@ -110,7 +110,8 @@ export const getUserById = async (id: string) => {
     if (!user) {
         throw new ApiError(404, 'User not found');
     }
-    return user;
+    const usersWithStats = await attachUserStats([user]);
+    return usersWithStats[0];
 };
 
 export const createUser = async (data: any) => {

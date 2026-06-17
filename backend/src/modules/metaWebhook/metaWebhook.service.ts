@@ -213,7 +213,7 @@ export const processMetaLead = async (metaLeadData: MetaLeadData) => {
       await createNotification({
         UserId: campaign.defaultAssigneeId,
         title: 'New Meta Ads Enquiry',
-        message: `New enquiry from ${parsedData.fullName || 'Unknown'} (${parsedData.phone}) via ${campaign.campaignLabel}`,
+        message: `New enquiry from ${parsedData.fullName || 'Unknown'} (${parsedData.phone}) via ${campaign.campaignName}`,
         type: 'Lead',
         refId: newEnquiry._id,
         refModel: 'Enquiry',

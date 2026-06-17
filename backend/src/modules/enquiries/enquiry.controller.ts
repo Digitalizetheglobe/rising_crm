@@ -56,7 +56,7 @@ export const getAllEnquiries = async (req: AuthRequest, res: Response): Promise<
 // GET /api/v1/enquiries/stats
 export const getEnquiryStats = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const stats = await getEnquiryStatsService();
+        const stats = await getEnquiryStatsService(req.query);
         res.status(200).json({ success: true, data: stats });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });

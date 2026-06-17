@@ -1020,7 +1020,7 @@ import { useDashboard } from "../DashboardContext";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders, getToken } from "../../lib/auth";
 import KPICard from "../../Components/KPICard";
-import ProjectDetailModule, { ProjectDetail } from "../../Components/projectDetailModule";
+import ProjectDetailModule, { ProjectDetail, MetaCampaign } from "../../Components/projectDetailModule";
 
 const API_BASE = API_URL.replace(/\/api$/, "");
 
@@ -1060,6 +1060,7 @@ const EMPTY_PROJECT_FORM = {
   launchDate: "",
   reraNumber: "",
   amenities: [] as string[],
+  metaCampaigns: [] as MetaCampaign[],
 };
 
 interface ProjectCard {
@@ -1181,6 +1182,8 @@ export default function ProjectsPage() {
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [newCampaign, setNewCampaign] = useState<Partial<MetaCampaign>>({});
+  const [showCampaignForm, setShowCampaignForm] = useState(false);
 
   const fetchProjectStats = async (projectId: string) => {
     try {
@@ -1375,9 +1378,11 @@ export default function ProjectsPage() {
 
   const resetAddForm = () => {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setForm({ ...EMPTY_PROJECT_FORM, amenities: [] });
+    setForm({ ...EMPTY_PROJECT_FORM, amenities: [], metaCampaigns: [] });
     setImagePreview(null);
     setUploadedImageUrl(null);
+    setNewCampaign({});
+    setShowCampaignForm(false);
   };
 
   const openAddModal = () => {
@@ -1397,6 +1402,30 @@ export default function ProjectsPage() {
         ? prev.amenities.filter((a) => a !== amenity)
         : [...prev.amenities, amenity],
     }));
+  };
+
+  const addCampaign = () => {
+    if (!newCampaign.campaignName || !newCampaign.campaignId || !newCampaign.adId || !newCampaign.platform) {
+      addToast("Please fill all required campaign fields", "info");
+      return;
+    }
+    setForm((prev) => ({
+      ...prev,
+      metaCampaigns: [
+        ...prev.metaCampaigns,
+        { ...newCampaign, formId: newCampaign.formId || "N/A", isActive: true } as MetaCampaign,
+      ],
+    }));
+    setNewCampaign({});
+    setShowCampaignForm(false);
+  };
+
+  const removeCampaign = (index: number) => {
+    setForm((prev) => {
+      const updated = [...prev.metaCampaigns];
+      updated.splice(index, 1);
+      return { ...prev, metaCampaigns: updated };
+    });
   };
 
   const uploadProjectImage = async (file: File): Promise<string> => {
@@ -1457,14 +1486,25 @@ export default function ProjectsPage() {
 
     setIsSubmitting(true);
     try {
+      const mappedType = form.type === "NA_PLOT" ? "PLOTTED" : form.type;
+      let mappedStatus = form.status;
+      switch (form.status) {
+        case "READY_TO_MOVE": mappedStatus = "COMPLETED"; break;
+        case "NEAR_POSSESSION": mappedStatus = "ACTIVE"; break;
+        case "UNDER_CONSTRUCTION": mappedStatus = "ACTIVE"; break;
+        case "NEW_LAUNCH": mappedStatus = "UPCOMING"; break;
+        case "COMPLETED": mappedStatus = "COMPLETED"; break;
+      }
+
       const payload: Record<string, unknown> = {
         name: form.name.trim(),
         location: form.location.trim(),
         description: form.description.trim(),
-        type: form.type,
+        type: mappedType,
         totalUnits,
-        status: form.status,
+        status: mappedStatus,
         amenities: form.amenities,
+        metaCampaigns: form.metaCampaigns,
       };
 
       if (form.launchDate) payload.launchDate = form.launchDate;
@@ -1516,6 +1556,7 @@ export default function ProjectsPage() {
           completionDate: p.completionDate || "",
           reraNumber: p.reraNumber || "",
           amenities: p.amenities || [],
+          metaCampaigns: p.metaCampaigns || [],
           image: p.images?.[0] || null,
         });
         setIsDetailModalOpen(true);
@@ -1538,6 +1579,7 @@ export default function ProjectsPage() {
         totalUnits: updated.totalUnits,
         status: updated.status,
         amenities: updated.amenities,
+        metaCampaigns: updated.metaCampaigns,
       };
       if (updated.launchDate) payload.launchDate = updated.launchDate;
       if (updated.completionDate) payload.completionDate = updated.completionDate;
@@ -1888,6 +1930,144 @@ export default function ProjectsPage() {
               </div>
 
               <div>
+                <label className="block text-slate-600 font-bold mb-2">Meta Campaigns (Facebook & Instagram)</label>
+                <div className="flex flex-col gap-3">
+                  {form.metaCampaigns.map((camp, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-4 rounded-xl border border-slate-200 bg-slate-50">
+                      <div>
+                        <div className="font-bold text-slate-800 text-[14px] flex items-center gap-2">
+                          {camp.campaignName}
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${camp.platform === 'facebook' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                            {camp.platform}
+                          </span>
+                        </div>
+                        <div className="text-[12px] text-slate-500 font-medium mt-1">
+                          Ad ID: {camp.adId} {camp.formId && `· Form ID: ${camp.formId}`}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeCampaign(idx)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+
+                  {showCampaignForm ? (
+                    <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
+                      <div className="font-bold text-slate-700 text-[13px] mb-2">New Campaign Mapping</div>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          placeholder="Campaign Name *"
+                          value={newCampaign.campaignName || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, campaignName: e.target.value })}
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Campaign ID *"
+                          value={newCampaign.campaignId || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, campaignId: e.target.value })}
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        />
+                      </div>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          placeholder="Ad Set Name"
+                          value={newCampaign.adSetName || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, adSetName: e.target.value })}
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Ad Set ID"
+                          value={newCampaign.adSetId || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, adSetId: e.target.value })}
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        />
+                      </div>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          placeholder="Ad Name"
+                          value={newCampaign.adName || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, adName: e.target.value })}
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Meta Ad ID *"
+                          value={newCampaign.adId || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, adId: e.target.value })}
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        />
+                      </div>
+                      <div className="flex gap-3">
+                        <input
+                          type="text"
+                          placeholder="Form Name"
+                          value={newCampaign.formName || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, formName: e.target.value })}
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Meta Form ID"
+                          value={newCampaign.formId || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, formId: e.target.value })}
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        />
+                      </div>
+                      <div>
+                        <select
+                          value={newCampaign.platform || ""}
+                          onChange={(e) => setNewCampaign({ ...newCampaign, platform: e.target.value as any })}
+                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:ring-2 focus:ring-brand/20 outline-none font-medium"
+                        >
+                          <option value="">Select Platform *</option>
+                          <option value="facebook">Facebook</option>
+                          <option value="instagram">Instagram</option>
+                        </select>
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowCampaignForm(false)}
+                          className="px-4 py-1.5 rounded-lg text-slate-500 hover:bg-slate-200 font-bold text-[13px] transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={addCampaign}
+                          className="px-4 py-1.5 rounded-lg bg-brand hover:bg-brand-hover text-white font-bold text-[13px] transition-colors shadow-sm cursor-pointer"
+                        >
+                          Add Campaign
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowCampaignForm(true)}
+                      className="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 font-bold text-[13px] hover:border-brand/40 hover:bg-brand-light/30 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Campaign Mapping
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-slate-600 font-bold mb-1.5">Description</label>
                 <textarea
                   placeholder="Brief description about the project..."
@@ -1979,6 +2159,8 @@ export default function ProjectsPage() {
                   ))}
                 </div>
               </div>
+
+
 
               <div className="flex gap-3 pt-2 justify-end">
                 <button

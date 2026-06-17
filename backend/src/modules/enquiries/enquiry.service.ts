@@ -322,8 +322,11 @@ export const deleteEnquiryService = async (enquiryId: string) => {
 };
 
 // ─── Get Enquiry Stats ─────────────────────────────────────────────────────────
-export const getEnquiryStatsService = async () => {
+export const getEnquiryStatsService = async (query: Record<string, any> = {}) => {
+    const filter = buildFilterQuery(query);
+
     const stats = await Enquiry.aggregate([
+        { $match: filter },
         {
             $group: {
                 _id:   '$status',
@@ -333,6 +336,7 @@ export const getEnquiryStatsService = async () => {
     ]);
 
     const sourceStats = await Enquiry.aggregate([
+        { $match: filter },
         {
             $group: {
                 _id:   '$source',
@@ -341,12 +345,28 @@ export const getEnquiryStatsService = async () => {
         },
     ]);
 
-    const total     = await Enquiry.countDocuments();
-    const converted = await Enquiry.countDocuments({ isConverted: true });
+    const total     = await Enquiry.countDocuments(filter);
+    const converted = await Enquiry.countDocuments({ ...filter, isConverted: true });
+
+    // Calculate today's enquiries matching the filter
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    
+    const today = await Enquiry.countDocuments({
+        ...filter,
+        createdAt: {
+            ...filter.createdAt,
+            $gte: startOfToday,
+            $lte: endOfToday
+        }
+    });
 
     return {
         total,
         converted,
+        today,
         conversionRate: total > 0 ? ((converted / total) * 100).toFixed(1) + '%' : '0%',
         byStatus: stats,
         bySource: sourceStats,

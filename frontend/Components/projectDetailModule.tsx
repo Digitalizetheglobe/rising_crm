@@ -5,6 +5,19 @@ import { getToken, getAuthHeaders, getStoredUser } from "../lib/auth";
 
 const API_BASE = API_URL.replace(/\/api$/, "");
 
+export interface MetaCampaign {
+  campaignName: string;
+  campaignId: string;
+  adSetName: string;
+  adSetId: string;
+  adName: string;
+  adId: string;
+  formName: string;
+  formId: string;
+  platform: 'facebook' | 'instagram';
+  isActive?: boolean;
+}
+
 export interface ProjectDetail {
   id: string;
   name: string;
@@ -18,6 +31,7 @@ export interface ProjectDetail {
   reraNumber?: string;
   amenities: string[];
   image: string | null;
+  metaCampaigns?: MetaCampaign[];
 }
 
 interface ProjectDetailModuleProps {
@@ -176,6 +190,8 @@ export default function ProjectDetailModule({
   const [formData, setFormData] = useState<ProjectDetail | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [newCampaign, setNewCampaign] = useState<Partial<MetaCampaign>>({});
+  const [showCampaignForm, setShowCampaignForm] = useState(false);
 
   const user = getStoredUser();
   const canEdit = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN" || user?.role === "SALES_MANAGER";
@@ -272,6 +288,31 @@ export default function ProjectDetailModule({
       ? currentAmenities.filter((a) => a !== amenity)
       : [...currentAmenities, amenity];
     handleChange("amenities", updatedAmenities);
+  };
+
+  const addCampaign = () => {
+    if (!newCampaign.campaignName || !newCampaign.campaignId || !newCampaign.adId || !newCampaign.platform) {
+      addToast("Please fill all required campaign fields", "info");
+      return;
+    }
+    const current = formData.metaCampaigns || [];
+    handleChange("metaCampaigns", [
+      ...current,
+      {
+        ...newCampaign,
+        formId: newCampaign.formId || "N/A",
+        isActive: true,
+      } as MetaCampaign,
+    ]);
+    setNewCampaign({});
+    setShowCampaignForm(false);
+  };
+
+  const removeCampaign = (index: number) => {
+    const current = formData.metaCampaigns || [];
+    const updated = [...current];
+    updated.splice(index, 1);
+    handleChange("metaCampaigns", updated);
   };
 
   const typeLabel = PROJECT_TYPES.find((t) => t.value === formData.type)?.label || formData.type;
@@ -770,6 +811,152 @@ export default function ProjectDetailModule({
                     ) : (
                       formData.description || "—"
                     )}
+                  </td>
+                </tr>
+
+                <SectionHeader title="Meta Integration" icon="🌐" />
+                <tr>
+                  <td
+                    style={{
+                      fontFamily: 'Calibri, "Segoe UI", sans-serif',
+                      fontSize: "12px",
+                      color: "#555",
+                      fontWeight: 600,
+                      padding: "5px 10px",
+                      border: "1px solid #d0d0d0",
+                      width: "38%",
+                      background: "#efefef",
+                    }}
+                  >
+                    Meta Campaigns
+                  </td>
+                  <td
+                    style={{
+                      padding: "8px 10px",
+                      border: "1px solid #d0d0d0",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {(formData.metaCampaigns || []).map((camp, idx) => (
+                        <div key={idx} style={{ padding: "6px 8px", border: "1px solid #e0e0e0", borderRadius: "4px", background: "#fcfcfc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontSize: "12px", fontWeight: "bold", color: "#333", marginBottom: "2px" }}>
+                              {camp.campaignName} <span style={{ fontSize: "10px", color: "#888", fontWeight: "normal" }}>({camp.platform})</span>
+                            </div>
+                            <div style={{ fontSize: "11px", color: "#666" }}>
+                              Ad ID: {camp.adId} {camp.formId && `· Form ID: ${camp.formId}`}
+                            </div>
+                          </div>
+                          {isEditing && (
+                            <button
+                              onClick={() => removeCampaign(idx)}
+                              style={{ border: "none", background: "none", color: "#C0272D", cursor: "pointer", fontSize: "14px" }}
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {(formData.metaCampaigns || []).length === 0 && !isEditing && (
+                        <span style={{ color: "#aaa", fontSize: "11px" }}>No linked campaigns</span>
+                      )}
+
+                      {isEditing && (
+                        <>
+                          {showCampaignForm ? (
+                            <div style={{ border: "1px solid #ccc", padding: "8px", borderRadius: "4px", background: "#f9f9f9", marginTop: "4px" }}>
+                              <div style={{ fontSize: "11px", fontWeight: "bold", marginBottom: "6px", color: "#555" }}>Add New Campaign</div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Campaign Name *"
+                                    value={newCampaign.campaignName || ""}
+                                    onChange={(e) => setNewCampaign({ ...newCampaign, campaignName: e.target.value })}
+                                    style={{ flex: 1, padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Campaign ID *"
+                                    value={newCampaign.campaignId || ""}
+                                    onChange={(e) => setNewCampaign({ ...newCampaign, campaignId: e.target.value })}
+                                    style={{ flex: 1, padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                  />
+                                </div>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Ad Set Name"
+                                    value={newCampaign.adSetName || ""}
+                                    onChange={(e) => setNewCampaign({ ...newCampaign, adSetName: e.target.value })}
+                                    style={{ flex: 1, padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Ad Set ID"
+                                    value={newCampaign.adSetId || ""}
+                                    onChange={(e) => setNewCampaign({ ...newCampaign, adSetId: e.target.value })}
+                                    style={{ flex: 1, padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                  />
+                                </div>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Ad Name"
+                                    value={newCampaign.adName || ""}
+                                    onChange={(e) => setNewCampaign({ ...newCampaign, adName: e.target.value })}
+                                    style={{ flex: 1, padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Ad ID *"
+                                    value={newCampaign.adId || ""}
+                                    onChange={(e) => setNewCampaign({ ...newCampaign, adId: e.target.value })}
+                                    style={{ flex: 1, padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                  />
+                                </div>
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <input
+                                    type="text"
+                                    placeholder="Form Name"
+                                    value={newCampaign.formName || ""}
+                                    onChange={(e) => setNewCampaign({ ...newCampaign, formName: e.target.value })}
+                                    style={{ flex: 1, padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Form ID"
+                                    value={newCampaign.formId || ""}
+                                    onChange={(e) => setNewCampaign({ ...newCampaign, formId: e.target.value })}
+                                    style={{ flex: 1, padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                  />
+                                </div>
+                                <select
+                                  value={newCampaign.platform || ""}
+                                  onChange={(e) => setNewCampaign({ ...newCampaign, platform: e.target.value as any })}
+                                  style={{ width: "100%", padding: "4px", fontSize: "11px", border: "1px solid #ccc" }}
+                                >
+                                  <option value="">Select Platform *</option>
+                                  <option value="facebook">Facebook</option>
+                                  <option value="instagram">Instagram</option>
+                                </select>
+                                <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", marginTop: "4px" }}>
+                                  <button onClick={() => setShowCampaignForm(false)} style={{ fontSize: "11px", padding: "2px 6px", border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}>Cancel</button>
+                                  <button onClick={addCampaign} style={{ fontSize: "11px", padding: "2px 6px", border: "1px solid #C0272D", background: "#C0272D", color: "#fff", cursor: "pointer" }}>Add</button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setShowCampaignForm(true)}
+                              style={{ padding: "4px 8px", fontSize: "11px", border: "1px dashed #ccc", background: "transparent", cursor: "pointer", color: "#555", marginTop: "4px", textAlign: "center" }}
+                            >
+                              + Add Campaign Mapping
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               </tbody>

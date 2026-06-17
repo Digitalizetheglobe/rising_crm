@@ -42,7 +42,7 @@ export default function Home() {
   const [todayWork, setTodayWork] = useState<any>({});
   const [reminders, setReminders] = useState<any[]>([]);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-const svgRef = useRef<SVGSVGElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const fetchDashboardData = useCallback(async () => {
     setLoading(true);
 

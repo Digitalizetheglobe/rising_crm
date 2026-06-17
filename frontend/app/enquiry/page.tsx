@@ -24,6 +24,7 @@ interface Enquiry {
   preferredLocation?: string;
   notes?: string;
   createdAt?: string;
+  platform?: string;
 }
 
 export default function EnquiryPage() {
@@ -32,6 +33,8 @@ export default function EnquiryPage() {
   // Filter & Search states
   const [statusFilter, setStatusFilter] = useState("All status");
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState("All sources");
+  const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
   const [timeRange, setTimeRange] = useState("Last 30 days");
 
@@ -58,7 +61,7 @@ export default function EnquiryPage() {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({ total: 0, pending: 0, converted: 0 });
+  const [stats, setStats] = useState({ total: 0, pending: 0, converted: 0, today: 0 });
 
 
   const fetchEnquiries = async () => {
@@ -71,6 +74,9 @@ export default function EnquiryPage() {
       if (statusFilter !== "All status") {
         const mappedStatus = statusFilter === "Converted lead" ? "Converted" : statusFilter;
         url += `&status=${mappedStatus}`;
+      }
+      if (sourceFilter !== "All sources") {
+        url += `&source=${sourceFilter}`;
       }
       const res = await fetch(url, {
         headers: getAuthHeaders()
@@ -91,6 +97,7 @@ export default function EnquiryPage() {
           preferredLocation: e.preferredLocation || "Not specified",
           notes: e.notes || "",
           createdAt: e.createdAt ? new Date(e.createdAt).toLocaleDateString() : "Unknown",
+          platform: e.platform || null,
         }));
         setEnquiries(mapped);
         setTotalPages(json.data.totalPages || 1);
@@ -106,7 +113,19 @@ export default function EnquiryPage() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch(`${API_URL}/v1/enquiries/stats`, {
+      let url = `${API_URL}/v1/enquiries/stats?`;
+      const params = new URLSearchParams();
+      if (searchQuery) {
+        params.append("search", searchQuery);
+      }
+      if (statusFilter !== "All status") {
+        const mappedStatus = statusFilter === "Converted lead" ? "Converted" : statusFilter;
+        params.append("status", mappedStatus);
+      }
+      if (sourceFilter !== "All sources") {
+        params.append("source", sourceFilter);
+      }
+      const res = await fetch(`${url}${params.toString()}`, {
         headers: getAuthHeaders()
       });
       const json = await res.json();
@@ -115,7 +134,8 @@ export default function EnquiryPage() {
         setStats({
           total: json.data.total,
           pending: pendingCount,
-          converted: json.data.converted
+          converted: json.data.converted,
+          today: json.data.today || 0
         });
       }
     } catch (err) {
@@ -126,13 +146,14 @@ export default function EnquiryPage() {
   useEffect(() => {
     fetchEnquiries();
     fetchStats();
-  }, [currentPage, searchQuery, statusFilter]);
+  }, [currentPage, searchQuery, statusFilter, sourceFilter]);
 
   // KPI Computations based on dynamic stats state
   const totalEnquiriesCount = stats.total;
   const pendingCount = stats.pending;
   const convertedCount = stats.converted;
   const totalLeadsCount = convertedCount;
+  const todayCount = stats.today;
 
   // Handle adding new enquiry
   const handleAddEnquiry = async (e: React.FormEvent) => {
@@ -149,13 +170,13 @@ export default function EnquiryPage() {
 
     try {
       // Include budgetRange in payload
-        const payload = {
-          name: newEnquiryName.trim(),
-          phone: newEnquiryContact.trim(),
-          source: newEnquirySource,
-          message: newEnquiryMessage.trim(),
-          budgetRange: newEnquiryBudgetRange,
-        };
+      const payload = {
+        name: newEnquiryName.trim(),
+        phone: newEnquiryContact.trim(),
+        source: newEnquirySource,
+        message: newEnquiryMessage.trim(),
+        budgetRange: newEnquiryBudgetRange,
+      };
 
       const res = await fetch(`${API_URL}/v1/enquiries`, {
         method: "POST",
@@ -280,20 +301,20 @@ export default function EnquiryPage() {
         notes: updated.notes,
       };
 
-    console.log('Updating enquiry with payload:', payload);
-    const res = await fetch(`${API_URL}/v1/enquiries/${updated.id}`, {
-      method: "PUT",
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload),
-    });
-    const json = await res.json();
-    console.log('Update enquiry response:', json);
-    if (json.success) {
+      console.log('Updating enquiry with payload:', payload);
+      const res = await fetch(`${API_URL}/v1/enquiries/${updated.id}`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      console.log('Update enquiry response:', json);
+      if (json.success) {
         addToast("Enquiry updated successfully", "success");
         setSelectedEnquiry(updated);
         fetchEnquiries();
         fetchStats();
-        
+
         // If status changed in the modal, we also need to update status
         if (selectedEnquiry && updated.status !== selectedEnquiry.status) {
           handleChangeStatus(updated.id, updated.status);
@@ -309,7 +330,8 @@ export default function EnquiryPage() {
   // Filter reset helper
   const handleResetFilters = () => {
     setStatusFilter("All status");
-    addToast("Enquiry filter filters reset!", "info");
+    setSourceFilter("All sources");
+    addToast("Enquiry filters reset!", "info");
   };
 
   // Local filtered search (fallback for offline/safety search checks)
@@ -330,9 +352,10 @@ export default function EnquiryPage() {
         }
       />
 
-      {/* 3 KPI Metric Cards - Styled exactly like the user mockup */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <KPICard title="Total Enquiries" value={totalEnquiriesCount} subtext="All time, all sources" accentColor="#EB3539" />
+      {/* 4 KPI Metric Cards - Styled exactly like the user mockup */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <KPICard title="Today's Enquiries" value={todayCount} subtext={sourceFilter === "All sources" ? "Received today" : `Filtered by ${sourceFilter}`} accentColor="#8b5cf6" />
+        <KPICard title="Total Enquiries" value={totalEnquiriesCount} subtext={sourceFilter === "All sources" ? "All time, all sources" : `Filtered by ${sourceFilter}`} accentColor="#EB3539" />
         <KPICard title="Pending response" value={pendingCount} subtext="Awaiting follow-up" accentColor="#3b82f6" />
         <KPICard title="Converted leads" value={totalLeadsCount} subtext="Successfully converted" accentColor="#10b981" />
       </div>
@@ -379,12 +402,51 @@ export default function EnquiryPage() {
             )}
           </div>
 
+          {/* Source Select dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => {
+                setShowSourceDropdown(!showSourceDropdown);
+                setShowStatusDropdown(false);
+                setShowTimeDropdown(false);
+              }}
+              className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-4 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2 hover:bg-slate-200 transition-colors cursor-pointer"
+            >
+              {sourceFilter}
+              <svg className={`w-4.5 h-4.5 text-slate-500 transition-transform ${showSourceDropdown ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showSourceDropdown && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowSourceDropdown(false)} />
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-medium text-[13.5px] max-h-64 overflow-y-auto">
+                  {["All sources", "Website", "META_ADS", "Facebook", "Instagram", "Advertisement", "Referral", "Walk-In", "Phone", "WhatsApp", "Email", "Social Media", "Other"].map((src) => (
+                    <button
+                      key={src}
+                      onClick={() => {
+                        setSourceFilter(src);
+                        setShowSourceDropdown(false);
+                        addToast(`Filter applied: ${src}`, "info");
+                      }}
+                      className="w-full text-left px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 cursor-pointer"
+                    >
+                      {src === "META_ADS" ? "Meta Ads (FB/IG)" : src}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* Time Range Select dropdown */}
           <div className="relative">
             <button
               onClick={() => {
                 setShowTimeDropdown(!showTimeDropdown);
                 setShowStatusDropdown(false);
+                setShowSourceDropdown(false);
               }}
               className="bg-[#F3F2F1]/70 text-slate-700 font-medium px-4 py-2.5 rounded-2xl text-[13.5px] flex items-center gap-2.5 hover:bg-slate-200 transition-colors cursor-pointer"
             >
@@ -462,7 +524,15 @@ export default function EnquiryPage() {
                   filteredEnquiries.map((enq) => (
                     <tr key={enq.id} className={`hover:bg-slate-50/50 transition-colors ${activeRowActionId === enq.id ? 'relative z-50' : 'relative z-0'}`}>
                       <td onClick={() => { setSelectedEnquiry(enq); setIsDetailModalOpen(true); }} className="py-4 px-6 text-slate-800 font-semibold cursor-pointer hover:text-brand transition-colors">{enq.name}</td>
-                      <td className="py-4 px-6 text-slate-600">{enq.source}</td>
+                      <td className="py-4 px-6 text-slate-600">
+                        {enq.source === "META_ADS" || enq.platform ? (
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${enq.platform === 'instagram' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {enq.platform === 'instagram' ? 'Instagram' : 'Facebook'}
+                          </span>
+                        ) : (
+                          enq.source
+                        )}
+                      </td>
                       <td className="py-4 px-6 text-slate-850 font-medium">{enq.contactNo}</td>
                       <td className="py-4 px-6">
                         {enq.status === "Pending" ? (
@@ -570,7 +640,15 @@ export default function EnquiryPage() {
                 <div className="text-[13.5px] font-semibold text-slate-500 space-y-1">
                   <div className="flex justify-between">
                     <span>Source:</span>
-                    <span className="text-slate-700 font-bold">{enq.source}</span>
+                    <span className="text-slate-700 font-bold">
+                      {enq.source === "META_ADS" || enq.platform ? (
+                        <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${enq.platform === 'instagram' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {enq.platform === 'instagram' ? 'Instagram' : 'Facebook'}
+                        </span>
+                      ) : (
+                        enq.source
+                      )}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Contact no:</span>
@@ -701,21 +779,21 @@ export default function EnquiryPage() {
                     className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none placeholder:text-slate-400 font-medium"
                   />
                 </div>
-                  <div className="mt-4">
-                    <label className="block text-slate-600 font-bold mb-1.5">Budget Range</label>
-                    <select
-                      value={newEnquiryBudgetRange}
-                      onChange={(e) => setNewEnquiryBudgetRange(e.target.value)}
-                      className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none text-[14px] font-medium"
-                    >
-                      <option value="">Select...</option>
-                      <option value="Under 25L">Under 25L</option>
-                      <option value="25L-50L">25L-50L</option>
-                      <option value="50L-1Cr">50L-1Cr</option>
-                      <option value="1Cr-2Cr">1Cr-2Cr</option>
-                      <option value="Above 2Cr">Above 2Cr</option>
-                    </select>
-                  </div>
+                <div className="mt-4">
+                  <label className="block text-slate-600 font-bold mb-1.5">Budget Range</label>
+                  <select
+                    value={newEnquiryBudgetRange}
+                    onChange={(e) => setNewEnquiryBudgetRange(e.target.value)}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-brand/20 outline-none text-[14px] font-medium"
+                  >
+                    <option value="">Select...</option>
+                    <option value="Under 25L">Under 25L</option>
+                    <option value="25L-50L">25L-50L</option>
+                    <option value="50L-1Cr">50L-1Cr</option>
+                    <option value="1Cr-2Cr">1Cr-2Cr</option>
+                    <option value="Above 2Cr">Above 2Cr</option>
+                  </select>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-slate-600 font-bold mb-1.5">Contact Number</label>

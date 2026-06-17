@@ -28,6 +28,8 @@ interface Lead {
   assignEmployee?: string;
   notes?: string;
   createdAt?: string;
+  platform?: string;
+  metaCampaignName?: string;
   projectName?: string;
 }
 
@@ -51,7 +53,9 @@ const DUMMY_LEADS: Lead[] = [
   {
     id: "lead_2",
     name: "Ishita Roy",
-    source: "Facebook",
+    source: "META_ADS",
+    platform: "facebook",
+    metaCampaignName: "Skyline 2BHK launch",
     phone: "9812345678",
     status: "New lead",
     lastContacted: new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString(),
@@ -249,6 +253,8 @@ export default function LeadsPage() {
             id: l._id,
             name: l.name || (l.enquiryId ? l.enquiryId.name : "Unknown"),
             source: l.source || (l.enquiryId ? l.enquiryId.source : "Unknown"),
+            platform: l.platform || (l.enquiryId ? l.enquiryId.platform : undefined),
+            metaCampaignName: l.enquiryId ? l.enquiryId.metaAdId : undefined, // Currently using AdID as fallback if campaignName is not stored directly on lead
             phone: l.phone || (l.enquiryId ? l.enquiryId.phone : "Unknown"),
             email: l.email || "Not provided",
             budgetRange: l.budgetRange || "Not specified",
@@ -868,7 +874,20 @@ export default function LeadsPage() {
                     <td className="py-4 px-6 text-slate-800 font-medium hover:text-brand cursor-pointer" onClick={() => { setSelectedLead(lead); setIsDetailModalOpen(true); }}>{lead.name}</td>
                     <td className="py-4 px-6 text-slate-800 font-bold text-[13.5px]">{lead.projectName || "—"}</td>
                     <td className="py-4 px-6 text-slate-800 font-medium">{lead.propertyType !== "Not specified" ? lead.propertyType : "-"}</td>
-                    <td className="py-4 px-6 text-slate-600">{lead.source !== "Not specified" ? lead.source : "Unknown"}</td>
+                    <td className="py-4 px-6 text-slate-600">
+                      {lead.source === "META_ADS" || lead.platform ? (
+                        <div>
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${lead.platform === 'instagram' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                            {lead.platform === 'instagram' ? 'Instagram' : 'Facebook'}
+                          </span>
+                          {lead.metaCampaignName && (
+                            <div className="text-[11px] text-slate-400 mt-1 font-medium">{lead.metaCampaignName}</div>
+                          )}
+                        </div>
+                      ) : (
+                        lead.source !== "Not specified" ? lead.source : "Unknown"
+                      )}
+                    </td>
                     <td className="py-4 px-6">
                       {lead.assignEmployee && lead.assignEmployee !== "Not specified" && lead.assignEmployee !== "-" ? (
                         <span className="text-slate-700 font-medium">{lead.assignEmployee}</span>

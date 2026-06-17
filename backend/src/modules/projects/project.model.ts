@@ -2,15 +2,19 @@ import mongoose, { Document, Schema } from 'mongoose';
 import { PROJECT_STATUSES, PROJECT_TYPES, ProjectStatus, ProjectType } from './project.constants';
 
 export interface IMetaCampaign {
+    campaignName: string;
+    campaignId: string;
+    adSetName: string;
+    adSetId: string;
+    adName: string;
     adId: string;
+    formName: string;
     formId: string;
-    campaignLabel: string;
     platform: 'facebook' | 'instagram';
     defaultAssigneeId?: mongoose.Types.ObjectId;
     isActive: boolean;
-    createdAt: Date;
+    createdAt?: Date;
 }
-
 export interface IProject extends Document {
     name: string;
     location: string;
@@ -30,9 +34,14 @@ export interface IProject extends Document {
 
 const MetaCampaignSchema = new Schema<IMetaCampaign>(
     {
+        campaignName:        { type: String, required: true, trim: true },
+        campaignId:          { type: String, required: true, trim: true },
+        adSetName:           { type: String, required: true, trim: true },
+        adSetId:             { type: String, required: true, trim: true },
+        adName:              { type: String, required: true, trim: true },
         adId:                { type: String, required: true, trim: true },
+        formName:            { type: String, required: true, trim: true },
         formId:              { type: String, required: true, trim: true },
-        campaignLabel:       { type: String, required: true, trim: true },
         platform:            { type: String, enum: ['facebook', 'instagram'], required: true },
         defaultAssigneeId:   { type: Schema.Types.ObjectId, ref: 'User' },
         isActive:            { type: Boolean, default: true },

@@ -5,9 +5,14 @@ import { PROJECT_STATUSES, PROJECT_TYPES } from './project.constants';
 const urlSchema = Joi.string().uri().trim();
 
 const metaCampaignSchema = Joi.object({
+    campaignName:      Joi.string().trim().required(),
+    campaignId:        Joi.string().trim().required(),
+    adSetName:         Joi.string().trim().required(),
+    adSetId:           Joi.string().trim().required(),
+    adName:            Joi.string().trim().required(),
     adId:              Joi.string().trim().required(),
+    formName:          Joi.string().trim().required(),
     formId:            Joi.string().trim().required(),
-    campaignLabel:     Joi.string().trim().required(),
     platform:          Joi.string().valid('facebook', 'instagram').required(),
     defaultAssigneeId: Joi.string().hex().length(24).optional(),
     isActive:          Joi.boolean().default(true),
