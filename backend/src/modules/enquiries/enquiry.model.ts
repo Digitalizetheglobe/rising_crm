@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type EnquirySource = 'Website' | 'Advertisement' | 'Referral' | 'Walk-In' | 'Phone' | 'WhatsApp' | 'Email' | 'Social Media' | 'Other';
+export type EnquirySource = 'Website' | 'Advertisement' | 'Referral' | 'Walk-In' | 'Phone' | 'WhatsApp' | 'Email' | 'Social Media' | 'META_ADS' | 'Other';
 export type EnquiryStatus = 'Pending' | 'Contacted' | 'Qualified' | 'Converted' | 'Rejected';
 export type BudgetRange = 'Under 25L' | '25L-50L' | '50L-1Cr' | '1Cr-2Cr' | 'Above 2Cr';
 export type PropertyType = '1BHK' | '2BHK' | '3BHK' | '4+BHK'| 'Villa' | 'Banglow'| 'Plot' | 'Residential'| 'Commercial' | 'Apartment' | 'Shop' | 'Office' ;
@@ -13,6 +13,7 @@ export interface IEnquiry extends Document {
 
     // Enquiry Details
     source: EnquirySource;
+    platform?: 'facebook' | 'instagram';
     status: EnquiryStatus;
     message?: string;
     budgetRange?: BudgetRange;
@@ -38,6 +39,12 @@ export interface IEnquiry extends Document {
     rejectedBy?: mongoose.Types.ObjectId;
     rejectionReason?: string;
 
+    // Meta Ads Integration (for META_ADS source only)
+    metaLeadId?: string;
+    metaAdId?: string;
+    metaFormId?: string;
+    rawMetaPayload?: Record<string, any>;
+
     // Tracking
     createdBy: mongoose.Types.ObjectId;
     lastContactedAt?: Date;
@@ -54,9 +61,10 @@ const EnquirySchema = new Schema<IEnquiry>(
         // Enquiry Details
         source: {
             type: String,
-            enum: ['Website', 'Advertisement', 'Referral', 'Walk-In', 'Phone', 'WhatsApp', 'Email', 'Social Media', 'Other'],
+            enum: ['Website', 'Advertisement', 'Referral', 'Walk-In', 'Phone', 'WhatsApp', 'Email', 'Social Media', 'META_ADS', 'Other'],
             required: true,
         },
+        platform:          { type: String, enum: ['facebook', 'instagram'] },
         status: {
             type: String,
             enum: ['Pending', 'Contacted', 'Qualified', 'Converted', 'Rejected'],
@@ -92,6 +100,12 @@ const EnquirySchema = new Schema<IEnquiry>(
         rejectedBy:       { type: Schema.Types.ObjectId, ref: 'User' },
         rejectionReason:  { type: String, trim: true },
 
+        // Meta Ads Integration
+        metaLeadId:       { type: String, unique: true, sparse: true },
+        metaAdId:         { type: String },
+        metaFormId:       { type: String },
+        rawMetaPayload:   { type: Schema.Types.Mixed },
+
         // Tracking
         createdBy:        { type: Schema.Types.ObjectId, ref: 'User', required: true },
         lastContactedAt:  { type: Date },
@@ -109,5 +123,6 @@ EnquirySchema.index({ source: 1 });
 EnquirySchema.index({ phone: 1 });
 EnquirySchema.index({ isConverted: 1 });
 EnquirySchema.index({ createdAt: -1 });
+EnquirySchema.index({ metaLeadId: 1 }, { sparse: true });
 
 export const Enquiry = mongoose.model<IEnquiry>('Enquiry', EnquirySchema);

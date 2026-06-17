@@ -1,6 +1,16 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { PROJECT_STATUSES, PROJECT_TYPES, ProjectStatus, ProjectType } from './project.constants';
 
+export interface IMetaCampaign {
+    adId: string;
+    formId: string;
+    campaignLabel: string;
+    platform: 'facebook' | 'instagram';
+    defaultAssigneeId?: mongoose.Types.ObjectId;
+    isActive: boolean;
+    createdAt: Date;
+}
+
 export interface IProject extends Document {
     name: string;
     location: string;
@@ -14,8 +24,22 @@ export interface IProject extends Document {
     images: string[];
     brochure?: string;
     reraNumber?: string;
+    metaCampaigns?: IMetaCampaign[];
     createdBy: mongoose.Types.ObjectId;
 }
+
+const MetaCampaignSchema = new Schema<IMetaCampaign>(
+    {
+        adId:                { type: String, required: true, trim: true },
+        formId:              { type: String, required: true, trim: true },
+        campaignLabel:       { type: String, required: true, trim: true },
+        platform:            { type: String, enum: ['facebook', 'instagram'], required: true },
+        defaultAssigneeId:   { type: Schema.Types.ObjectId, ref: 'User' },
+        isActive:            { type: Boolean, default: true },
+        createdAt:           { type: Date, default: () => new Date() },
+    },
+    { _id: true }
+);
 
 const ProjectSchema = new Schema<IProject>(
     {
@@ -31,6 +55,7 @@ const ProjectSchema = new Schema<IProject>(
         images:         { type: [String], default: [] },
         brochure:       { type: String, trim: true },
         reraNumber:     { type: String, trim: true },
+        metaCampaigns:  { type: [MetaCampaignSchema], default: [] },
         createdBy:      { type: Schema.Types.ObjectId, ref: 'User', required: true },
     },
     { timestamps: true }
@@ -41,5 +66,7 @@ ProjectSchema.index({ status: 1 });
 ProjectSchema.index({ type: 1 });
 ProjectSchema.index({ location: 1 });
 ProjectSchema.index({ createdAt: -1 });
+ProjectSchema.index({ 'metaCampaigns.adId': 1, 'metaCampaigns.isActive': 1 }, { sparse: true });
+ProjectSchema.index({ 'metaCampaigns.adId': 1 }, { sparse: true, unique: true });
 
 export const Project = mongoose.model<IProject>('Project', ProjectSchema);

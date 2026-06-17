@@ -21,8 +21,11 @@ import reportRoutes from '../modules/reports/report.routes';
 import uploadRoutes from '../modules/uploads/upload.routes';
 import importExportRoutes from '../modules/imports-exports/importExport.routes';
 import sitevisitRoutes from '../modules/sitevisits/sitevisit.routes';
+import metaWebhookRoutes from '../modules/metaWebhook/metaWebhook.routes';
 
 const router = Router();
+
+router.use('/meta-leads', metaWebhookRoutes);
 
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);

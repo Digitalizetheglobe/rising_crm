@@ -4,6 +4,15 @@ import { PROJECT_STATUSES, PROJECT_TYPES } from './project.constants';
 
 const urlSchema = Joi.string().uri().trim();
 
+const metaCampaignSchema = Joi.object({
+    adId:              Joi.string().trim().required(),
+    formId:            Joi.string().trim().required(),
+    campaignLabel:     Joi.string().trim().required(),
+    platform:          Joi.string().valid('facebook', 'instagram').required(),
+    defaultAssigneeId: Joi.string().hex().length(24).optional(),
+    isActive:          Joi.boolean().default(true),
+});
+
 export const createProjectSchema = Joi.object({
     name:           Joi.string().trim().required(),
     location:       Joi.string().trim().required(),
@@ -17,6 +26,7 @@ export const createProjectSchema = Joi.object({
     images:         Joi.array().items(urlSchema).optional(),
     brochure:       urlSchema.optional(),
     reraNumber:     Joi.string().trim().optional(),
+    metaCampaigns:  Joi.array().items(metaCampaignSchema).optional(),
 });
 
 export const updateProjectSchema = Joi.object({
@@ -32,6 +42,7 @@ export const updateProjectSchema = Joi.object({
     brochure:       urlSchema.allow(''),
     reraNumber:     Joi.string().trim().allow(''),
     images:         Joi.array().items(urlSchema).optional(),
+    metaCampaigns:  Joi.array().items(metaCampaignSchema).optional(),
 }).min(1);
 
 export const updateProjectImagesSchema = Joi.object({
