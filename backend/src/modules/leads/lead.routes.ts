@@ -25,7 +25,7 @@ const router = Router();
 router.use(protect);
 
 // ── Stats & special routes (before /:id) ─────────────────────────────────────
-router.get('/stats', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getLeadStats);
+router.get('/stats', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'FINANCE_MANAGER', 'VIEWER'), getLeadStats);
 
 router.post(
     '/',
@@ -34,11 +34,11 @@ router.post(
     createLead
 );
 
-router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getAllLeads);
+router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'), getAllLeads);
 
-router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getLeadById);
+router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'), getLeadById);
 
-router.get('/:id/activity', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getLeadActivity);
+router.get('/:id/activity', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'), getLeadActivity);
 
 router.put(
     '/:id',

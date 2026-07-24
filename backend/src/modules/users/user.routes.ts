@@ -11,11 +11,11 @@ const router = Router();
 router.use(protect);
 
 router.route('/')
-    .get(allowRoles('ADMIN', 'SUPER_ADMIN', 'SALES_MANAGER'), userController.getUsers)
+    .get(allowRoles('ADMIN', 'SUPER_ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCIAL_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'), userController.getUsers)
     .post(allowRoles('ADMIN', 'SUPER_ADMIN'), validate(createUserSchema), userController.createUser);
 
 router.route('/:id')
-    .get(allowRoles('ADMIN', 'SUPER_ADMIN'), userController.getUser)
+    .get(allowRoles('ADMIN', 'SUPER_ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCIAL_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'), userController.getUser)
     .put(allowRoles('ADMIN', 'SUPER_ADMIN'), validate(updateUserSchema), userController.updateUser)
     .delete(allowRoles('ADMIN', 'SUPER_ADMIN'), userController.deleteUser);
 

@@ -87,7 +87,7 @@ export const getUnmatchedMetaLeads = async (req: AuthRequest, res: Response): Pr
 
 export const markUnmatchedAsResolved = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const updated = await resolveUnmatchedLead(req.params.id, req.body);
+    const updated = await resolveUnmatchedLead(req.params.id as string, req.body);
     res.status(200).json({
       success: true,
       message: 'Unmatched lead updated successfully',

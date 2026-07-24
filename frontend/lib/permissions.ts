@@ -32,10 +32,10 @@ export const normalizeRole = (role: string): UserRole =>
 const ROLE_ROUTE_ACCESS: Record<string, string[]> = {
   SUPER_ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee", "/followup", "/sitevisit"],
   ADMIN: ["/", "/leads", "/client", "/enquiry", "/booking", "/payments", "/projects", "/units", "/employee", "/followup", "/sitevisit"],
-  SALES_MANAGER: ["/", "/enquiry", "/leads", "/client", "/projects", "/units", "/followup", "/sitevisit"],
-  SALES_EXECUTIVE: ["/", "/leads", "/client", "/projects", "/units", "/followup", "/sitevisit"],
-  FINANCIAL_EXECUTIVE: ["/", "/booking", "/client", "/projects", "/units", "/payments"],
-  VIEWER: ["/", "/leads", "/client", "/enquiry", "/booking", "/projects", "/units", "/sitevisit"],
+  SALES_MANAGER: ["/", "/enquiry", "/leads", "/client", "/projects", "/units", "/employee", "/followup", "/sitevisit"],
+  SALES_EXECUTIVE: ["/", "/leads", "/client", "/enquiry", "/projects", "/units", "/employee", "/followup", "/sitevisit"],
+  FINANCIAL_EXECUTIVE: ["/", "/leads", "/booking", "/client", "/enquiry", "/projects", "/units", "/payments", "/employee", "/followup", "/sitevisit"],
+  VIEWER: ["/", "/leads", "/client", "/enquiry", "/booking", "/projects", "/units", "/employee", "/followup", "/sitevisit"],
 };
 
 export const canAccessRoute = (role: string, pathname: string): boolean => {
@@ -74,10 +74,10 @@ export const ALL_NAV_ITEMS: NavItem[] = [
 const ROLE_NAV_MODULES: Record<string, string[]> = {
   SUPER_ADMIN: ["dashboard", "leads", "clients", "enquiries", "booking", "payments", "projects", "units", "employees"],
   ADMIN: ["dashboard", "leads", "clients", "enquiries", "booking", "payments", "projects", "units", "employees"],
-  SALES_MANAGER: ["dashboard", "enquiries", "leads", "clients", "projects", "units"],
-  SALES_EXECUTIVE: ["dashboard", "leads", "clients", "projects", "units"],
-  FINANCIAL_EXECUTIVE: ["dashboard", "booking", "clients", "projects", "units", "payments"],
-  VIEWER: ["dashboard", "leads", "clients", "enquiries", "booking", "projects", "units"],
+  SALES_MANAGER: ["dashboard", "enquiries", "leads", "clients", "projects", "units", "employees"],
+  SALES_EXECUTIVE: ["dashboard", "enquiries", "leads", "clients", "projects", "units", "employees"],
+  FINANCIAL_EXECUTIVE: ["dashboard", "leads", "booking", "clients", "enquiries", "projects", "units", "payments", "employees"],
+  VIEWER: ["dashboard", "leads", "clients", "enquiries", "booking", "projects", "units", "employees"],
 };
 
 export const getNavItemsForRole = (role: string): NavItem[] => {

@@ -24,7 +24,7 @@ const router = Router();
 router.use(protect);
 
 // Stats
-router.get('/stats', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'), getFollowUpStats);
+router.get('/stats', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'), getFollowUpStats);
 
 // CRUD
 router.post(

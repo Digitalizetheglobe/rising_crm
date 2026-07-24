@@ -42,9 +42,9 @@ router.get('/crm-template', handleDownloadCrmTemplate);
 
 // ── Imports (POST with file + optional agentId in body) ───────────────────────
 // Admin and Manager only for all imports
-router.post('/import/leads',    allowRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SALES_MANAGER), memStorage.single('file'), handleImportLeads);
-router.post('/import/clients',  allowRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SALES_MANAGER), memStorage.single('file'), handleImportClients);
-router.post('/import/payments', allowRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SALES_MANAGER), memStorage.single('file'), handleImportPayments);
+router.post('/import/leads',    allowRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SALES_MANAGER, ROLES.SALES_EXECUTIVE), memStorage.single('file'), handleImportLeads);
+router.post('/import/clients',  allowRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SALES_MANAGER, ROLES.SALES_EXECUTIVE), memStorage.single('file'), handleImportClients);
+router.post('/import/payments', allowRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.SALES_MANAGER, ROLES.FINANCIAL_EXECUTIVE), memStorage.single('file'), handleImportPayments);
 router.post('/import/projects', allowRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),                      memStorage.single('file'), handleImportProjects);
 router.post('/import/units',    allowRoles(ROLES.SUPER_ADMIN, ROLES.ADMIN),                      memStorage.single('file'), handleImportUnits);
 

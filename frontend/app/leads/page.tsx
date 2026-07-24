@@ -275,7 +275,7 @@ export default function LeadsPage() {
           projectName: getProjectFallback(idx)
         }));
 
-        setLeads([...mapped, ...updatedDummyLeads.filter(dl => !mapped.some(ml => ml.name === dl.name))]);
+        setLeads([...mapped, ...updatedDummyLeads.filter(dl => !mapped.some((ml: any) => ml.name === dl.name))]);
         setTotalPages(json.data.totalPages || 1);
       } else {
         const updatedDummyLeads = DUMMY_LEADS.map((dl, idx) => ({
@@ -858,7 +858,7 @@ export default function LeadsPage() {
                 <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Assign Employee</th>
                 <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Status</th>
                 <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Last contacted</th>
-                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider text-right">Action</th>
+                <th className="py-4.5 px-4 font-medium text-[14px] text-brand uppercase tracking-wider text-center w-24">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-semibold text-[14.5px] text-slate-700">
@@ -921,7 +921,7 @@ export default function LeadsPage() {
                       )}
                     </td>
                     <td className="py-4 px-6 text-slate-500 font-medium">{lead.lastContacted}</td>
-                    <td className="py-4 px-6 text-right relative">
+                    <td className="py-4 px-4 text-center relative w-24">
                       <button
                         onClick={() => {
                           setActiveRowActionId(activeRowActionId === lead.id ? null : lead.id);

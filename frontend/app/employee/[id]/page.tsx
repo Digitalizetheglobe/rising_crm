@@ -28,7 +28,7 @@ export default function EmployeeDetailPage() {
   const router = useRouter();
   const params = useParams();
   const { addToast } = useDashboard();
-  
+
   const [activeTab, setActiveTab] = useState<"overview" | "projects" | "clients" | "analysis" | "performance">("overview");
   const [employee, setEmployee] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -113,14 +113,14 @@ export default function EmployeeDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-             <span className={`px-3 py-1 text-xs font-bold rounded-full ${employee.isActive ? 'bg-[#DCFCE7] text-[#16A34A]' : 'bg-slate-100 text-slate-600'}`}>
-               {employee.isActive ? 'Active' : 'Inactive'}
-             </span>
-             {employee.performanceTag && (
-               <span className="px-3 py-1 text-xs font-bold rounded-full bg-[#EDE9FE] text-[#7C3AED]">
-                 {employee.performanceTag}
-               </span>
-             )}
+            <span className={`px-3 py-1 text-xs font-bold rounded-full ${employee.isActive ? 'bg-[#DCFCE7] text-[#16A34A]' : 'bg-slate-100 text-slate-600'}`}>
+              {employee.isActive ? 'Active' : 'Inactive'}
+            </span>
+            {employee.performanceTag && (
+              <span className="px-3 py-1 text-xs font-bold rounded-full bg-[#EDE9FE] text-[#7C3AED]">
+                {employee.performanceTag}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -131,31 +131,31 @@ export default function EmployeeDetailPage() {
         <div className="space-y-6">
           <div className="bg-white rounded-[26px] p-6 border border-slate-100 shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-6">
             <div className="flex-1">
-               <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-5">Contact Information</h3>
-               <div className="flex flex-col sm:flex-row gap-6 sm:gap-12">
-                 <div className="flex items-start gap-3">
-                   <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100">
-                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                   </div>
-                   <div>
-                     <p className="text-[14px] font-bold text-slate-900">{employee.email}</p>
-                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wide mt-0.5">Work Email</p>
-                   </div>
-                 </div>
-                 <div className="flex items-start gap-3">
-                   <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100">
-                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                   </div>
-                   <div>
-                     <p className="text-[14px] font-bold text-slate-900">{employee.phone || "N/A"}</p>
-                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wide mt-0.5">Mobile Number</p>
-                   </div>
-                 </div>
-               </div>
+              <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-5">Contact Information</h3>
+              <div className="flex flex-col sm:flex-row gap-6 sm:gap-12">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-slate-900">{employee.email}</p>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wide mt-0.5">Work Email</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-slate-900">{employee.phone || "N/A"}</p>
+                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wide mt-0.5">Mobile Number</p>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="md:border-l md:border-slate-100 md:pl-8 pt-5 md:pt-0 border-t border-slate-100 md:border-t-0 flex flex-col justify-center">
-               <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Joined On</p>
-               <p className="text-sm font-bold text-slate-900 mt-1">{joinDate}</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Joined On</p>
+              <p className="text-sm font-bold text-slate-900 mt-1">{joinDate}</p>
             </div>
           </div>
 
@@ -173,11 +173,10 @@ export default function EmployeeDetailPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-5 py-2.5 rounded-full text-[13.5px] font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === tab.id
+              className={`px-5 py-2.5 rounded-full text-[13.5px] font-bold transition-all whitespace-nowrap cursor-pointer ${activeTab === tab.id
                   ? "bg-slate-900 text-white shadow-md"
                   : "bg-white text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200"
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -203,8 +202,8 @@ export default function EmployeeDetailPage() {
                         ]}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis dataKey="period" stroke="#94a3b8" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600}} dy={10} />
-                        <YAxis stroke="#94a3b8" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600}} />
+                        <XAxis dataKey="period" stroke="#94a3b8" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600 }} dy={10} />
+                        <YAxis stroke="#94a3b8" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600 }} />
                         <Tooltip contentStyle={{ borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }} />
                         <Line type="monotone" dataKey="score" stroke="#0f172a" strokeWidth={3} dot={{ fill: "#0f172a", r: 4, strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} />
                       </LineChart>
@@ -218,9 +217,9 @@ export default function EmployeeDetailPage() {
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={mockData.chartData.monthlyRevenue}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis dataKey="month" stroke="#94a3b8" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600}} dy={10} />
-                        <YAxis stroke="#94a3b8" axisLine={false} tickLine={false} tick={{fontSize: 12, fontWeight: 600}} />
-                        <Tooltip formatter={(value: any) => formatRevenue(value as number)} cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }} />
+                        <XAxis dataKey="month" stroke="#94a3b8" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600 }} dy={10} />
+                        <YAxis stroke="#94a3b8" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 600 }} />
+                        <Tooltip formatter={(value: any) => formatRevenue(value as number)} cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }} />
                         <Bar dataKey="revenue" fill="#3b82f6" radius={[6, 6, 6, 6]} barSize={30} />
                       </BarChart>
                     </ResponsiveContainer>
@@ -316,11 +315,10 @@ export default function EmployeeDetailPage() {
                         <td className="px-6 py-4 font-mono text-xs text-slate-500 font-medium">{client.leadId}</td>
                         <td className="px-6 py-4 font-bold text-slate-700">{client.projectInterested}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${
-                            client.currentStatus === "Hot Lead" ? "bg-red-50 text-red-600" : 
-                            client.currentStatus === "Warm Lead" ? "bg-amber-50 text-amber-600" : 
-                            "bg-blue-50 text-blue-600"
-                          }`}>
+                          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${client.currentStatus === "Hot Lead" ? "bg-red-50 text-red-600" :
+                              client.currentStatus === "Warm Lead" ? "bg-amber-50 text-amber-600" :
+                                "bg-blue-50 text-blue-600"
+                            }`}>
                             {client.currentStatus}
                           </span>
                         </td>
@@ -351,21 +349,21 @@ export default function EmployeeDetailPage() {
                 </div>
               </div>
               <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                 <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-6">Activity Summary</h3>
-                 <div className="space-y-4">
-                    {[
-                      { label: "Calls Made", value: mockData.activityLog.callsMade },
-                      { label: "WhatsApp Conversations", value: mockData.activityLog.whatsappConversations },
-                      { label: "Emails Sent", value: mockData.activityLog.emailsSent },
-                      { label: "Follow-ups Completed", value: mockData.activityLog.followupsCompleted },
-                      { label: "Site Visits Arranged", value: mockData.activityLog.siteVisitsArranged },
-                    ].map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center pb-4 border-b border-slate-50 last:border-0 last:pb-0">
-                        <span className="text-[13.5px] font-bold text-slate-600">{item.label}</span>
-                        <span className="text-lg font-black text-slate-900">{item.value}</span>
-                      </div>
-                    ))}
-                 </div>
+                <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-6">Activity Summary</h3>
+                <div className="space-y-4">
+                  {[
+                    { label: "Calls Made", value: mockData.activityLog.callsMade },
+                    { label: "WhatsApp Conversations", value: mockData.activityLog.whatsappConversations },
+                    { label: "Emails Sent", value: mockData.activityLog.emailsSent },
+                    { label: "Follow-ups Completed", value: mockData.activityLog.followupsCompleted },
+                    { label: "Site Visits Arranged", value: mockData.activityLog.siteVisitsArranged },
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center pb-4 border-b border-slate-50 last:border-0 last:pb-0">
+                      <span className="text-[13.5px] font-bold text-slate-600">{item.label}</span>
+                      <span className="text-lg font-black text-slate-900">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

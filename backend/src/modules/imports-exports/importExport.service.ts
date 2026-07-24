@@ -17,7 +17,7 @@ import {
   validateLeadRow, validateClientRow, validatePaymentRow,
   validateProjectRow, validateUnitRow, RowError,
 } from './importExport.validator';
-import { LEAD_STATUSES, LEAD_SOURCES, PROPERTY_TYPES } from '../leads/lead.constants';
+import { LEAD_STATUSES, LEAD_SOURCES, PROPERTY_TYPES, LeadStatus, LeadSource } from '../leads/lead.constants';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -236,8 +236,8 @@ export const importLeads = async (
       name,
       phone,
       email:             email || undefined,
-      source,
-      status,
+      source:            source as LeadSource,
+      status:            status as LeadStatus,
       notes:             notes || undefined,
       preferredLocation: preferredLocation || undefined,
       propertyType:      propertyType || undefined,

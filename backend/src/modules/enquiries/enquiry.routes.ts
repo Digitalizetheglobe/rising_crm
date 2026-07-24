@@ -29,7 +29,7 @@ router.use(protect);
 // ── Stats (before /:id so it doesn't get caught as an id param) ───────────────
 router.get(
     '/stats',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'),
     getEnquiryStats
 );
 
@@ -38,25 +38,25 @@ router.get(
 // Create — sales manager and above
 router.post(
     '/',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
     validate(createEnquirySchema),
     createEnquiry
 );
 
-router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getAllEnquiries);
+router.get('/', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'), getAllEnquiries);
 
-router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'), getEnquiryById);
+router.get('/:id', allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE', 'FINANCE_MANAGER', 'VIEWER'), getEnquiryById);
 
 router.put(
     '/:id',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
     validate(updateEnquirySchema),
     updateEnquiry
 );
 
 router.patch(
     '/:id/status',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
     validate(updateStatusSchema),
     updateEnquiryStatus
 );
@@ -72,7 +72,7 @@ router.patch(
 // Convert Qualified Enquiry to Lead — Manager and above only
 router.post(
     '/:id/convert',
-    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER'),
+    allowRoles('SUPER_ADMIN', 'ADMIN', 'SALES_MANAGER', 'SALES_EXECUTIVE'),
     validate(convertToLeadSchema),
     convertToLead
 );

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import PageHeader from "../../Components/PageHeader";
 import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLayout";
 import { useDashboard } from "../DashboardContext";
+import { useAuth } from "../AuthContext";
 import { API_URL } from "../../config/api.config";
 import { getAuthHeaders } from "../../lib/auth";
 import { ROLE_LABELS } from "../../lib/permissions";
@@ -78,6 +79,8 @@ function getPhoneError(phone: string) {
 export default function EmployeePage() {
   const router = useRouter();
   const { searchQuery, addToast } = useDashboard();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
 
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,12 +226,14 @@ export default function EmployeePage() {
         title="Employees"
         subtitle="Manage your CRM team members"
         actions={
-          <button onClick={() => setIsAddOpen(true)} className={PRIMARY_ACTION_BTN_CLASS}>
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Add Employee
-          </button>
+          isAdmin && (
+            <button onClick={() => setIsAddOpen(true)} className={PRIMARY_ACTION_BTN_CLASS}>
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Employee
+            </button>
+          )
         }
       />
 
@@ -346,30 +351,32 @@ export default function EmployeePage() {
                       </span>
                     )}
                   </div>
-                  <div className="relative">
-                    <button
-                      onClick={() => setActiveMenu(activeMenu === emp.id ? null : emp.id)}
-                      className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                    >
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                      </svg>
-                    </button>
-                    {activeMenu === emp.id && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
-                        <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 text-[13px] font-semibold">
-                          <button
-                            onClick={() => { setDeleteId(emp.id); setActiveMenu(null); }}
-                            className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-rose-50 text-rose-600 flex items-center gap-2 cursor-pointer"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            Delete
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  {isAdmin && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setActiveMenu(activeMenu === emp.id ? null : emp.id)}
+                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                      >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                        </svg>
+                      </button>
+                      {activeMenu === emp.id && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)} />
+                          <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 text-[13px] font-semibold">
+                            <button
+                              onClick={() => { setDeleteId(emp.id); setActiveMenu(null); }}
+                              className="w-full text-left px-3.5 py-2.5 rounded-xl hover:bg-rose-50 text-rose-600 flex items-center gap-2 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              Delete
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
