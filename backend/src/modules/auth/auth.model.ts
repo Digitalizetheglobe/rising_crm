@@ -1,81 +1,112 @@
-import mongoose, { Document, Schema } from "mongoose";
-import bcrypt from "bcryptjs";
-import { ROLES, LEGACY_FINANCE_ROLE } from "../../constants/roles";
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import bcrypt from 'bcryptjs';
+import Tenant from '../tenants/tenant.model';
+import Role from '../roles/role.model';
 
-export interface IUser extends Document {
+export interface UserAttributes {
+    id: string;
+    tenantId: string;
+    roleId?: string; // Optional if we still use legacy role string during transition, but ultimately it's FK
     name: string;
     email: string;
-    password: string;
+    password?: string;
     phone: string;
-    role: string;
+    role: string; // Legacy role string, kept for backwards compatibility during migration
     isActive: boolean;
-    comparePassword(candidatePassword: string): Promise<boolean>;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
-const userSchema = new Schema<IUser>(
+export interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'role' | 'isActive' | 'roleId'> {}
+
+class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
+    public id!: string;
+    public tenantId!: string;
+    public roleId!: string;
+    public name!: string;
+    public email!: string;
+    public password!: string;
+    public phone!: string;
+    public role!: string;
+    public isActive!: boolean;
+
+    public readonly createdAt!: Date;
+    public readonly updatedAt!: Date;
+
+    public async comparePassword(candidatePassword: string): Promise<boolean> {
+        return bcrypt.compare(candidatePassword, this.password);
+    }
+}
+
+User.init(
     {
+        id: {
+            type: DataTypes.UUID,
+            defaultValue: DataTypes.UUIDV4,
+            primaryKey: true,
+        },
+        tenantId: {
+            type: DataTypes.UUID,
+            allowNull: false,
+            references: {
+                model: 'tenants',
+                key: 'id'
+            }
+        },
+        roleId: {
+            type: DataTypes.UUID,
+            allowNull: true,
+            references: {
+                model: 'roles',
+                key: 'id'
+            }
+        },
         name: {
-            type: String,
-            required: true,
-            trim: true,
+            type: DataTypes.STRING,
+            allowNull: false,
         },
-
         email: {
-            type: String,
-            required: true,
+            type: DataTypes.STRING,
+            allowNull: false,
             unique: true,
-            lowercase: true,
         },
-
         password: {
-            type: String,
-            required: true,
-            minlength: 6,
+            type: DataTypes.STRING,
+            allowNull: false,
         },
-
         phone: {
-            type: String,
-            required: true,
+            type: DataTypes.STRING,
+            allowNull: false,
             unique: true,
-            trim: true,
         },
-
         role: {
-            type: String,
-            enum: [
-                ROLES.SUPER_ADMIN,
-                ROLES.ADMIN,
-                ROLES.SALES_MANAGER,
-                ROLES.SALES_EXECUTIVE,
-                ROLES.FINANCIAL_EXECUTIVE,
-                LEGACY_FINANCE_ROLE,
-                ROLES.VIEWER,
-            ],
-            default: ROLES.SALES_EXECUTIVE,
+            type: DataTypes.STRING,
+            defaultValue: 'Sales Executive',
         },
-
         isActive: {
-            type: Boolean,
-            default: true,
+            type: DataTypes.BOOLEAN,
+            defaultValue: true,
         },
     },
     {
+        sequelize,
+        tableName: 'users',
         timestamps: true,
+        hooks: {
+            beforeSave: async (user: User) => {
+                if (user.changed('password')) {
+                    user.password = await bcrypt.hash(user.password, 10);
+                }
+            }
+        }
     }
 );
 
-userSchema.pre("save", async function () {
-    if (!this.isModified("password")) return;
+User.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+Tenant.hasMany(User, { foreignKey: 'tenantId', as: 'users' });
 
-    this.password = await bcrypt.hash(this.password, 10);
-});
-
-userSchema.methods.comparePassword = async function (
-    candidatePassword: string
-) {
-    return bcrypt.compare(candidatePassword, this.password);
-};
-
-const User = mongoose.model<IUser>("User", userSchema);
+User.belongsTo(Role, { foreignKey: 'roleId', as: 'roleData' });
+Role.hasMany(User, { foreignKey: 'roleId', as: 'users' });
 
 export default User;

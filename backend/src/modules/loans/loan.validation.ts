@@ -2,10 +2,10 @@ import Joi from 'joi';
 import { LOAN_STATUSES } from './loan.constants';
 
 export const createLoanSchema = Joi.object({
-  booking: Joi.string().hex().length(24).required().messages({
+  booking: Joi.string().uuid().required().messages({
     'any.required': 'Booking ID is required',
   }),
-  client: Joi.string().hex().length(24).required().messages({
+  client: Joi.string().uuid().required().messages({
     'any.required': 'Client ID is required',
   }),
   bankName: Joi.string().trim().min(2).max(100).required().messages({

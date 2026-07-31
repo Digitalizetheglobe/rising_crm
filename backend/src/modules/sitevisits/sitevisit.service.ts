@@ -1,59 +1,109 @@
-import { SiteVisit, ISiteVisit } from './sitevisit.model';
-import mongoose from 'mongoose';
+import { Op } from 'sequelize';
+import SiteVisit, { SiteVisitAttributes, SiteVisitCreationAttributes } from './sitevisit.model';
+import Lead from '../leads/lead.model';
+import Project from '../projects/project.model';
+import User from '../auth/auth.model';
+import { getTenantId } from '../../middleware/tenant.middleware';
+import { ApiError } from '../../utils/ApiError';
 
 export class SiteVisitService {
-    async createSiteVisit(data: Partial<ISiteVisit>): Promise<ISiteVisit> {
-        const siteVisit = new SiteVisit(data);
-        return await siteVisit.save();
+  async createSiteVisit(data: Partial<SiteVisitCreationAttributes>): Promise<SiteVisit> {
+    const tenantId = getTenantId();
+    const siteVisit = await SiteVisit.create({
+      ...data,
+      tenantId,
+    } as any);
+    
+    return await SiteVisit.findByPk(siteVisit.id, {
+      include: [
+        { model: Lead, as: 'lead', attributes: ['name', 'phone', 'email', 'status'] },
+        { model: Project, as: 'project', attributes: ['name'] },
+        { model: User, as: 'assignedUser', attributes: ['name', 'email'] },
+        { model: User, as: 'createdByUser', attributes: ['name', 'email'] },
+      ],
+    }) as SiteVisit;
+  }
+
+  async getSiteVisits(filter: any = {}, options: { page?: number; limit?: number; sort?: any } = {}) {
+    const tenantId = getTenantId();
+    const { page = 1, limit = 10 } = options;
+    const offset = (page - 1) * limit;
+
+    const where: any = { ...filter, tenantId };
+    
+    if (where.lead) {
+      where.leadId = where.lead;
+      delete where.lead;
+    }
+    if (where.assignedTo) {
+      where.assignedTo = where.assignedTo;
     }
 
-    async getSiteVisits(filter: any = {}, options: { page?: number; limit?: number; sort?: any } = {}) {
-        const { page = 1, limit = 10, sort = { scheduledAt: -1 } } = options;
-        const skip = (page - 1) * limit;
+    const { rows, count } = await SiteVisit.findAndCountAll({
+      where,
+      include: [
+        { model: Lead, as: 'lead', attributes: ['name', 'phone', 'email', 'status'] },
+        { model: Project, as: 'project', attributes: ['name'] },
+        { model: User, as: 'assignedUser', attributes: ['name', 'email'] },
+        { model: User, as: 'createdByUser', attributes: ['name', 'email'] },
+      ],
+      order: [['scheduledAt', 'DESC']],
+      limit,
+      offset,
+    });
 
-        const [siteVisits, total] = await Promise.all([
-            SiteVisit.find(filter)
-                .sort(sort)
-                .skip(skip)
-                .limit(limit)
-                .populate('lead', 'name phone email status')
-                .populate('project', 'name')
-                .populate('assignedTo', 'name email')
-                .populate('createdBy', 'name email'),
-            SiteVisit.countDocuments(filter)
-        ]);
+    return {
+      siteVisits: rows,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      }
+    };
+  }
 
-        return {
-            siteVisits,
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            }
-        };
-    }
+  async getSiteVisitById(id: string): Promise<SiteVisit | null> {
+    const tenantId = getTenantId();
+    const siteVisit = await SiteVisit.findOne({
+      where: { id, tenantId },
+      include: [
+        { model: Lead, as: 'lead', attributes: ['name', 'phone', 'email', 'status'] },
+        { model: Project, as: 'project', attributes: ['name'] },
+        { model: User, as: 'assignedUser', attributes: ['name', 'email'] },
+        { model: User, as: 'createdByUser', attributes: ['name', 'email'] },
+      ],
+    });
 
-    async getSiteVisitById(id: string): Promise<ISiteVisit | null> {
-        return await SiteVisit.findById(id)
-            .populate('lead', 'name phone email status')
-            .populate('project', 'name')
-            .populate('assignedTo', 'name email')
-            .populate('createdBy', 'name email');
-    }
+    if (!siteVisit) throw new ApiError(404, 'Site Visit not found');
+    return siteVisit;
+  }
 
-    async updateSiteVisit(id: string, data: Partial<ISiteVisit>): Promise<ISiteVisit | null> {
-        return await SiteVisit.findByIdAndUpdate(id, data, { new: true })
-            .populate('lead', 'name phone email status')
-            .populate('project', 'name')
-            .populate('assignedTo', 'name email')
-            .populate('createdBy', 'name email');
-    }
+  async updateSiteVisit(id: string, data: Partial<SiteVisitAttributes>): Promise<SiteVisit | null> {
+    const tenantId = getTenantId();
+    const siteVisit = await SiteVisit.findOne({ where: { id, tenantId } });
+    if (!siteVisit) throw new ApiError(404, 'Site Visit not found');
 
-    async deleteSiteVisit(id: string): Promise<boolean> {
-        const result = await SiteVisit.findByIdAndDelete(id);
-        return result !== null;
-    }
+    await siteVisit.update(data);
+
+    return await SiteVisit.findByPk(id, {
+      include: [
+        { model: Lead, as: 'lead', attributes: ['name', 'phone', 'email', 'status'] },
+        { model: Project, as: 'project', attributes: ['name'] },
+        { model: User, as: 'assignedUser', attributes: ['name', 'email'] },
+        { model: User, as: 'createdByUser', attributes: ['name', 'email'] },
+      ],
+    });
+  }
+
+  async deleteSiteVisit(id: string): Promise<boolean> {
+    const tenantId = getTenantId();
+    const siteVisit = await SiteVisit.findOne({ where: { id, tenantId } });
+    if (!siteVisit) throw new ApiError(404, 'Site Visit not found');
+
+    await siteVisit.destroy();
+    return true;
+  }
 }
 
 export const siteVisitService = new SiteVisitService();

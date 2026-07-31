@@ -1,20 +1,21 @@
-import mongoose from 'mongoose';
-import { Notification } from './notification.model';
+import Notification from './notification.model';
 import { NotificationType, NotificationRefModel } from './notification.constants';
+import { getTenantId } from '../../middleware/tenant.middleware';
 
 interface CreateNotificationPayload {
-  UserId: string | mongoose.Types.ObjectId;
+  UserId: string;
   title: string;
   message: string;
   type: NotificationType;
-  refId?: string | mongoose.Types.ObjectId;
+  refId?: string;
   refModel?: NotificationRefModel;
 }
 
 // Core helper — call this from any service to fire a notification
 export const createNotification = async (payload: CreateNotificationPayload) => {
   try {
-    await Notification.create(payload);
+    const tenantId = getTenantId();
+    await Notification.create({ ...payload, tenantId });
   } catch (error) {
     // Notifications should NEVER crash the main operation — swallow the error and log
     console.error('[Notification] Failed to create notification:', error);
@@ -24,7 +25,9 @@ export const createNotification = async (payload: CreateNotificationPayload) => 
 // Notify multiple users at once (e.g. notify manager + executive on reassignment)
 export const createNotifications = async (payloads: CreateNotificationPayload[]) => {
   try {
-    await Notification.insertMany(payloads);
+    const tenantId = getTenantId();
+    const data = payloads.map((p) => ({ ...p, tenantId }));
+    await Notification.bulkCreate(data);
   } catch (error) {
     console.error('[Notification] Failed to create bulk notifications:', error);
   }

@@ -1,79 +1,139 @@
-import mongoose, { Document, Schema } from 'mongoose';
-import { UnitType, UnitStatus, UnitFacing, UNIT_TYPES, UNIT_STATUSES, UNIT_FACINGS } from './unit.constants';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import Project from '../projects/project.model';
+import { UNIT_TYPES, UNIT_STATUSES, UNIT_FACINGS, UnitType, UnitStatus, UnitFacing } from './unit.constants';
+import Tenant from '../tenants/tenant.model';
 
-export interface IUnit extends Document {
-  project: mongoose.Types.ObjectId;
+export interface UnitAttributes {
+  id: string;
+  tenantId: string;
+  projectId: string;
   unitNumber: string;
   type: UnitType;
   floor: number;
-  area: number;          // in sq ft
-  price: number;         // base price in INR
+  area: number;
+  price: number;
   status: UnitStatus;
-  facing?: UnitFacing;
+  facing?: UnitFacing | null;
   description?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const unitSchema = new Schema<IUnit>(
+export interface UnitCreationAttributes extends Optional<UnitAttributes, 'id' | 'status' | 'facing' | 'description' | 'createdAt' | 'updatedAt'> {}
+
+class Unit extends Model<UnitAttributes, UnitCreationAttributes> implements UnitAttributes {
+  public id!: string;
+  public tenantId!: string;
+  public projectId!: string;
+  public unitNumber!: string;
+  public type!: UnitType;
+  public floor!: number;
+  public area!: number;
+  public price!: number;
+  public status!: UnitStatus;
+  public facing?: UnitFacing | null;
+  public description?: string;
+
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+
+  // relations
+  public readonly project?: Project;
+  public readonly tenant?: Tenant;
+}
+
+Unit.init(
   {
-    project: {
-      type: Schema.Types.ObjectId,
-      ref: 'Project',
-      required: true,
-      index: true,
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'tenants',
+        key: 'id',
+      },
+    },
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'projects',
+        key: 'id',
+      },
     },
     unitNumber: {
-      type: String,
-      required: true,
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     type: {
-      type: String,
-      enum: UNIT_TYPES,
-      required: true,
-      index: true,
+      type: DataTypes.ENUM(...UNIT_TYPES),
+      allowNull: false,
     },
     floor: {
-      type: Number,
-      required: true,
-      min: 0,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        min: 0,
+      },
     },
     area: {
-      type: Number,
-      required: true,
-      min: 1,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        min: 1,
+      },
     },
     price: {
-      type: Number,
-      required: true,
-      min: 0,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+      get() {
+        const val = this.getDataValue('price');
+        return val === null ? null : parseFloat(val as any);
+      },
+      validate: {
+        min: 0,
+      },
     },
     status: {
-      type: String,
-      enum: UNIT_STATUSES,
-      default: 'Available',
-      index: true,
+      type: DataTypes.ENUM(...UNIT_STATUSES),
+      allowNull: false,
+      defaultValue: 'Available',
     },
     facing: {
-      type: String,
-      enum: UNIT_FACINGS,
-      default: null,
+      type: DataTypes.ENUM(...UNIT_FACINGS),
+      allowNull: true,
     },
     description: {
-      type: String,
-      trim: true,
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: 'Unit',
+    tableName: 'Units',
+    timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ['projectId', 'unitNumber'],
+      },
+      { fields: ['tenantId'] },
+      { fields: ['projectId', 'status'] },
+      { fields: ['projectId', 'type'] },
+      { fields: ['projectId', 'floor'] },
+    ],
+  }
 );
 
-// Unique unit number per project
-unitSchema.index({ project: 1, unitNumber: 1 }, { unique: true });
+setTimeout(() => {
+  Unit.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+  Unit.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+}, 0);
 
-// Compound query indexes
-unitSchema.index({ project: 1, status: 1 });
-unitSchema.index({ project: 1, type: 1 });
-unitSchema.index({ project: 1, floor: 1 });
-
-export const Unit = mongoose.model<IUnit>('Unit', unitSchema);
+export default Unit;

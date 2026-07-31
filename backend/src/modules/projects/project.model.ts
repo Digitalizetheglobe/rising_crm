@@ -1,7 +1,12 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
 import { PROJECT_STATUSES, PROJECT_TYPES, ProjectStatus, ProjectType } from './project.constants';
+import User from '../auth/auth.model';
+import Tenant from '../tenants/tenant.model';
 
-export interface IMetaCampaign {
+export interface MetaCampaignAttributes {
+    id: string;
+    projectId: string;
     campaignName: string;
     campaignId: string;
     adSetName: string;
@@ -11,11 +16,15 @@ export interface IMetaCampaign {
     formName: string;
     formId: string;
     platform: 'facebook' | 'instagram';
-    defaultAssigneeId?: mongoose.Types.ObjectId;
+    defaultAssigneeId?: string;
     isActive: boolean;
     createdAt?: Date;
+    updatedAt?: Date;
 }
-export interface IProject extends Document {
+
+export interface ProjectAttributes {
+    id: string;
+    tenantId: string;
     name: string;
     location: string;
     description?: string;
@@ -28,54 +37,152 @@ export interface IProject extends Document {
     images: string[];
     brochure?: string;
     reraNumber?: string;
-    metaCampaigns?: IMetaCampaign[];
-    createdBy: mongoose.Types.ObjectId;
+    createdBy: string;
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
-const MetaCampaignSchema = new Schema<IMetaCampaign>(
+export interface ProjectCreationAttributes extends Optional<ProjectAttributes, 'id' | 'status' | 'amenities' | 'images'> {}
+
+class Project extends Model<ProjectAttributes, ProjectCreationAttributes> implements ProjectAttributes {
+    public id!: string;
+    public tenantId!: string;
+    public name!: string;
+    public location!: string;
+    public description!: string;
+    public type!: ProjectType;
+    public amenities!: string[];
+    public totalUnits!: number;
+    public launchDate!: Date;
+    public completionDate!: Date;
+    public status!: ProjectStatus;
+    public images!: string[];
+    public brochure!: string;
+    public reraNumber!: string;
+    public createdBy!: string;
+
+    public readonly createdAt!: Date;
+    public readonly updatedAt!: Date;
+}
+
+Project.init(
     {
-        campaignName:        { type: String, required: true, trim: true },
-        campaignId:          { type: String, required: true, trim: true },
-        adSetName:           { type: String, required: true, trim: true },
-        adSetId:             { type: String, required: true, trim: true },
-        adName:              { type: String, required: true, trim: true },
-        adId:                { type: String, required: true, trim: true },
-        formName:            { type: String, required: true, trim: true },
-        formId:              { type: String, required: true, trim: true },
-        platform:            { type: String, enum: ['facebook', 'instagram'], required: true },
-        defaultAssigneeId:   { type: Schema.Types.ObjectId, ref: 'User' },
-        isActive:            { type: Boolean, default: true },
-        createdAt:           { type: Date, default: () => new Date() },
+        id: {
+            type: DataTypes.UUID,
+            defaultValue: DataTypes.UUIDV4,
+            primaryKey: true,
+        },
+        tenantId: {
+            type: DataTypes.UUID,
+            allowNull: false,
+            references: { model: 'tenants', key: 'id' }
+        },
+        name: { type: DataTypes.STRING, allowNull: false },
+        location: { type: DataTypes.STRING, allowNull: false },
+        description: { type: DataTypes.TEXT, allowNull: true },
+        type: {
+            type: DataTypes.STRING,
+            allowNull: false,
+            validate: { isIn: [PROJECT_TYPES] }
+        },
+        amenities: {
+            type: DataTypes.JSONB,
+            defaultValue: []
+        },
+        totalUnits: { type: DataTypes.INTEGER, allowNull: false, validate: { min: 1 } },
+        launchDate: { type: DataTypes.DATE, allowNull: true },
+        completionDate: { type: DataTypes.DATE, allowNull: true },
+        status: {
+            type: DataTypes.STRING,
+            defaultValue: 'UPCOMING',
+            validate: { isIn: [PROJECT_STATUSES] }
+        },
+        images: {
+            type: DataTypes.JSONB,
+            defaultValue: []
+        },
+        brochure: { type: DataTypes.STRING, allowNull: true },
+        reraNumber: { type: DataTypes.STRING, allowNull: true },
+        createdBy: {
+            type: DataTypes.UUID,
+            allowNull: false,
+            references: { model: 'users', key: 'id' }
+        },
     },
-    { _id: true }
+    {
+        sequelize,
+        tableName: 'projects',
+        timestamps: true,
+        indexes: [
+            { fields: ['tenantId'] },
+            { fields: ['name'] },
+            { fields: ['status'] },
+            { fields: ['type'] },
+            { fields: ['location'] },
+        ]
+    }
 );
 
-const ProjectSchema = new Schema<IProject>(
+class MetaCampaign extends Model<MetaCampaignAttributes, Optional<MetaCampaignAttributes, 'id' | 'isActive'>> implements MetaCampaignAttributes {
+    public id!: string;
+    public projectId!: string;
+    public campaignName!: string;
+    public campaignId!: string;
+    public adSetName!: string;
+    public adSetId!: string;
+    public adName!: string;
+    public adId!: string;
+    public formName!: string;
+    public formId!: string;
+    public platform!: 'facebook' | 'instagram';
+    public defaultAssigneeId!: string;
+    public isActive!: boolean;
+
+    public readonly createdAt!: Date;
+    public readonly updatedAt!: Date;
+}
+
+MetaCampaign.init(
     {
-        name:           { type: String, required: true, trim: true },
-        location:       { type: String, required: true, trim: true },
-        description:    { type: String, trim: true },
-        type:           { type: String, enum: PROJECT_TYPES, required: true },
-        amenities:      { type: [String], default: [] },
-        totalUnits:     { type: Number, required: true, min: 1 },
-        launchDate:     { type: Date },
-        completionDate: { type: Date },
-        status:         { type: String, enum: PROJECT_STATUSES, default: 'UPCOMING' },
-        images:         { type: [String], default: [] },
-        brochure:       { type: String, trim: true },
-        reraNumber:     { type: String, trim: true },
-        metaCampaigns:  { type: [MetaCampaignSchema], default: [] },
-        createdBy:      { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        id: {
+            type: DataTypes.UUID,
+            defaultValue: DataTypes.UUIDV4,
+            primaryKey: true,
+        },
+        projectId: {
+            type: DataTypes.UUID,
+            allowNull: false,
+            references: { model: 'projects', key: 'id' }
+        },
+        campaignName: { type: DataTypes.STRING, allowNull: false },
+        campaignId: { type: DataTypes.STRING, allowNull: false },
+        adSetName: { type: DataTypes.STRING, allowNull: false },
+        adSetId: { type: DataTypes.STRING, allowNull: false },
+        adName: { type: DataTypes.STRING, allowNull: false },
+        adId: { type: DataTypes.STRING, allowNull: false },
+        formName: { type: DataTypes.STRING, allowNull: false },
+        formId: { type: DataTypes.STRING, allowNull: false },
+        platform: { type: DataTypes.STRING, allowNull: false },
+        defaultAssigneeId: { type: DataTypes.UUID, allowNull: true, references: { model: 'users', key: 'id' } },
+        isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
     },
-    { timestamps: true }
+    {
+        sequelize,
+        tableName: 'meta_campaigns',
+        timestamps: true,
+        indexes: [
+            { fields: ['projectId'] },
+            { fields: ['adId', 'isActive'] },
+            { fields: ['adId'], unique: true },
+        ]
+    }
 );
 
-ProjectSchema.index({ name: 1 });
-ProjectSchema.index({ status: 1 });
-ProjectSchema.index({ type: 1 });
-ProjectSchema.index({ location: 1 });
-ProjectSchema.index({ createdAt: -1 });
-ProjectSchema.index({ 'metaCampaigns.adId': 1, 'metaCampaigns.isActive': 1 }, { sparse: true });
-ProjectSchema.index({ 'metaCampaigns.adId': 1 }, { sparse: true, unique: true });
+Project.hasMany(MetaCampaign, { foreignKey: 'projectId', as: 'metaCampaigns' });
+MetaCampaign.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
 
-export const Project = mongoose.model<IProject>('Project', ProjectSchema);
+Project.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+Project.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
+
+export default Project;
+export { MetaCampaign };

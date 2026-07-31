@@ -1,11 +1,13 @@
-
-import mongoose from 'mongoose';
-import { Booking } from './booking.model';
-import { Unit } from '../units/unit.model';
+import { Op, Sequelize } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import Booking from './booking.model';
+import Unit from '../units/unit.model';
+import Client from '../clients/client.model';
+import Project from '../projects/project.model';
+import User from '../auth/auth.model';
 import { ApiError } from '../../utils/ApiError';
 import { BookingType, PaymentMode } from './booking.constants';
-
-// ─── Create Booking ───────────────────────────────────────────────────────────
+import { getTenantId } from '../../middleware/tenant.middleware';
 
 export const createBookingService = async (
   body: {
@@ -21,15 +23,13 @@ export const createBookingService = async (
   },
   bookedBy: string
 ) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const tenantId = getTenantId();
+  const transaction = await sequelize.transaction();
 
   try {
-    // 1. Fetch unit with session lock
-    const unit = await Unit.findById(body.unit).session(session);
+    const unit = await Unit.findOne({ where: { id: body.unit, tenantId }, transaction });
     if (!unit) throw new ApiError(404, 'Unit not found');
 
-    // 2. Enforce business rules on unit status
     if (unit.status === 'Sold') {
       throw new ApiError(400, 'This unit has already been sold and cannot be booked');
     }
@@ -37,11 +37,9 @@ export const createBookingService = async (
       throw new ApiError(400, 'This unit is already booked');
     }
 
-    // 3. Verify client exists
-    const client = await mongoose.model('Client').findById(body.client).session(session);
+    const client = await Client.findOne({ where: { id: body.client, tenantId }, transaction });
     if (!client) throw new ApiError(404, 'Client not found');
 
-    // 4. Calculate finalAmount
     const discountAmount = body.discountAmount || 0;
     const finalAmount = body.totalAmount - discountAmount;
 
@@ -50,52 +48,43 @@ export const createBookingService = async (
       throw new ApiError(400, 'Booking amount cannot exceed final amount');
     }
 
-    // 5. Create booking
-    const [booking] = await Booking.create(
-      [
-        {
-          client: body.client,
-          unit: body.unit,
-          project: unit.project,
-          bookedBy,
-          bookingType: body.bookingType as BookingType,
-          bookingDate: body.bookingDate,
-          totalAmount: body.totalAmount,
-          discountAmount,
-          finalAmount,
-          bookingAmount: body.bookingAmount,
-          paymentMode: body.paymentMode as PaymentMode,
-          remarks: body.remarks,
-          status: 'Active',
-        },
+    const booking = await Booking.create(
+      {
+        tenantId,
+        clientId: body.client,
+        unitId: body.unit,
+        projectId: unit.projectId,
+        bookedBy,
+        bookingType: body.bookingType as BookingType,
+        bookingDate: body.bookingDate,
+        totalAmount: body.totalAmount,
+        discountAmount,
+        finalAmount,
+        bookingAmount: body.bookingAmount,
+        paymentMode: body.paymentMode as PaymentMode,
+        remarks: body.remarks,
+        status: 'Active',
+      },
+      { transaction }
+    );
+
+    await unit.update({ status: 'Booked' }, { transaction });
+
+    await transaction.commit();
+
+    return await Booking.findByPk(booking.id, {
+      include: [
+        { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+        { model: Unit, as: 'unit', attributes: ['unitNumber', 'type', 'floor', 'area', 'price', 'status'] },
+        { model: Project, as: 'project', attributes: ['name', 'location'] },
+        { model: User, as: 'bookedByUser', attributes: ['name', 'email'] },
       ],
-      { session }
-    );
-
-    // 6. Mark unit as Booked — CRITICAL business rule
-    await Unit.findByIdAndUpdate(
-      body.unit,
-      { $set: { status: 'Booked' } },
-      { session }
-    );
-
-    await session.commitTransaction();
-
-    return booking.populate([
-      { path: 'client', select: 'name phone email' },
-      { path: 'unit', select: 'unitNumber type floor area price status' },
-      { path: 'project', select: 'name location' },
-      { path: 'bookedBy', select: 'name email' },
-    ]);
+    });
   } catch (error) {
-    await session.abortTransaction();
+    await transaction.rollback();
     throw error;
-  } finally {
-    session.endSession();
   }
 };
-
-// ─── List Bookings ────────────────────────────────────────────────────────────
 
 export const getBookingsService = async (
   query: {
@@ -112,70 +101,72 @@ export const getBookingsService = async (
   UserId: string,
   role: string
 ) => {
+  const tenantId = getTenantId();
   const page = Math.max(1, parseInt(query.page || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(query.limit || '10', 10)));
-  const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-  const filter: Record<string, any> = {};
+  const where: any = { tenantId };
 
-  // SALES_EXECUTIVE sees only bookings they created
   if (role === 'SALES_EXECUTIVE') {
-    filter.bookedBy = new mongoose.Types.ObjectId(UserId);
+    where.bookedBy = UserId;
   }
 
-  if (query.clientId) filter.client = new mongoose.Types.ObjectId(query.clientId);
-  if (query.projectId) filter.project = new mongoose.Types.ObjectId(query.projectId);
-  if (query.unitId) filter.unit = new mongoose.Types.ObjectId(query.unitId);
-  if (query.status) filter.status = query.status;
-  if (query.bookingType) filter.bookingType = query.bookingType;
+  if (query.clientId) where.clientId = query.clientId;
+  if (query.projectId) where.projectId = query.projectId;
+  if (query.unitId) where.unitId = query.unitId;
+  if (query.status) where.status = query.status;
+  if (query.bookingType) where.bookingType = query.bookingType;
 
   if (query.startDate || query.endDate) {
-    filter.bookingDate = {};
-    if (query.startDate) filter.bookingDate.$gte = new Date(query.startDate);
+    where.bookingDate = {};
+    if (query.startDate) where.bookingDate[Op.gte] = new Date(query.startDate);
     if (query.endDate) {
       const end = new Date(query.endDate);
       end.setHours(23, 59, 59, 999);
-      filter.bookingDate.$lte = end;
+      where.bookingDate[Op.lte] = end;
     }
   }
 
-  const [bookings, total] = await Promise.all([
-    Booking.find(filter)
-      .populate('client', 'name phone email')
-      .populate('unit', 'unitNumber type floor area')
-      .populate('project', 'name location')
-      .populate('bookedBy', 'name email')
-      .sort({ bookingDate: -1 })
-      .skip(skip)
-      .limit(limit),
-    Booking.countDocuments(filter),
-  ]);
+  const { rows, count } = await Booking.findAndCountAll({
+    where,
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: Unit, as: 'unit', attributes: ['unitNumber', 'type', 'floor', 'area'] },
+      { model: Project, as: 'project', attributes: ['name', 'location'] },
+      { model: User, as: 'bookedByUser', attributes: ['name', 'email'] },
+    ],
+    order: [['bookingDate', 'DESC']],
+    limit,
+    offset,
+  });
 
   return {
-    bookings,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    bookings: rows,
+    pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) },
   };
 };
 
-// ─── Get Single Booking ───────────────────────────────────────────────────────
-
 export const getBookingByIdService = async (bookingId: string, UserId: string, role: string) => {
-  const booking = await Booking.findById(bookingId)
-    .populate('client', 'name phone email address aadhaar PAN')
-    .populate('unit', 'unitNumber type floor area price facing status')
-    .populate('project', 'name location description')
-    .populate('bookedBy', 'name email');
+  const tenantId = getTenantId();
+  const booking = await Booking.findOne({
+    where: { id: bookingId, tenantId },
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email', 'address', 'aadhaar', 'PAN'] },
+      { model: Unit, as: 'unit', attributes: ['unitNumber', 'type', 'floor', 'area', 'price', 'facing', 'status'] },
+      { model: Project, as: 'project', attributes: ['name', 'location', 'description'] },
+      { model: User, as: 'bookedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 
   if (!booking) throw new ApiError(404, 'Booking not found');
 
-  if (role === 'SALES_EXECUTIVE' && booking.bookedBy._id.toString() !== UserId) {
+  if (role === 'SALES_EXECUTIVE' && booking.bookedBy !== UserId) {
     throw new ApiError(403, 'You are not authorized to view this booking');
   }
 
   return booking;
 };
-
-// ─── Update Booking ───────────────────────────────────────────────────────────
 
 export const updateBookingService = async (
   bookingId: string,
@@ -191,7 +182,8 @@ export const updateBookingService = async (
   UserId: string,
   role: string
 ) => {
-  const booking = await Booking.findById(bookingId);
+  const tenantId = getTenantId();
+  const booking = await Booking.findOne({ where: { id: bookingId, tenantId } });
   if (!booking) throw new ApiError(404, 'Booking not found');
 
   if (booking.status === 'Cancelled') {
@@ -201,32 +193,27 @@ export const updateBookingService = async (
     throw new ApiError(400, 'Cannot update a completed booking');
   }
 
-  if (role === 'SALES_EXECUTIVE' && booking.bookedBy.toString() !== UserId) {
+  if (role === 'SALES_EXECUTIVE' && booking.bookedBy !== UserId) {
     throw new ApiError(403, 'You can only edit bookings you created');
   }
 
-  // Recalculate finalAmount if amounts changed
   const totalAmount = body.totalAmount ?? booking.totalAmount;
   const discountAmount = body.discountAmount ?? booking.discountAmount;
   const finalAmount = totalAmount - discountAmount;
 
   if (finalAmount < 0) throw new ApiError(400, 'Discount cannot exceed total amount');
 
-  const updated = await Booking.findByIdAndUpdate(
-    bookingId,
-    { $set: { ...body, finalAmount } },
-    { new: true }
-  ).populate([
-    { path: 'client', select: 'name phone email' },
-    { path: 'unit', select: 'unitNumber type floor area' },
-    { path: 'project', select: 'name location' },
-    { path: 'bookedBy', select: 'name email' },
-  ]);
+  await booking.update({ ...body, finalAmount });
 
-  return updated;
+  return await Booking.findByPk(bookingId, {
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: Unit, as: 'unit', attributes: ['unitNumber', 'type', 'floor', 'area'] },
+      { model: Project, as: 'project', attributes: ['name', 'location'] },
+      { model: User, as: 'bookedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
-
-// ─── Cancel Booking ───────────────────────────────────────────────────────────
 
 export const cancelBookingService = async (
   bookingId: string,
@@ -234,11 +221,11 @@ export const cancelBookingService = async (
   UserId: string,
   role: string
 ) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const tenantId = getTenantId();
+  const transaction = await sequelize.transaction();
 
   try {
-    const booking = await Booking.findById(bookingId).session(session);
+    const booking = await Booking.findOne({ where: { id: bookingId, tenantId }, transaction });
     if (!booking) throw new ApiError(404, 'Booking not found');
 
     if (booking.status === 'Cancelled') {
@@ -252,133 +239,120 @@ export const cancelBookingService = async (
       throw new ApiError(403, 'Sales Executives cannot cancel bookings');
     }
 
-    // 1. Cancel the booking
-    await Booking.findByIdAndUpdate(
-      bookingId,
+    await booking.update(
       {
-        $set: {
-          status: 'Cancelled',
-          cancelledAt: new Date(),
-          cancellationReason,
-        },
+        status: 'Cancelled',
+        cancelledAt: new Date(),
+        cancellationReason,
       },
-      { session }
+      { transaction }
     );
 
-    // 2. Revert unit back to Available — CRITICAL business rule
-    await Unit.findByIdAndUpdate(
-      booking.unit,
-      { $set: { status: 'Available' } },
-      { session }
-    );
+    const unit = await Unit.findOne({ where: { id: booking.unitId, tenantId }, transaction });
+    if (unit) {
+      await unit.update({ status: 'Available' }, { transaction });
+    }
 
-    await session.commitTransaction();
+    await transaction.commit();
 
     return { cancelled: true, bookingId, unitReverted: true };
   } catch (error) {
-    await session.abortTransaction();
+    await transaction.rollback();
     throw error;
-  } finally {
-    session.endSession();
   }
 };
-
-// ─── Complete Booking ─────────────────────────────────────────────────────────
 
 export const completeBookingService = async (
   bookingId: string,
   UserId: string,
   role: string
 ) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const tenantId = getTenantId();
+  const transaction = await sequelize.transaction();
 
   try {
-    const booking = await Booking.findById(bookingId).session(session);
+    const booking = await Booking.findOne({ where: { id: bookingId, tenantId }, transaction });
     if (!booking) throw new ApiError(404, 'Booking not found');
 
     if (booking.status !== 'Active') {
       throw new ApiError(400, `Only Active bookings can be completed. Current status: ${booking.status}`);
     }
 
-    // 1. Mark booking as Completed
-    await Booking.findByIdAndUpdate(
-      bookingId,
-      { $set: { status: 'Completed' } },
-      { session }
-    );
+    await booking.update({ status: 'Completed' }, { transaction });
 
-    // 2. Mark unit as Sold — final state
-    await Unit.findByIdAndUpdate(
-      booking.unit,
-      { $set: { status: 'Sold' } },
-      { session }
-    );
+    const unit = await Unit.findOne({ where: { id: booking.unitId, tenantId }, transaction });
+    if (unit) {
+      await unit.update({ status: 'Sold' }, { transaction });
+    }
 
-    await session.commitTransaction();
+    await transaction.commit();
 
     return { completed: true, bookingId, unitMarkedSold: true };
   } catch (error) {
-    await session.abortTransaction();
+    await transaction.rollback();
     throw error;
-  } finally {
-    session.endSession();
   }
 };
-
-// ─── Stats ────────────────────────────────────────────────────────────────────
 
 export const getBookingStatsService = async (
   query: { projectId?: string; startDate?: string; endDate?: string },
   UserId: string,
   role: string
 ) => {
-  const match: Record<string, any> = {};
+  const tenantId = getTenantId();
+  const where: any = { tenantId };
 
   if (role === 'SALES_EXECUTIVE') {
-    match.bookedBy = new mongoose.Types.ObjectId(UserId);
+    where.bookedBy = UserId;
   }
-  if (query.projectId) match.project = new mongoose.Types.ObjectId(query.projectId);
+  if (query.projectId) where.projectId = query.projectId;
+  
   if (query.startDate || query.endDate) {
-    match.bookingDate = {};
-    if (query.startDate) match.bookingDate.$gte = new Date(query.startDate);
+    where.bookingDate = {};
+    if (query.startDate) where.bookingDate[Op.gte] = new Date(query.startDate);
     if (query.endDate) {
       const end = new Date(query.endDate);
       end.setHours(23, 59, 59, 999);
-      match.bookingDate.$lte = end;
+      where.bookingDate[Op.lte] = end;
     }
   }
 
-  const [byStatus, byType, totals] = await Promise.all([
-    Booking.aggregate([
-      { $match: match },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-    ]),
+  const byStatusRows = await Booking.findAll({
+    where,
+    attributes: [
+      ['status', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
+    ],
+    group: ['status'],
+  });
+  const byStatus = byStatusRows.map(r => r.get({ plain: true }));
 
-    Booking.aggregate([
-      { $match: match },
-      { $group: { _id: '$bookingType', count: { $sum: 1 } } },
-    ]),
+  const byTypeRows = await Booking.findAll({
+    where,
+    attributes: [
+      ['bookingType', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
+    ],
+    group: ['bookingType'],
+  });
+  const byType = byTypeRows.map(r => r.get({ plain: true }));
 
-    Booking.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: null,
-          totalBookings: { $sum: 1 },
-          totalRevenue: { $sum: '$finalAmount' },
-          totalDiscount: { $sum: '$discountAmount' },
-          avgDealSize: { $avg: '$finalAmount' },
-        },
-      },
-    ]),
-  ]);
+  const totalsRow = await Booking.findOne({
+    where,
+    attributes: [
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'totalBookings'],
+      [Sequelize.fn('SUM', Sequelize.col('finalAmount')), 'totalRevenue'],
+      [Sequelize.fn('SUM', Sequelize.col('discountAmount')), 'totalDiscount'],
+      [Sequelize.fn('AVG', Sequelize.col('finalAmount')), 'avgDealSize'],
+    ],
+    raw: true,
+  }) as any;
 
   return {
-    totalBookings: totals[0]?.totalBookings || 0,
-    totalRevenue: totals[0]?.totalRevenue || 0,
-    totalDiscount: totals[0]?.totalDiscount || 0,
-    avgDealSize: Math.round(totals[0]?.avgDealSize || 0),
+    totalBookings: parseInt(totalsRow?.totalBookings || '0', 10),
+    totalRevenue: parseFloat(totalsRow?.totalRevenue || '0'),
+    totalDiscount: parseFloat(totalsRow?.totalDiscount || '0'),
+    avgDealSize: Math.round(parseFloat(totalsRow?.avgDealSize || '0')),
     byStatus,
     byType,
   };

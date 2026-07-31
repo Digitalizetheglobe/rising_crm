@@ -1,4 +1,10 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import Client from '../clients/client.model';
+import Unit from '../units/unit.model';
+import Project from '../projects/project.model';
+import User from '../auth/auth.model';
+import Tenant from '../tenants/tenant.model';
 import {
   BookingType,
   BookingStatus,
@@ -8,113 +14,173 @@ import {
   PAYMENT_MODES,
 } from './booking.constants';
 
-export interface IBooking extends Document {
-  client: mongoose.Types.ObjectId;
-  unit: mongoose.Types.ObjectId;
-  project: mongoose.Types.ObjectId;
-  bookedBy: mongoose.Types.ObjectId;         // User who created the booking
+export interface BookingAttributes {
+  id: string;
+  tenantId: string;
+  clientId: string;
+  unitId: string;
+  projectId: string;
+  bookedBy: string;
   bookingType: BookingType;
   status: BookingStatus;
   bookingDate: Date;
   totalAmount: number;
   discountAmount: number;
   finalAmount: number;
-  bookingAmount: number;                     // Initial token/booking amount paid
+  bookingAmount: number;
   paymentMode: PaymentMode;
   remarks?: string;
-  cancelledAt?: Date;
-  cancellationReason?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  cancelledAt?: Date | null;
+  cancellationReason?: string | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const bookingSchema = new Schema<IBooking>(
+export interface BookingCreationAttributes extends Optional<BookingAttributes, 'id' | 'status' | 'discountAmount' | 'remarks' | 'cancelledAt' | 'cancellationReason' | 'createdAt' | 'updatedAt'> {}
+
+class Booking extends Model<BookingAttributes, BookingCreationAttributes> implements BookingAttributes {
+  public id!: string;
+  public tenantId!: string;
+  public clientId!: string;
+  public unitId!: string;
+  public projectId!: string;
+  public bookedBy!: string;
+  public bookingType!: BookingType;
+  public status!: BookingStatus;
+  public bookingDate!: Date;
+  public totalAmount!: number;
+  public discountAmount!: number;
+  public finalAmount!: number;
+  public bookingAmount!: number;
+  public paymentMode!: PaymentMode;
+  public remarks?: string;
+  public cancelledAt?: Date | null;
+  public cancellationReason?: string | null;
+
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+
+  // relations
+  public readonly client?: Client;
+  public readonly unit?: Unit;
+  public readonly project?: Project;
+  public readonly bookedByUser?: User;
+  public readonly tenant?: Tenant;
+}
+
+Booking.init(
   {
-    client: {
-      type: Schema.Types.ObjectId,
-      ref: 'Client',
-      required: true,
-      index: true,
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
-    unit: {
-      type: Schema.Types.ObjectId,
-      ref: 'Unit',
-      required: true,
-      index: true,
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'tenants', key: 'id' },
     },
-    project: {
-      type: Schema.Types.ObjectId,
-      ref: 'Project',
-      required: true,
-      index: true,
+    clientId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'clients', key: 'id' },
+    },
+    unitId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'Units', key: 'id' },
+    },
+    projectId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'projects', key: 'id' },
     },
     bookedBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-      index: true,
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
     },
     bookingType: {
-      type: String,
-      enum: BOOKING_TYPES,
-      required: true,
+      type: DataTypes.ENUM(...BOOKING_TYPES),
+      allowNull: false,
     },
     status: {
-      type: String,
-      enum: BOOKING_STATUSES,
-      default: 'Active',
-      index: true,
+      type: DataTypes.ENUM(...BOOKING_STATUSES),
+      allowNull: false,
+      defaultValue: 'Active',
     },
     bookingDate: {
-      type: Date,
-      required: true,
-      index: true,
+      type: DataTypes.DATE,
+      allowNull: false,
     },
     totalAmount: {
-      type: Number,
-      required: true,
-      min: 0,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+      get() {
+        const val = this.getDataValue('totalAmount');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     discountAmount: {
-      type: Number,
-      default: 0,
-      min: 0,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+      defaultValue: 0,
+      get() {
+        const val = this.getDataValue('discountAmount');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     finalAmount: {
-      type: Number,
-      required: true,
-      min: 0,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+      get() {
+        const val = this.getDataValue('finalAmount');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     bookingAmount: {
-      type: Number,
-      required: true,
-      min: 0,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+      get() {
+        const val = this.getDataValue('bookingAmount');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     paymentMode: {
-      type: String,
-      enum: PAYMENT_MODES,
-      required: true,
+      type: DataTypes.ENUM(...PAYMENT_MODES),
+      allowNull: false,
     },
     remarks: {
-      type: String,
-      trim: true,
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     cancelledAt: {
-      type: Date,
-      default: null,
+      type: DataTypes.DATE,
+      allowNull: true,
     },
     cancellationReason: {
-      type: String,
-      trim: true,
-      default: null,
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: 'Booking',
+    tableName: 'Bookings',
+    timestamps: true,
+    indexes: [
+      { fields: ['tenantId'] },
+      { fields: ['unitId', 'status'] },
+      { fields: ['clientId', 'status'] },
+      { fields: ['projectId', 'bookingDate'] },
+    ],
+  }
 );
 
-// One active booking per unit at a time
-bookingSchema.index({ unit: 1, status: 1 });
-bookingSchema.index({ client: 1, status: 1 });
-bookingSchema.index({ project: 1, bookingDate: -1 });
+Booking.belongsTo(Client, { foreignKey: 'clientId', as: 'client' });
+Booking.belongsTo(Unit, { foreignKey: 'unitId', as: 'unit' });
+Booking.belongsTo(Project, { foreignKey: 'projectId', as: 'project' });
+Booking.belongsTo(User, { foreignKey: 'bookedBy', as: 'bookedByUser' });
+Booking.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
-export const Booking = mongoose.model<IBooking>('Booking', bookingSchema);
+export default Booking;

@@ -1,11 +1,13 @@
-
-import mongoose from 'mongoose';
-import { Payment } from './payment.model';
-import { Booking } from '../bookings/booking.model';
+import { Op, Sequelize } from 'sequelize';
+import Payment from './payment.model';
+import Booking from '../bookings/booking.model';
+import Client from '../clients/client.model';
+import User from '../auth/auth.model';
+import Project from '../projects/project.model';
+import Unit from '../units/unit.model';
 import { ApiError } from '../../utils/ApiError';
-import { PaymentType } from './payment.constants';
-
-// ─── Create Payment ───────────────────────────────────────────────────────────
+import { PaymentType, PaymentStatus, PaymentMode } from './payment.constants';
+import { getTenantId } from '../../middleware/tenant.middleware';
 
 export const createPaymentService = async (
   body: {
@@ -18,11 +20,12 @@ export const createPaymentService = async (
   },
   recordedBy: string
 ) => {
-  // Verify booking exists and belongs to this client
-  const booking = await Booking.findById(body.booking);
+  const tenantId = getTenantId();
+
+  const booking = await Booking.findOne({ where: { id: body.booking, tenantId } });
   if (!booking) throw new ApiError(404, 'Booking not found');
 
-  if (booking.client.toString() !== body.client) {
+  if (booking.clientId !== body.client) {
     throw new ApiError(400, 'Client does not match the booking');
   }
 
@@ -30,25 +33,29 @@ export const createPaymentService = async (
     throw new ApiError(400, 'Cannot add payments to a cancelled booking');
   }
 
-  // Verify client exists
-  const client = await mongoose.model('Client').findById(body.client);
+  const client = await Client.findOne({ where: { id: body.client, tenantId } });
   if (!client) throw new ApiError(404, 'Client not found');
 
   const payment = await Payment.create({
-    ...body,
+    tenantId,
+    bookingId: body.booking,
+    clientId: body.client,
     paymentType: body.paymentType as PaymentType,
+    amount: body.amount,
+    dueDate: body.dueDate,
+    notes: body.notes,
     recordedBy,
     status: 'Pending',
   });
 
-  return payment.populate([
-    { path: 'booking', select: 'bookingType status finalAmount bookingDate' },
-    { path: 'client', select: 'name phone email' },
-    { path: 'recordedBy', select: 'name email' },
-  ]);
+  return await Payment.findByPk(payment.id, {
+    include: [
+      { model: Booking, as: 'booking', attributes: ['bookingType', 'status', 'finalAmount', 'bookingDate'] },
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'recordedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
-
-// ─── List Payments ────────────────────────────────────────────────────────────
 
 export const getPaymentsService = async (
   query: {
@@ -65,78 +72,84 @@ export const getPaymentsService = async (
   UserId: string,
   role: string
 ) => {
+  const tenantId = getTenantId();
   const page = Math.max(1, parseInt(query.page || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(query.limit || '10', 10)));
-  const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-  const filter: Record<string, any> = {};
+  const where: any = { tenantId };
 
-  // SALES_EXECUTIVE sees only payments for their own clients
-  // We join through booking → bookedBy for scoping
   if (role === 'SALES_EXECUTIVE') {
-    const myBookings = await Booking.find({ bookedBy: UserId }).select('_id');
-    filter.booking = { $in: myBookings.map((b) => b._id) };
+    const myBookings = await Booking.findAll({ where: { bookedBy: UserId, tenantId }, attributes: ['id'] });
+    where.bookingId = { [Op.in]: myBookings.map((b) => b.id) };
   }
 
-  if (query.bookingId) filter.booking = new mongoose.Types.ObjectId(query.bookingId);
-  if (query.clientId) filter.client = new mongoose.Types.ObjectId(query.clientId);
-  if (query.status) filter.status = query.status;
-  if (query.paymentType) filter.paymentType = query.paymentType;
+  if (query.bookingId) where.bookingId = query.bookingId;
+  if (query.clientId) where.clientId = query.clientId;
+  if (query.status) where.status = query.status;
+  if (query.paymentType) where.paymentType = query.paymentType;
 
-  // Overdue shortcut filter
   if (query.overdue === 'true') {
-    filter.status = 'Pending';
-    filter.dueDate = { $lt: new Date() };
+    where.status = 'Pending';
+    where.dueDate = { [Op.lt]: new Date() };
   }
 
   if (query.startDate || query.endDate) {
-    filter.dueDate = filter.dueDate || {};
-    if (query.startDate) filter.dueDate.$gte = new Date(query.startDate);
+    where.dueDate = where.dueDate || {};
+    if (query.startDate) where.dueDate[Op.gte] = new Date(query.startDate);
     if (query.endDate) {
       const end = new Date(query.endDate);
       end.setHours(23, 59, 59, 999);
-      filter.dueDate.$lte = end;
+      where.dueDate[Op.lte] = end;
     }
   }
 
-  const [payments, total] = await Promise.all([
-    Payment.find(filter)
-      .populate('booking', 'bookingType status finalAmount')
-      .populate('client', 'name phone email')
-      .populate('recordedBy', 'name email')
-      .sort({ dueDate: 1 })
-      .skip(skip)
-      .limit(limit),
-    Payment.countDocuments(filter),
-  ]);
+  const { rows, count } = await Payment.findAndCountAll({
+    where,
+    include: [
+      { model: Booking, as: 'booking', attributes: ['bookingType', 'status', 'finalAmount'] },
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'recordedByUser', attributes: ['name', 'email'] },
+    ],
+    order: [['dueDate', 'ASC']],
+    limit,
+    offset,
+  });
 
   return {
-    payments,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    payments: rows,
+    pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) },
   };
 };
 
-// ─── Get Single Payment ───────────────────────────────────────────────────────
-
 export const getPaymentByIdService = async (paymentId: string, UserId: string, role: string) => {
-  const payment = await Payment.findById(paymentId)
-    .populate('booking', 'bookingType status finalAmount bookingDate unit project')
-    .populate('client', 'name phone email address')
-    .populate('recordedBy', 'name email');
+  const tenantId = getTenantId();
+  const payment = await Payment.findOne({
+    where: { id: paymentId, tenantId },
+    include: [
+      { 
+        model: Booking, as: 'booking', attributes: ['bookingType', 'status', 'finalAmount', 'bookingDate'],
+        include: [
+          { model: Unit, as: 'unit' },
+          { model: Project, as: 'project' }
+        ]
+      },
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email', 'address'] },
+      { model: User, as: 'recordedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 
   if (!payment) throw new ApiError(404, 'Payment not found');
 
   if (role === 'SALES_EXECUTIVE') {
-    const booking = await Booking.findById(payment.booking);
-    if (booking?.bookedBy.toString() !== UserId) {
+    const booking = await Booking.findOne({ where: { id: payment.bookingId, tenantId } });
+    if (booking?.bookedBy !== UserId) {
       throw new ApiError(403, 'You are not authorized to view this payment');
     }
   }
 
   return payment;
 };
-
-// ─── Update Payment (only Pending payments) ───────────────────────────────────
 
 export const updatePaymentService = async (
   paymentId: string,
@@ -147,7 +160,8 @@ export const updatePaymentService = async (
     notes?: string;
   }
 ) => {
-  const payment = await Payment.findById(paymentId);
+  const tenantId = getTenantId();
+  const payment = await Payment.findOne({ where: { id: paymentId, tenantId } });
   if (!payment) throw new ApiError(404, 'Payment not found');
 
   if (payment.status === 'Paid') {
@@ -157,16 +171,16 @@ export const updatePaymentService = async (
     throw new ApiError(400, 'Cannot edit a waived payment');
   }
 
-  const updated = await Payment.findByIdAndUpdate(paymentId, { $set: body }, { new: true }).populate([
-    { path: 'booking', select: 'bookingType status finalAmount' },
-    { path: 'client', select: 'name phone email' },
-    { path: 'recordedBy', select: 'name email' },
-  ]);
+  await payment.update(body);
 
-  return updated;
+  return await Payment.findByPk(paymentId, {
+    include: [
+      { model: Booking, as: 'booking', attributes: ['bookingType', 'status', 'finalAmount'] },
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'recordedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
-
-// ─── Mark as Paid ─────────────────────────────────────────────────────────────
 
 export const markPaymentPaidService = async (
   paymentId: string,
@@ -178,7 +192,8 @@ export const markPaymentPaidService = async (
     notes?: string;
   }
 ) => {
-  const payment = await Payment.findById(paymentId);
+  const tenantId = getTenantId();
+  const payment = await Payment.findOne({ where: { id: paymentId, tenantId } });
   if (!payment) throw new ApiError(404, 'Payment not found');
 
   if (payment.status === 'Paid') {
@@ -188,34 +203,33 @@ export const markPaymentPaidService = async (
     throw new ApiError(400, 'Cannot mark a waived payment as paid');
   }
 
-  // Check for duplicate receipt number
   if (body.receiptNumber) {
     const duplicate = await Payment.findOne({
-      receiptNumber: body.receiptNumber,
-      _id: { $ne: paymentId },
+      where: {
+        receiptNumber: body.receiptNumber,
+        tenantId,
+        id: { [Op.ne]: paymentId },
+      },
     });
     if (duplicate) {
       throw new ApiError(409, `Receipt number "${body.receiptNumber}" is already used on another payment`);
     }
   }
 
-  const updated = await Payment.findByIdAndUpdate(
-    paymentId,
-    { $set: { ...body, status: 'Paid' } },
-    { new: true }
-  ).populate([
-    { path: 'booking', select: 'bookingType status finalAmount' },
-    { path: 'client', select: 'name phone email' },
-    { path: 'recordedBy', select: 'name email' },
-  ]);
+  await payment.update({ ...body, status: 'Paid' });
 
-  return updated;
+  return await Payment.findByPk(paymentId, {
+    include: [
+      { model: Booking, as: 'booking', attributes: ['bookingType', 'status', 'finalAmount'] },
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'recordedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
 
-// ─── Waive Payment ────────────────────────────────────────────────────────────
-
 export const waivePaymentService = async (paymentId: string, notes: string) => {
-  const payment = await Payment.findById(paymentId);
+  const tenantId = getTenantId();
+  const payment = await Payment.findOne({ where: { id: paymentId, tenantId } });
   if (!payment) throw new ApiError(404, 'Payment not found');
 
   if (payment.status === 'Paid') {
@@ -225,113 +239,109 @@ export const waivePaymentService = async (paymentId: string, notes: string) => {
     throw new ApiError(400, 'Payment is already waived');
   }
 
-  const updated = await Payment.findByIdAndUpdate(
-    paymentId,
-    { $set: { status: 'Waived', notes } },
-    { new: true }
-  ).populate([
-    { path: 'booking', select: 'bookingType status finalAmount' },
-    { path: 'client', select: 'name phone email' },
-    { path: 'recordedBy', select: 'name email' },
-  ]);
+  await payment.update({ status: 'Waived', notes });
 
-  return updated;
+  return await Payment.findByPk(paymentId, {
+    include: [
+      { model: Booking, as: 'booking', attributes: ['bookingType', 'status', 'finalAmount'] },
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'recordedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
 
-// ─── Delete Payment ───────────────────────────────────────────────────────────
-
 export const deletePaymentService = async (paymentId: string) => {
-  const payment = await Payment.findById(paymentId);
+  const tenantId = getTenantId();
+  const payment = await Payment.findOne({ where: { id: paymentId, tenantId } });
   if (!payment) throw new ApiError(404, 'Payment not found');
 
   if (payment.status === 'Paid') {
     throw new ApiError(400, 'Cannot delete a paid payment. Waive it instead.');
   }
 
-  await Payment.findByIdAndDelete(paymentId);
+  await payment.destroy();
   return { deleted: true };
 };
-
-// ─── Stats ────────────────────────────────────────────────────────────────────
 
 export const getPaymentStatsService = async (
   query: { bookingId?: string; clientId?: string; startDate?: string; endDate?: string },
   UserId: string,
   role: string
 ) => {
-  const match: Record<string, any> = {};
+  const tenantId = getTenantId();
+  const where: any = { tenantId };
 
   if (role === 'SALES_EXECUTIVE') {
-    const myBookings = await Booking.find({ bookedBy: UserId }).select('_id');
-    match.booking = { $in: myBookings.map((b) => b._id) };
+    const myBookings = await Booking.findAll({ where: { bookedBy: UserId, tenantId }, attributes: ['id'] });
+    where.bookingId = { [Op.in]: myBookings.map((b) => b.id) };
   }
 
-  if (query.bookingId) match.booking = new mongoose.Types.ObjectId(query.bookingId);
-  if (query.clientId) match.client = new mongoose.Types.ObjectId(query.clientId);
+  if (query.bookingId) where.bookingId = query.bookingId;
+  if (query.clientId) where.clientId = query.clientId;
 
   if (query.startDate || query.endDate) {
-    match.dueDate = {};
-    if (query.startDate) match.dueDate.$gte = new Date(query.startDate);
+    where.dueDate = {};
+    if (query.startDate) where.dueDate[Op.gte] = new Date(query.startDate);
     if (query.endDate) {
       const end = new Date(query.endDate);
       end.setHours(23, 59, 59, 999);
-      match.dueDate.$lte = end;
+      where.dueDate[Op.lte] = end;
     }
   }
 
   const now = new Date();
 
-  const [byStatus, totals, overdueCount] = await Promise.all([
-    Payment.aggregate([
-      { $match: match },
-      { $group: { _id: '$status', count: { $sum: 1 }, totalAmount: { $sum: '$amount' } } },
-      { $sort: { _id: 1 } },
-    ]),
+  const byStatusRows = await Payment.findAll({
+    where,
+    attributes: [
+      ['status', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'],
+      [Sequelize.fn('SUM', Sequelize.col('amount')), 'totalAmount']
+    ],
+    group: ['status'],
+    order: [['status', 'ASC']],
+  });
+  const byStatus = byStatusRows.map(r => r.get({ plain: true }));
 
-    Payment.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: null,
-          totalPayments: { $sum: 1 },
-          totalDue: { $sum: '$amount' },
-          totalCollected: {
-            $sum: { $cond: [{ $eq: ['$status', 'Paid'] }, '$amount', 0] },
-          },
-          totalPending: {
-            $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, '$amount', 0] },
-          },
-        },
-      },
-    ]),
+  const totalsRow = await Payment.findOne({
+    where,
+    attributes: [
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'totalPayments'],
+      [Sequelize.fn('SUM', Sequelize.col('amount')), 'totalDue'],
+      [Sequelize.literal(`SUM(CASE WHEN status = 'Paid' THEN amount ELSE 0 END)`), 'totalCollected'],
+      [Sequelize.literal(`SUM(CASE WHEN status = 'Pending' THEN amount ELSE 0 END)`), 'totalPending'],
+    ],
+    raw: true,
+  }) as any;
 
-    Payment.countDocuments({
-      ...match,
+  const overdueCount = await Payment.count({
+    where: {
+      ...where,
       status: 'Pending',
-      dueDate: { $lt: now },
-    }),
-  ]);
+      dueDate: { [Op.lt]: now },
+    },
+  });
 
   return {
-    totalPayments: totals[0]?.totalPayments || 0,
-    totalDue: totals[0]?.totalDue || 0,
-    totalCollected: totals[0]?.totalCollected || 0,
-    totalPending: totals[0]?.totalPending || 0,
+    totalPayments: parseInt(totalsRow?.totalPayments || '0', 10),
+    totalDue: parseFloat(totalsRow?.totalDue || '0'),
+    totalCollected: parseFloat(totalsRow?.totalCollected || '0'),
+    totalPending: parseFloat(totalsRow?.totalPending || '0'),
     overdueCount,
     byStatus,
   };
 };
 
-// ─── Auto-mark Overdue (for cron job) ────────────────────────────────────────
-
 export const markOverduePaymentsService = async () => {
-  const result = await Payment.updateMany(
+  const [affectedCount] = await Payment.update(
+    { status: 'Overdue' },
     {
-      status: 'Pending',
-      dueDate: { $lt: new Date() },
-    },
-    { $set: { status: 'Overdue' } }
+      where: {
+        status: 'Pending',
+        dueDate: { [Op.lt]: new Date() },
+      },
+    }
   );
 
-  return { markedOverdue: result.modifiedCount };
+  return { markedOverdue: affectedCount };
 };

@@ -1,34 +1,8 @@
-// import mongoose, { Schema, Document } from 'mongoose';
-
-// export interface IFollowUp extends Document {
-//     lead:        mongoose.Types.ObjectId;
-//     scheduledAt: Date;
-//     type:        string;
-//     notes?:      string;
-//     status:      string;
-//     createdBy:   mongoose.Types.ObjectId;
-//     assignedTo:  mongoose.Types.ObjectId;
-// }
-
-// const FollowUpSchema = new Schema<IFollowUp>(
-//     {
-//         lead:        { type: Schema.Types.ObjectId, ref: 'Lead', required: true },
-//         scheduledAt: { type: Date, required: true },
-//         type:        { type: String, enum: ['Call', 'Email', 'WhatsApp', 'Site Visit', 'Meeting'], required: true },
-//         notes:       { type: String, trim: true },
-//         status:      { type: String, enum: ['Scheduled', 'Completed', 'Missed', 'Rescheduled'], default: 'Scheduled' },
-//         createdBy:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
-//         assignedTo:  { type: Schema.Types.ObjectId, ref: 'User', required: true },
-//     },
-//     { timestamps: true }
-// );
-
-// FollowUpSchema.index({ lead: 1 });
-// FollowUpSchema.index({ assignedTo: 1, status: 1 });
-// FollowUpSchema.index({ scheduledAt: 1 });
-
-// export const FollowUp = mongoose.model<IFollowUp>('FollowUp', FollowUpSchema);
-import mongoose, { Schema, Document } from 'mongoose';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import Lead from '../leads/lead.model';
+import User from '../auth/auth.model';
+import Tenant from '../tenants/tenant.model';
 
 export const FOLLOWUP_TYPES = ['Call', 'Email', 'WhatsApp', 'Site Visit', 'Meeting', 'Other'] as const;
 export const FOLLOWUP_STATUSES = ['SCHEDULED', 'PENDING', 'COMPLETED', 'RESCHEDULED', 'MISSED', 'CANCELLED'] as const;
@@ -36,92 +10,154 @@ export const FOLLOWUP_STATUSES = ['SCHEDULED', 'PENDING', 'COMPLETED', 'RESCHEDU
 export type FollowUpType = typeof FOLLOWUP_TYPES[number];
 export type FollowUpStatus = typeof FOLLOWUP_STATUSES[number];
 
-export interface IFollowUp extends Document {
-    // Relations
-    lead:       mongoose.Types.ObjectId;
-    assignedTo: mongoose.Types.ObjectId;
-    createdBy:  mongoose.Types.ObjectId;
-
-    // Follow-up details
-    type:        FollowUpType;
-    status:      FollowUpStatus;
-    scheduledAt: Date;
-    completedAt?: Date;
-
-    // Notes
-    notes?:   string;
-    outcome?: string; // what happened after the follow-up
-
-    // Rescheduling
-    rescheduledFrom?: mongoose.Types.ObjectId; // ref to previous followup
-    rescheduledAt?:   Date;
-    rescheduleReason?: string;
-
-    // Reminder tracking
-    reminderSent:   boolean;
-    reminderSentAt?: Date;
+export interface FollowUpAttributes {
+  id: string;
+  tenantId: string;
+  leadId: string;
+  assignedTo: string;
+  createdBy: string;
+  type: FollowUpType;
+  status: FollowUpStatus;
+  scheduledAt: Date;
+  completedAt?: Date | null;
+  notes?: string;
+  outcome?: string;
+  rescheduledFrom?: string | null;
+  rescheduledAt?: Date | null;
+  rescheduleReason?: string | null;
+  reminderSent: boolean;
+  reminderSentAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const FollowUpSchema = new Schema<IFollowUp>(
-    {
-        // Relations
-        lead: {
-            type:     Schema.Types.ObjectId,
-            ref:      'Lead',
-            required: true,
-        },
-        assignedTo: {
-            type:     Schema.Types.ObjectId,
-            ref:      'User',
-            required: true,
-        },
-        createdBy: {
-            type:     Schema.Types.ObjectId,
-            ref:      'User',
-            required: true,
-        },
+export interface FollowUpCreationAttributes extends Optional<FollowUpAttributes, 'id' | 'status' | 'completedAt' | 'notes' | 'outcome' | 'rescheduledFrom' | 'rescheduledAt' | 'rescheduleReason' | 'reminderSent' | 'reminderSentAt' | 'createdAt' | 'updatedAt'> {}
 
-        // Follow-up details
-        type: {
-            type:     String,
-            enum:     FOLLOWUP_TYPES,
-            required: true,
-        },
-        status: {
-            type:    String,
-            enum:    FOLLOWUP_STATUSES,
-            default: 'SCHEDULED',
-        },
-        scheduledAt: {
-            type:     Date,
-            required: true,
-        },
-        completedAt: { type: Date },
+class FollowUp extends Model<FollowUpAttributes, FollowUpCreationAttributes> implements FollowUpAttributes {
+  public id!: string;
+  public tenantId!: string;
+  public leadId!: string;
+  public assignedTo!: string;
+  public createdBy!: string;
+  public type!: FollowUpType;
+  public status!: FollowUpStatus;
+  public scheduledAt!: Date;
+  public completedAt?: Date | null;
+  public notes?: string;
+  public outcome?: string;
+  public rescheduledFrom?: string | null;
+  public rescheduledAt?: Date | null;
+  public rescheduleReason?: string | null;
+  public reminderSent!: boolean;
+  public reminderSentAt?: Date | null;
 
-        // Notes
-        notes:   { type: String, trim: true },
-        outcome: { type: String, trim: true },
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
 
-        // Rescheduling
-        rescheduledFrom:  { type: Schema.Types.ObjectId, ref: 'FollowUp' },
-        rescheduledAt:    { type: Date },
-        rescheduleReason: { type: String, trim: true },
+  // relations
+  public readonly lead?: Lead;
+  public readonly assignedUser?: User;
+  public readonly createdByUser?: User;
+  public readonly previousFollowUp?: FollowUp;
+  public readonly tenant?: Tenant;
+}
 
-        // Reminder tracking
-        reminderSent:   { type: Boolean, default: false },
-        reminderSentAt: { type: Date },
+FollowUp.init(
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
-    {
-        timestamps: true,
-    }
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'tenants', key: 'id' },
+    },
+    leadId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'leads', key: 'id' },
+    },
+    assignedTo: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+    },
+    createdBy: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+    },
+    type: {
+      type: DataTypes.ENUM(...FOLLOWUP_TYPES),
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM(...FOLLOWUP_STATUSES),
+      allowNull: false,
+      defaultValue: 'SCHEDULED',
+    },
+    scheduledAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    completedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    outcome: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    rescheduledFrom: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: { model: 'FollowUps', key: 'id' },
+    },
+    rescheduledAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    rescheduleReason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    reminderSent: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    reminderSentAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'FollowUp',
+    tableName: 'FollowUps',
+    timestamps: true,
+    indexes: [
+      { fields: ['tenantId'] },
+      { fields: ['leadId'] },
+      { fields: ['assignedTo'] },
+      { fields: ['status'] },
+      { fields: ['scheduledAt'] },
+      { fields: ['assignedTo', 'status'] },
+      { fields: ['scheduledAt', 'status', 'reminderSent'] },
+    ],
+  }
 );
 
-// Indexes
-FollowUpSchema.index({ lead: 1 });
-FollowUpSchema.index({ assignedTo: 1 });
-FollowUpSchema.index({ status: 1 });
-FollowUpSchema.index({ scheduledAt: 1 });
-FollowUpSchema.index({ assignedTo: 1, status: 1 });
-FollowUpSchema.index({ scheduledAt: 1, status: 1, reminderSent: 1 }); // for cron job
+FollowUp.belongsTo(Lead, { foreignKey: 'leadId', as: 'lead' });
+FollowUp.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedUser' });
+FollowUp.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
+FollowUp.belongsTo(FollowUp, { foreignKey: 'rescheduledFrom', as: 'previousFollowUp' });
+FollowUp.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
-export const FollowUp = mongoose.model<IFollowUp>('FollowUp', FollowUpSchema);
+export default FollowUp;

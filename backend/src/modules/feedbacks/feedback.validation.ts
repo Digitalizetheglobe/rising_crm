@@ -1,7 +1,7 @@
 import Joi from 'joi';
 import { FEEDBACK_CATEGORIES, FEEDBACK_STATUSES } from './feedback.constants';
 
-const objectId = Joi.string().hex().length(24);
+const objectId = Joi.string().uuid();
 
 export const createFeedbackSchema = Joi.object({
     client:   objectId.required(),

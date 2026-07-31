@@ -1,9 +1,7 @@
-
-import mongoose from 'mongoose';
-import { Notification } from './notification.model';
+import { Op } from 'sequelize';
+import Notification from './notification.model';
 import { ApiError } from '../../utils/ApiError';
-
-// ─── Get Notifications for logged-in user ─────────────────────────────────────
+import { getTenantId } from '../../middleware/tenant.middleware';
 
 export const getNotificationsService = async (
   query: {
@@ -14,108 +12,101 @@ export const getNotificationsService = async (
   },
   UserId: string
 ) => {
+  const tenantId = getTenantId();
   const page = Math.max(1, parseInt(query.page || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
-  const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-  const filter: Record<string, any> = {
-    UserId: new mongoose.Types.ObjectId(UserId),
-  };
+  const where: any = { UserId, tenantId };
 
-  if (query.type) filter.type = query.type;
-  if (query.isRead !== undefined) filter.isRead = query.isRead === 'true';
+  if (query.type) where.type = query.type;
+  if (query.isRead !== undefined) where.isRead = query.isRead === 'true';
 
-  const [notifications, total, unreadCount] = await Promise.all([
-    Notification.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
-    Notification.countDocuments(filter),
-    Notification.countDocuments({ UserId, isRead: false }),
-  ]);
+  const { rows, count } = await Notification.findAndCountAll({
+    where,
+    order: [['createdAt', 'DESC']],
+    limit,
+    offset,
+  });
+
+  const unreadCount = await Notification.count({
+    where: { UserId, tenantId, isRead: false },
+  });
 
   return {
-    notifications,
+    notifications: rows,
     unreadCount,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) },
   };
 };
 
-// ─── Mark Single Notification as Read ────────────────────────────────────────
-
 export const markAsReadService = async (notificationId: string, UserId: string) => {
-  const notification = await Notification.findById(notificationId);
+  const tenantId = getTenantId();
+  const notification = await Notification.findOne({ where: { id: notificationId, tenantId } });
   if (!notification) throw new ApiError(404, 'Notification not found');
 
-  // Users can only mark their own notifications
-  if (notification.UserId.toString() !== UserId) {
+  if (notification.UserId !== UserId) {
     throw new ApiError(403, 'You can only mark your own notifications as read');
   }
 
-  if (notification.isRead) return notification; // already read — no-op
+  if (notification.isRead) return notification;
 
-  return Notification.findByIdAndUpdate(
-    notificationId,
-    { $set: { isRead: true } },
-    { new: true }
-  );
+  await notification.update({ isRead: true });
+  return notification;
 };
-
-// ─── Mark All as Read ─────────────────────────────────────────────────────────
 
 export const markAllAsReadService = async (UserId: string) => {
-  const result = await Notification.updateMany(
-    { UserId: new mongoose.Types.ObjectId(UserId), isRead: false },
-    { $set: { isRead: true } }
+  const tenantId = getTenantId();
+  const [affectedCount] = await Notification.update(
+    { isRead: true },
+    { where: { UserId, tenantId, isRead: false } }
   );
 
-  return { markedRead: result.modifiedCount };
+  return { markedRead: affectedCount };
 };
 
-// ─── Delete Single Notification ───────────────────────────────────────────────
-
 export const deleteNotificationService = async (notificationId: string, UserId: string) => {
-  const notification = await Notification.findById(notificationId);
+  const tenantId = getTenantId();
+  const notification = await Notification.findOne({ where: { id: notificationId, tenantId } });
   if (!notification) throw new ApiError(404, 'Notification not found');
 
-  if (notification.UserId.toString() !== UserId) {
+  if (notification.UserId !== UserId) {
     throw new ApiError(403, 'You can only delete your own notifications');
   }
 
-  await Notification.findByIdAndDelete(notificationId);
+  await notification.destroy();
   return { deleted: true };
 };
 
-// ─── Clear All Read Notifications ────────────────────────────────────────────
-
 export const clearReadNotificationsService = async (UserId: string) => {
-  const result = await Notification.deleteMany({
-    UserId: new mongoose.Types.ObjectId(UserId),
-    isRead: true,
+  const tenantId = getTenantId();
+  const deletedCount = await Notification.destroy({
+    where: { UserId, tenantId, isRead: true },
   });
 
-  return { cleared: result.deletedCount };
+  return { cleared: deletedCount };
 };
-
-// ─── Admin: Get Notifications for any user ────────────────────────────────────
 
 export const getNotificationsByUserIdService = async (
   targetUserId: string,
   query: { page?: string; limit?: string }
 ) => {
+  const tenantId = getTenantId();
   const page = Math.max(1, parseInt(query.page || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(query.limit || '20', 10)));
-  const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-  const filter = { UserId: new mongoose.Types.ObjectId(targetUserId) };
+  const where = { UserId: targetUserId, tenantId };
 
-  const [notifications, total] = await Promise.all([
-    Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
-    Notification.countDocuments(filter),
-  ]);
+  const { rows, count } = await Notification.findAndCountAll({
+    where,
+    order: [['createdAt', 'DESC']],
+    limit,
+    offset,
+  });
 
   return {
-    notifications,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    notifications: rows,
+    pagination: { page, limit, total: count, totalPages: Math.ceil(count / limit) },
   };
 };

@@ -14,7 +14,7 @@ const metaCampaignSchema = Joi.object({
     formName:          Joi.string().trim().required(),
     formId:            Joi.string().trim().required(),
     platform:          Joi.string().valid('facebook', 'instagram').required(),
-    defaultAssigneeId: Joi.string().hex().length(24).optional(),
+    defaultAssigneeId: Joi.string().uuid().optional(),
     isActive:          Joi.boolean().default(true),
 });
 

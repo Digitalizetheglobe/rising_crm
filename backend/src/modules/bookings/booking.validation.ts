@@ -2,10 +2,10 @@ import Joi from 'joi';
 import { BOOKING_TYPES, BOOKING_STATUSES, PAYMENT_MODES } from './booking.constants';
 
 export const createBookingSchema = Joi.object({
-  client: Joi.string().hex().length(24).required().messages({
+  client: Joi.string().uuid().required().messages({
     'any.required': 'Client is required',
   }),
-  unit: Joi.string().hex().length(24).required().messages({
+  unit: Joi.string().uuid().required().messages({
     'any.required': 'Unit is required',
   }),
   bookingType: Joi.string()

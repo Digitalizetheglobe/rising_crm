@@ -221,3 +221,101 @@ input::placeholder {
 .recent-activity-card p {
   opacity: 0.92;
 }
+
+/* ==========================================================================
+   AG GRID ULTRA-PREMIUM THEME OVERRIDES & PILL BADGES
+   ========================================================================== */
+.ag-theme-alpine, .ag-theme-quartz {
+  --ag-header-background-color: #ffffff;
+  --ag-header-foreground-color: #475569;
+  --ag-data-color: #0f172a;
+  --ag-row-border-color: #f1f5f9;
+  --ag-borders: none;
+  --ag-header-column-separator-display: none;
+  --ag-row-hover-color: #f8fafc;
+  --ag-selected-row-background-color: #fef2f2;
+  --ag-range-selection-border-color: #EB3539;
+  --ag-range-selection-background-color: rgba(235, 53, 57, 0.05);
+  --ag-checkbox-checked-color: #EB3539;
+  --ag-font-family: var(--font-sans), sans-serif;
+  --ag-font-size: 14px;
+  --ag-grid-size: 8px;
+  --ag-header-height: 48px;
+  --ag-row-height: 52px;
+  font-family: var(--font-sans);
+}
+
+.ag-theme-alpine .ag-root-wrapper, .ag-theme-quartz .ag-root-wrapper {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 10px -6px rgba(15, 23, 42, 0.02);
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.ag-theme-alpine .ag-header, .ag-theme-quartz .ag-header {
+  border-bottom: 2px solid #e2e8f0;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ag-theme-alpine .ag-header-cell-text, .ag-theme-quartz .ag-header-cell-text {
+  color: #475569;
+  font-weight: 700;
+}
+
+.ag-theme-alpine .ag-row, .ag-theme-quartz .ag-row {
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.ag-theme-alpine .ag-row:hover, .ag-theme-quartz .ag-row:hover {
+  background-color: #f8fafc !important;
+}
+
+.ag-theme-alpine .ag-row-selected, .ag-theme-quartz .ag-row-selected {
+  background-color: #fff1f2 !important;
+}
+
+.ag-theme-alpine .ag-cell, .ag-theme-quartz .ag-cell {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  padding-left: 16px;
+  padding-right: 16px;
+  color: #1e293b;
+}
+
+/* Glow effect for focused/editing cell */
+.ag-theme-alpine .ag-cell-focus, .ag-theme-quartz .ag-cell-focus {
+  border: 2px solid #EB3539 !important;
+  box-shadow: 0 0 0 4px rgba(235, 53, 57, 0.12) !important;
+  outline: none !important;
+  z-index: 10;
+  border-radius: 8px;
+}
+
+/* Custom Status Pill Badges inside AG Grid */
+.grid-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+}
+
+.grid-badge-new { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.grid-badge-contacted { background-color: #fefce8; color: #a16207; border: 1px solid #fef08a; }
+.grid-badge-qualified { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.grid-badge-interested { background-color: #faf5ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+.grid-badge-sitevisit { background-color: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+.grid-badge-closed { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+.grid-badge-lost { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.grid-badge-default { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }

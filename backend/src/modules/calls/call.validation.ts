@@ -1,7 +1,7 @@
 import Joi from 'joi';
 import { CALL_OUTCOMES, CALL_DIRECTIONS, CALL_PURPOSES } from './call.constants';
 
-const objectId = Joi.string().hex().length(24);
+const objectId = Joi.string().uuid();
 
 export const createCallSchema = Joi.object({
     client:       objectId.required(),

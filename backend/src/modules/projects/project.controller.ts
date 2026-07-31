@@ -1,4 +1,3 @@
-
 import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import {
@@ -14,7 +13,7 @@ import {
 
 export const createProject = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const project = await createProjectService(req.body, req.user!.UserId);
+        const project = await createProjectService(req.body, req.user!.UserId, req.user!.tenantId!);
         res.status(201).json({ success: true, message: 'Project created successfully', data: project });
     } catch (error: any) {
         const code = error.statusCode || 400;
@@ -26,7 +25,7 @@ export const getAllProjects = async (req: AuthRequest, res: Response): Promise<v
     try {
         const page   = parseInt(req.query.page  as string, 10) || 1;
         const limit  = parseInt(req.query.limit as string, 10) || 10;
-        const result = await getAllProjectsService(req.query as Record<string, any>, page, limit);
+        const result = await getAllProjectsService(req.query as Record<string, any>, page, limit, req.user!.tenantId!);
         res.status(200).json({ success: true, data: result });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
@@ -35,7 +34,7 @@ export const getAllProjects = async (req: AuthRequest, res: Response): Promise<v
 
 export const getProjectById = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const project = await getProjectByIdService(req.params.id as string);
+        const project = await getProjectByIdService(req.params.id as string, req.user!.tenantId!);
         res.status(200).json({ success: true, data: project });
     } catch (error: any) {
         const code = error.statusCode || 500;
@@ -45,7 +44,7 @@ export const getProjectById = async (req: AuthRequest, res: Response): Promise<v
 
 export const updateProject = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const project = await updateProjectService(req.params.id as string, req.body);
+        const project = await updateProjectService(req.params.id as string, req.body, req.user!.tenantId!);
         res.status(200).json({ success: true, message: 'Project updated successfully', data: project });
     } catch (error: any) {
         const code = error.statusCode || 400;
@@ -55,7 +54,7 @@ export const updateProject = async (req: AuthRequest, res: Response): Promise<vo
 
 export const deleteProject = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const result = await deleteProjectService(req.params.id as string);
+        const result = await deleteProjectService(req.params.id as string, req.user!.tenantId!);
         res.status(200).json({ success: true, message: result.message });
     } catch (error: any) {
         const code = error.statusCode || 400;
@@ -65,7 +64,7 @@ export const deleteProject = async (req: AuthRequest, res: Response): Promise<vo
 
 export const getProjectUnits = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const units = await getProjectUnitsService(req.params.id as string);
+        const units = await getProjectUnitsService(req.params.id as string, req.user!.tenantId!);
         res.status(200).json({ success: true, data: units });
     } catch (error: any) {
         const code = error.statusCode || 500;
@@ -75,7 +74,7 @@ export const getProjectUnits = async (req: AuthRequest, res: Response): Promise<
 
 export const getProjectStats = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const stats = await getProjectStatsService(req.params.id as string);
+        const stats = await getProjectStatsService(req.params.id as string, req.user!.tenantId!);
         res.status(200).json({ success: true, data: stats });
     } catch (error: any) {
         const code = error.statusCode || 500;
@@ -86,7 +85,7 @@ export const getProjectStats = async (req: AuthRequest, res: Response): Promise<
 export const updateProjectImages = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { images = [], brochure } = req.body;
-        const project = await updateProjectImagesService(req.params.id as string, images, brochure);
+        const project = await updateProjectImagesService(req.params.id as string, images, req.user!.tenantId!, brochure);
         res.status(200).json({ success: true, message: 'Project media updated successfully', data: project });
     } catch (error: any) {
         const code = error.statusCode || 400;

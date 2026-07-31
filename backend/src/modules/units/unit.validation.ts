@@ -2,7 +2,7 @@ import Joi from 'joi';
 import { UNIT_TYPES, UNIT_STATUSES, UNIT_FACINGS } from './unit.constants';
 
 export const createUnitSchema = Joi.object({
-  project: Joi.string().hex().length(24).required().messages({
+  project: Joi.string().uuid().required().messages({
     'string.hex': 'Project ID must be a valid ObjectId',
     'any.required': 'Project is required',
   }),
@@ -68,7 +68,7 @@ export const updateUnitStatusSchema = Joi.object({
 });
 
 export const bulkCreateUnitsSchema = Joi.object({
-  project: Joi.string().hex().length(24).required().messages({
+  project: Joi.string().uuid().required().messages({
     'any.required': 'Project is required',
   }),
   units: Joi.array()

@@ -2,8 +2,8 @@ import Joi from 'joi';
 import { FOLLOWUP_TYPES, FOLLOWUP_STATUSES } from './followup.model';
 
 export const createFollowUpSchema = Joi.object({
-    lead:        Joi.string().hex().length(24).required().messages({ 'any.required': 'Lead ID is required' }),
-    assignedTo:  Joi.string().hex().length(24).required().messages({ 'any.required': 'Assigned executive ID is required' }),
+    lead:        Joi.string().uuid().required().messages({ 'any.required': 'Lead ID is required' }),
+    assignedTo:  Joi.string().uuid().required().messages({ 'any.required': 'Assigned executive ID is required' }),
     type:        Joi.string().valid(...FOLLOWUP_TYPES).required().messages({ 'any.required': 'Follow-up type is required' }),
     scheduledAt: Joi.date().required().messages({ 'any.required': 'Scheduled date and time is required' }),
     notes:       Joi.string().optional().allow(''),

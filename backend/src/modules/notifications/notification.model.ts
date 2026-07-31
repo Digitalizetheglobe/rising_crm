@@ -1,4 +1,7 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import User from '../auth/auth.model';
+import Tenant from '../tenants/tenant.model';
 import {
   NotificationType,
   NotificationRefModel,
@@ -6,61 +9,97 @@ import {
   NOTIFICATION_REF_MODELS,
 } from './notification.constants';
 
-export interface INotification extends Document {
-  UserId: mongoose.Types.ObjectId;
+export interface NotificationAttributes {
+  id: string;
+  tenantId: string;
+  UserId: string;
   title: string;
   message: string;
   type: NotificationType;
   isRead: boolean;
-  refId?: mongoose.Types.ObjectId;
-  refModel?: NotificationRefModel;
-  createdAt: Date;
-  updatedAt: Date;
+  refId?: string | null;
+  refModel?: NotificationRefModel | null;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const notificationSchema = new Schema<INotification>(
+export interface NotificationCreationAttributes extends Optional<NotificationAttributes, 'id' | 'isRead' | 'refId' | 'refModel' | 'createdAt' | 'updatedAt'> {}
+
+class Notification extends Model<NotificationAttributes, NotificationCreationAttributes> implements NotificationAttributes {
+  public id!: string;
+  public tenantId!: string;
+  public UserId!: string;
+  public title!: string;
+  public message!: string;
+  public type!: NotificationType;
+  public isRead!: boolean;
+  public refId?: string | null;
+  public refModel?: NotificationRefModel | null;
+
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+
+  // relations
+  public readonly user?: User;
+  public readonly tenant?: Tenant;
+}
+
+Notification.init(
   {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'tenants', key: 'id' },
+    },
     UserId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-      index: true,
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
     },
     title: {
-      type: String,
-      required: true,
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     message: {
-      type: String,
-      required: true,
-      trim: true,
+      type: DataTypes.TEXT,
+      allowNull: false,
     },
     type: {
-      type: String,
-      enum: NOTIFICATION_TYPES,
-      required: true,
-      index: true,
+      type: DataTypes.ENUM(...NOTIFICATION_TYPES),
+      allowNull: false,
     },
     isRead: {
-      type: Boolean,
-      default: false,
-      index: true,
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
     refId: {
-      type: Schema.Types.ObjectId,
-      default: null,
+      type: DataTypes.UUID,
+      allowNull: true,
     },
     refModel: {
-      type: String,
-      enum: NOTIFICATION_REF_MODELS,
-      default: null,
+      type: DataTypes.ENUM(...NOTIFICATION_REF_MODELS),
+      allowNull: true,
     },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: 'Notification',
+    tableName: 'Notifications',
+    timestamps: true,
+    indexes: [
+      { fields: ['tenantId'] },
+      { fields: ['UserId', 'isRead', 'createdAt'] },
+    ],
+  }
 );
 
-// Primary query: get all notifications for a user, unread first
-notificationSchema.index({ UserId: 1, isRead: 1, createdAt: -1 });
+Notification.belongsTo(User, { foreignKey: 'UserId', as: 'user' });
+Notification.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
-export const Notification = mongoose.model<INotification>('Notification', notificationSchema);
+export default Notification;

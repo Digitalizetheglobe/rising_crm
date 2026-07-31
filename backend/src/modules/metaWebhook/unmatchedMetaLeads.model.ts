@@ -1,40 +1,102 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import Tenant from '../tenants/tenant.model';
 
-export interface IUnmatchedMetaLead extends Document {
+export interface UnmatchedMetaLeadAttributes {
+  id: string;
+  tenantId: string;
   leadgenId: string;
   adId: string;
   formId: string;
   pageId: string;
   rawPayload: Record<string, any>;
   status: 'pending' | 'resolved';
-  resolvedAt?: Date;
+  resolvedAt?: Date | null;
   notes?: string;
-  createdAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const UnmatchedMetaLeadSchema = new Schema<IUnmatchedMetaLead>(
+export interface UnmatchedMetaLeadCreationAttributes extends Optional<UnmatchedMetaLeadAttributes, 'id' | 'status' | 'resolvedAt' | 'notes' | 'createdAt' | 'updatedAt'> {}
+
+class UnmatchedMetaLead extends Model<UnmatchedMetaLeadAttributes, UnmatchedMetaLeadCreationAttributes> implements UnmatchedMetaLeadAttributes {
+  public id!: string;
+  public tenantId!: string;
+  public leadgenId!: string;
+  public adId!: string;
+  public formId!: string;
+  public pageId!: string;
+  public rawPayload!: Record<string, any>;
+  public status!: 'pending' | 'resolved';
+  public resolvedAt?: Date | null;
+  public notes?: string;
+
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+
+  public readonly tenant?: Tenant;
+}
+
+UnmatchedMetaLead.init(
   {
-    leadgenId: { type: String, required: true, unique: true, sparse: true },
-    adId: { type: String, required: true },
-    formId: { type: String, required: true },
-    pageId: { type: String, required: true },
-    rawPayload: { type: Schema.Types.Mixed, required: true },
-    status: {
-      type: String,
-      enum: ['pending', 'resolved'],
-      default: 'pending',
-      index: true,
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
-    resolvedAt: { type: Date },
-    notes: { type: String, trim: true },
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'tenants', key: 'id' },
+    },
+    leadgenId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+    },
+    adId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    formId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    pageId: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    rawPayload: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM('pending', 'resolved'),
+      allowNull: false,
+      defaultValue: 'pending',
+    },
+    resolvedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    notes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: 'UnmatchedMetaLead',
+    tableName: 'UnmatchedMetaLeads',
+    timestamps: true,
+    indexes: [
+      { fields: ['tenantId'] },
+      { fields: ['status', 'createdAt'] },
+      { fields: ['adId'] },
+    ],
+  }
 );
 
-UnmatchedMetaLeadSchema.index({ status: 1, createdAt: -1 });
-UnmatchedMetaLeadSchema.index({ adId: 1 });
+UnmatchedMetaLead.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
-export const UnmatchedMetaLead = mongoose.model<IUnmatchedMetaLead>(
-  'UnmatchedMetaLead',
-  UnmatchedMetaLeadSchema
-);
+export default UnmatchedMetaLead;

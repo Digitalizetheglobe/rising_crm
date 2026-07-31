@@ -1,6 +1,13 @@
 import { Request, Response } from "express";
 import { AuthRequest } from "../../middleware/auth.middleware";
-import { loginUser, registerUser, getCurrentUser, getAvailableRoles as getAvailableRolesService } from "./auth.service";
+import { 
+    loginUser, 
+    registerUser, 
+    getCurrentUser, 
+    refreshSession, 
+    logoutSession, 
+    getAvailableRoles as getAvailableRolesService 
+} from "./auth.service";
 
 export const getAvailableRoles = async (req: Request, res: Response) => {
     try {
@@ -20,8 +27,10 @@ export const getAvailableRoles = async (req: Request, res: Response) => {
 export const register = async (req: AuthRequest, res: Response) => {
     try {
         const { name, email, phone, password, role } = req.body;
+        const ipAddress = req.ip;
+        const userAgent = req.headers["user-agent"];
 
-        const data = await registerUser(name, email, phone, password, role);
+        const data = await registerUser(name, email, phone, password, role, ipAddress, userAgent);
 
         res.status(201).json({
             success: true,
@@ -40,17 +49,63 @@ export const login = async (req: AuthRequest, res: Response) => {
     try {
         const { identifier, phone, email, password } = req.body;
         const loginIdentifier = identifier || phone || email;
+        const ipAddress = req.ip;
+        const userAgent = req.headers["user-agent"];
 
         if (!loginIdentifier || !password) {
             throw new Error("Please provide email/phone and password");
         }
 
-        const data = await loginUser(loginIdentifier, password);
+        const data = await loginUser(loginIdentifier, password, ipAddress, userAgent);
 
         res.status(200).json({
             success: true,
             message: "Login successful",
             data,
+        });
+    } catch (error: any) {
+        res.status(400).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+export const refresh = async (req: Request, res: Response) => {
+    try {
+        const { refreshToken } = req.body;
+        const ipAddress = req.ip;
+        const userAgent = req.headers["user-agent"];
+
+        if (!refreshToken) {
+            throw new Error("Refresh token is required");
+        }
+
+        const data = await refreshSession(refreshToken, ipAddress, userAgent);
+
+        res.status(200).json({
+            success: true,
+            message: "Token refreshed successfully",
+            data,
+        });
+    } catch (error: any) {
+        res.status(400).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+export const logout = async (req: AuthRequest, res: Response) => {
+    try {
+        const { refreshToken } = req.body;
+        const userId = req.user!.UserId;
+
+        await logoutSession(userId, refreshToken);
+
+        res.status(200).json({
+            success: true,
+            message: "Logged out successfully",
         });
     } catch (error: any) {
         res.status(400).json({

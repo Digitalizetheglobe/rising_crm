@@ -1,9 +1,11 @@
 import cron from 'node-cron';
-import mongoose from 'mongoose';
-import { FollowUp } from '../modules/followups/followup.model';
-import { Notification } from '../modules/notifications/notification.model';
+import FollowUp from '../modules/followups/followup.model';
+import Notification from '../modules/notifications/notification.model';
+import User from '../modules/auth/auth.model';
+import Lead from '../modules/leads/lead.model';
 import { sendMail } from '../utils/sendMail';
 import { logger } from '../config/logger';
+import { Op } from 'sequelize';
 
 // ── Job 1: Mark overdue follow-ups as MISSED (runs every hour) ─────────────────
 export const markMissedFollowUpsJob = () => {
@@ -11,18 +13,18 @@ export const markMissedFollowUpsJob = () => {
         try {
             const now = new Date();
 
-            const missed = await FollowUp.updateMany(
+            const [updatedCount] = await FollowUp.update(
+                { status: 'MISSED' },
                 {
-                    scheduledAt: { $lt: now },
-                    status:      { $in: ['SCHEDULED', 'PENDING'] },
-                },
-                {
-                    $set: { status: 'MISSED' },
+                    where: {
+                        scheduledAt: { [Op.lt]: now },
+                        status: { [Op.in]: ['SCHEDULED', 'PENDING'] },
+                    },
                 }
             );
 
-            if (missed.modifiedCount > 0) {
-                logger.info(`[FollowUp Job] Marked ${missed.modifiedCount} follow-ups as MISSED`);
+            if (updatedCount > 0) {
+                logger.info(`[FollowUp Job] Marked ${updatedCount} follow-ups as MISSED`);
             }
         } catch (error) {
             logger.error('[FollowUp Job] Error marking missed follow-ups:', error);
@@ -37,43 +39,43 @@ export const sendFollowUpRemindersJob = () => {
             const now       = new Date();
             const twoHours  = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
-            // Find due follow-ups where reminder not yet sent
-            const dueSoon = await FollowUp.find({
-                scheduledAt:  { $gte: now, $lte: twoHours },
-                status:       { $in: ['SCHEDULED', 'PENDING'] },
-                reminderSent: false,
-            })
-                .populate<{ assignedTo: { _id: mongoose.Types.ObjectId; name: string; email: string } }>(
-                    'assignedTo', 'name email'
-                )
-                .populate<{ lead: { _id: mongoose.Types.ObjectId; name: string; phone: string } }>(
-                    'lead', 'name phone'
-                );
+            const dueSoon = await FollowUp.findAll({
+                where: {
+                    scheduledAt: { [Op.gte]: now, [Op.lte]: twoHours },
+                    status: { [Op.in]: ['SCHEDULED', 'PENDING'] },
+                    reminderSent: false,
+                },
+                include: [
+                    { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                    { model: Lead, as: 'lead', attributes: ['id', 'name', 'phone'] }
+                ],
+            });
 
             if (dueSoon.length === 0) return;
 
             logger.info(`[FollowUp Job] Sending reminders for ${dueSoon.length} upcoming follow-ups`);
 
             for (const followUp of dueSoon) {
-                const executive = followUp.assignedTo as any;
-                const lead      = followUp.lead as any;
+                const executive = (followUp as any).assignedUser;
+                const lead = (followUp as any).lead;
 
                 if (!executive || !lead) continue;
 
                 // In-app notification
                 await Notification.create({
-                    UserId:   executive._id,
-                    title:    `Reminder: ${followUp.type} Follow-Up Due Soon`,
-                    message:  `You have a ${followUp.type} follow-up with ${lead.name} (${lead.phone}) scheduled at ${new Date(followUp.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}. Don't miss it!`,
-                    type:     'FollowUp',
-                    refId:    followUp._id as mongoose.Types.ObjectId,
+                    tenantId: followUp.tenantId,
+                    UserId: executive.id,
+                    title: `Reminder: ${followUp.type} Follow-Up Due Soon`,
+                    message: `You have a ${followUp.type} follow-up with ${lead.name} (${lead.phone}) scheduled at ${new Date(followUp.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}. Don't miss it!`,
+                    type: 'FollowUp',
+                    refId: followUp.id,
                     refModel: 'FollowUp',
                 });
 
                 // Email notification
                 if (executive.email) {
                     await sendMail({
-                        to:      executive.email,
+                        to: executive.email,
                         subject: `Reminder: ${followUp.type} Follow-Up with ${lead.name}`,
                         html: `
                             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -110,11 +112,9 @@ export const sendFollowUpRemindersJob = () => {
                 }
 
                 // Mark reminder as sent
-                await FollowUp.findByIdAndUpdate(followUp._id, {
-                    $set: {
-                        reminderSent:   true,
-                        reminderSentAt: new Date(),
-                    },
+                await followUp.update({
+                    reminderSent: true,
+                    reminderSentAt: new Date(),
                 });
             }
 
@@ -133,62 +133,59 @@ export const dailyFollowUpSummaryJob = () => {
             const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
             const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
 
-            // Get today's follow-ups grouped by executive
-            const todaysFollowUps = await FollowUp.find({
-                scheduledAt: { $gte: todayStart, $lte: todayEnd },
-                status:      { $in: ['SCHEDULED', 'PENDING'] },
-            })
-                .populate<{ assignedTo: { _id: mongoose.Types.ObjectId; name: string; email: string } }>(
-                    'assignedTo', 'name email'
-                )
-                .populate<{ lead: { name: string; phone: string } }>(
-                    'lead', 'name phone'
-                );
+            const todaysFollowUps = await FollowUp.findAll({
+                where: {
+                    scheduledAt: { [Op.gte]: todayStart, [Op.lte]: todayEnd },
+                    status: { [Op.in]: ['SCHEDULED', 'PENDING'] },
+                },
+                include: [
+                    { model: User, as: 'assignedUser', attributes: ['id', 'name', 'email'] },
+                    { model: Lead, as: 'lead', attributes: ['id', 'name', 'phone'] }
+                ],
+            });
 
             if (todaysFollowUps.length === 0) return;
 
-            // Group by executive
             const byExecutive: Record<string, {
-                executive: { _id: mongoose.Types.ObjectId; name: string; email: string };
+                executive: { id: string; name: string; email: string };
                 followUps: typeof todaysFollowUps;
             }> = {};
 
             for (const fu of todaysFollowUps) {
-                const exec = fu.assignedTo as any;
+                const exec = (fu as any).assignedUser;
                 if (!exec) continue;
-                const id = exec._id.toString();
+                const id = exec.id;
                 if (!byExecutive[id]) {
                     byExecutive[id] = { executive: exec, followUps: [] };
                 }
                 byExecutive[id].followUps.push(fu);
             }
 
-            // Send to each executive
             for (const { executive, followUps } of Object.values(byExecutive)) {
                 const count = followUps.length;
 
                 // In-app notification
                 await Notification.create({
-                    UserId:   executive._id,
-                    title:    `Good Morning! You have ${count} follow-up${count > 1 ? 's' : ''} today`,
-                    message:  `Today's schedule: ${followUps.map((f: any) => `${f.type} with ${(f.lead as any)?.name}`).join(', ')}.`,
-                    type:     'FollowUp',
-                    refId:    executive._id,
+                    tenantId: followUps[0].tenantId,
+                    UserId: executive.id,
+                    title: `Good Morning! You have ${count} follow-up${count > 1 ? 's' : ''} today`,
+                    message: `Today's schedule: ${followUps.map((f: any) => `${f.type} with ${f.lead?.name}`).join(', ')}.`,
+                    type: 'FollowUp',
+                    refId: executive.id,
                     refModel: 'User',
                 });
 
-                // Email summary
                 if (executive.email) {
                     const rows = followUps.map((f: any) => `
                         <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee;">${(f.lead as any)?.name} — ${(f.lead as any)?.phone}</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee;">${f.lead?.name} — ${f.lead?.phone}</td>
                             <td style="padding: 8px; border-bottom: 1px solid #eee;">${f.type}</td>
                             <td style="padding: 8px; border-bottom: 1px solid #eee;">${new Date(f.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</td>
                         </tr>
                     `).join('');
 
                     await sendMail({
-                        to:      executive.email,
+                        to: executive.email,
                         subject: `Good Morning ${executive.name} — ${count} Follow-Up${count > 1 ? 's' : ''} Today`,
                         html: `
                             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -224,7 +221,6 @@ export const dailyFollowUpSummaryJob = () => {
     });
 };
 
-// ── Register all follow-up jobs ───────────────────────────────────────────────
 export const initFollowUpJobs = () => {
     markMissedFollowUpsJob();
     sendFollowUpRemindersJob();

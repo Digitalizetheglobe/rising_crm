@@ -1,123 +1,187 @@
-
-import mongoose, { Document, Schema } from 'mongoose';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import Booking from '../bookings/booking.model';
+import Client from '../clients/client.model';
+import User from '../auth/auth.model';
+import Tenant from '../tenants/tenant.model';
 import { LoanStatus, LOAN_STATUSES } from './loan.constants';
 
-export interface ILoan extends Document {
-  booking: mongoose.Types.ObjectId;
-  client: mongoose.Types.ObjectId;
-  createdBy: mongoose.Types.ObjectId;
-  bankName: string;
-  loanAmount: number;
-  sanctionedAmount?: number;
-  interestRate?: number;        // % per annum
-  tenureMonths?: number;
-  emiAmount?: number;
-  status: LoanStatus;
-  applicationDate: Date;
-  approvalDate?: Date;
-  disbursementDate?: Date;
-  bankContact?: string;         // name or phone of bank relationship manager
-  remarks?: string;
-  statusHistory: {
-    status: string;
-    changedAt: Date;
-    changedBy: mongoose.Types.ObjectId;
-    note?: string;
-  }[];
-  createdAt: Date;
-  updatedAt: Date;
+export interface LoanStatusHistoryEntry {
+  status: string;
+  changedAt: Date;
+  changedBy: string;
+  note?: string;
 }
 
-const loanSchema = new Schema<ILoan>(
+export interface LoanAttributes {
+  id: string;
+  tenantId: string;
+  bookingId: string;
+  clientId: string;
+  createdBy: string;
+  bankName: string;
+  loanAmount: number;
+  sanctionedAmount?: number | null;
+  interestRate?: number | null;
+  tenureMonths?: number | null;
+  emiAmount?: number | null;
+  status: LoanStatus;
+  applicationDate: Date;
+  approvalDate?: Date | null;
+  disbursementDate?: Date | null;
+  bankContact?: string | null;
+  remarks?: string;
+  statusHistory: LoanStatusHistoryEntry[];
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface LoanCreationAttributes extends Optional<LoanAttributes, 'id' | 'status' | 'sanctionedAmount' | 'interestRate' | 'tenureMonths' | 'emiAmount' | 'approvalDate' | 'disbursementDate' | 'bankContact' | 'remarks' | 'statusHistory' | 'createdAt' | 'updatedAt'> {}
+
+class Loan extends Model<LoanAttributes, LoanCreationAttributes> implements LoanAttributes {
+  public id!: string;
+  public tenantId!: string;
+  public bookingId!: string;
+  public clientId!: string;
+  public createdBy!: string;
+  public bankName!: string;
+  public loanAmount!: number;
+  public sanctionedAmount?: number | null;
+  public interestRate?: number | null;
+  public tenureMonths?: number | null;
+  public emiAmount?: number | null;
+  public status!: LoanStatus;
+  public applicationDate!: Date;
+  public approvalDate?: Date | null;
+  public disbursementDate?: Date | null;
+  public bankContact?: string | null;
+  public remarks?: string;
+  public statusHistory!: LoanStatusHistoryEntry[];
+
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+
+  // relations
+  public readonly booking?: Booking;
+  public readonly client?: Client;
+  public readonly createdByUser?: User;
+  public readonly tenant?: Tenant;
+}
+
+Loan.init(
   {
-    booking: {
-      type: Schema.Types.ObjectId,
-      ref: 'Booking',
-      required: true,
-      // index :true
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
-    client: {
-      type: Schema.Types.ObjectId,
-      ref: 'Client',
-      required: true,
-      index: true,
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'tenants', key: 'id' },
+    },
+    bookingId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'Bookings', key: 'id' },
+    },
+    clientId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'clients', key: 'id' },
     },
     createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
     },
     bankName: {
-      type: String,
-      required: true,
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     loanAmount: {
-      type: Number,
-      required: true,
-      min: 1,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+      get() {
+        const val = this.getDataValue('loanAmount');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     sanctionedAmount: {
-      type: Number,
-      default: null,
-      min: 0,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: true,
+      get() {
+        const val = this.getDataValue('sanctionedAmount');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     interestRate: {
-      type: Number,
-      default: null,
-      min: 0,
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      get() {
+        const val = this.getDataValue('interestRate');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     tenureMonths: {
-      type: Number,
-      default: null,
-      min: 1,
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
     emiAmount: {
-      type: Number,
-      default: null,
-      min: 0,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: true,
+      get() {
+        const val = this.getDataValue('emiAmount');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     status: {
-      type: String,
-      enum: LOAN_STATUSES,
-      default: 'Applied',
-      index: true,
+      type: DataTypes.ENUM(...LOAN_STATUSES),
+      allowNull: false,
+      defaultValue: 'Applied',
     },
     applicationDate: {
-      type: Date,
-      required: true,
+      type: DataTypes.DATE,
+      allowNull: false,
     },
     approvalDate: {
-      type: Date,
-      default: null,
+      type: DataTypes.DATE,
+      allowNull: true,
     },
     disbursementDate: {
-      type: Date,
-      default: null,
+      type: DataTypes.DATE,
+      allowNull: true,
     },
     bankContact: {
-      type: String,
-      trim: true,
-      default: null,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     remarks: {
-      type: String,
-      trim: true,
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
-    statusHistory: [
-      {
-        status: { type: String, required: true },
-        changedAt: { type: Date, default: Date.now },
-        changedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-        note: { type: String, trim: true },
-      },
-    ],
+    statusHistory: {
+      type: DataTypes.JSONB,
+      allowNull: false,
+      defaultValue: [],
+    },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: 'Loan',
+    tableName: 'Loans',
+    timestamps: true,
+    indexes: [
+      { fields: ['tenantId'] },
+      { fields: ['bookingId'], unique: true },
+      { fields: ['clientId', 'status'] },
+    ],
+  }
 );
 
-// One loan per booking (a booking can only have one active loan application)
-loanSchema.index({ booking: 1 }, { unique: true });
-loanSchema.index({ client: 1, status: 1 });
+Loan.belongsTo(Booking, { foreignKey: 'bookingId', as: 'booking' });
+Loan.belongsTo(Client, { foreignKey: 'clientId', as: 'client' });
+Loan.belongsTo(User, { foreignKey: 'createdBy', as: 'createdByUser' });
+Loan.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
-export const Loan = mongoose.model<ILoan>('Loan', loanSchema);
+export default Loan;

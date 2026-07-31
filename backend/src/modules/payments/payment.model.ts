@@ -1,4 +1,9 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import Booking from '../bookings/booking.model';
+import Client from '../clients/client.model';
+import User from '../auth/auth.model';
+import Tenant from '../tenants/tenant.model';
 import {
   PaymentStatus,
   PaymentMode,
@@ -8,94 +13,140 @@ import {
   PAYMENT_TYPES,
 } from './payment.constants';
 
-export interface IPayment extends Document {
-  booking: mongoose.Types.ObjectId;
-  client: mongoose.Types.ObjectId;
+export interface PaymentAttributes {
+  id: string;
+  tenantId: string;
+  bookingId: string;
+  clientId: string;
   paymentType: PaymentType;
   amount: number;
   dueDate: Date;
-  paidDate?: Date;
+  paidDate?: Date | null;
   status: PaymentStatus;
-  paymentMode?: PaymentMode;
-  receiptNumber?: string;
-  transactionId?: string;
+  paymentMode?: PaymentMode | null;
+  receiptNumber?: string | null;
+  transactionId?: string | null;
   notes?: string;
-  recordedBy: mongoose.Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
+  recordedBy: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-const paymentSchema = new Schema<IPayment>(
+export interface PaymentCreationAttributes extends Optional<PaymentAttributes, 'id' | 'status' | 'paidDate' | 'paymentMode' | 'receiptNumber' | 'transactionId' | 'notes' | 'createdAt' | 'updatedAt'> {}
+
+class Payment extends Model<PaymentAttributes, PaymentCreationAttributes> implements PaymentAttributes {
+  public id!: string;
+  public tenantId!: string;
+  public bookingId!: string;
+  public clientId!: string;
+  public paymentType!: PaymentType;
+  public amount!: number;
+  public dueDate!: Date;
+  public paidDate?: Date | null;
+  public status!: PaymentStatus;
+  public paymentMode?: PaymentMode | null;
+  public receiptNumber?: string | null;
+  public transactionId?: string | null;
+  public notes?: string;
+  public recordedBy!: string;
+
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+
+  // relations
+  public readonly booking?: Booking;
+  public readonly client?: Client;
+  public readonly recordedByUser?: User;
+  public readonly tenant?: Tenant;
+}
+
+Payment.init(
   {
-    booking: {
-      type: Schema.Types.ObjectId,
-      ref: 'Booking',
-      required: true,
-      index: true,
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
-    client: {
-      type: Schema.Types.ObjectId,
-      ref: 'Client',
-      required: true,
-      index: true,
+    tenantId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'tenants', key: 'id' },
+    },
+    bookingId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'Bookings', key: 'id' },
+    },
+    clientId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'clients', key: 'id' },
     },
     paymentType: {
-      type: String,
-      enum: PAYMENT_TYPES,
-      required: true,
+      type: DataTypes.ENUM(...PAYMENT_TYPES),
+      allowNull: false,
     },
     amount: {
-      type: Number,
-      required: true,
-      min: 0,
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+      get() {
+        const val = this.getDataValue('amount');
+        return val === null ? null : parseFloat(val as any);
+      },
     },
     dueDate: {
-      type: Date,
-      required: true,
-      index: true,
+      type: DataTypes.DATE,
+      allowNull: false,
     },
     paidDate: {
-      type: Date,
-      default: null,
+      type: DataTypes.DATE,
+      allowNull: true,
     },
     status: {
-      type: String,
-      enum: PAYMENT_STATUSES,
-      default: 'Pending',
-      index: true,
+      type: DataTypes.ENUM(...PAYMENT_STATUSES),
+      allowNull: false,
+      defaultValue: 'Pending',
     },
     paymentMode: {
-      type: String,
-      enum: PAYMENT_MODES,
-      default: null,
+      type: DataTypes.ENUM(...PAYMENT_MODES),
+      allowNull: true,
     },
     receiptNumber: {
-      type: String,
-      trim: true,
-      default: null,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     transactionId: {
-      type: String,
-      trim: true,
-      default: null,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     notes: {
-      type: String,
-      trim: true,
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     recordedBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
     },
   },
-  { timestamps: true }
+  {
+    sequelize,
+    modelName: 'Payment',
+    tableName: 'Payments',
+    timestamps: true,
+    indexes: [
+      { fields: ['tenantId'] },
+      { fields: ['bookingId', 'status'] },
+      { fields: ['clientId', 'status'] },
+      { fields: ['status', 'dueDate'] },
+      { fields: ['receiptNumber'] },
+    ],
+  }
 );
 
-// Compound indexes for common queries
-paymentSchema.index({ booking: 1, status: 1 });
-paymentSchema.index({ client: 1, status: 1 });
-paymentSchema.index({ status: 1, dueDate: 1 }); // For overdue cron job
-paymentSchema.index({ receiptNumber: 1 }, { sparse: true });
+Payment.belongsTo(Booking, { foreignKey: 'bookingId', as: 'booking' });
+Payment.belongsTo(Client, { foreignKey: 'clientId', as: 'client' });
+Payment.belongsTo(User, { foreignKey: 'recordedBy', as: 'recordedByUser' });
+Payment.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
-export const Payment = mongoose.model<IPayment>('Payment', paymentSchema);
+export default Payment;

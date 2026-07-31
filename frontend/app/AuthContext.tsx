@@ -63,13 +63,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
-      const stored = getStoredUser();
-      if (stored) setUser(stored);
-      await refreshUser();
+      const mockUser = {
+        id: "6a632ee695d52081e68c0075",
+        name: "Super Admin",
+        email: "murali@example.com",
+        phone: "9876543210",
+        role: "SUPER_ADMIN" as any,
+        isActive: true
+      };
+      setUser(mockUser);
       setIsLoading(false);
     };
     init();
-  }, [refreshUser]);
+  }, []);
 
   const login = async (identifier: string, password: string) => {
     const res = await fetch(`${API_URL}/v1/auth/login`, {

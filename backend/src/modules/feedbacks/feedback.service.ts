@@ -1,223 +1,262 @@
-import mongoose from 'mongoose';
+import { Op, Sequelize } from 'sequelize';
+import Feedback from './feedback.model';
+import Client from '../clients/client.model';
+import User from '../auth/auth.model';
 import { ApiError } from '../../utils/ApiError';
-import { Client } from '../clients/client.model';
-import { Feedback } from './feedback.model';
+import { getTenantId } from '../../middleware/tenant.middleware';
 
-const buildFilterQuery = (query: Record<string, any>) => {
-    const filter: Record<string, any> = {};
+const buildFilterQuery = (query: Record<string, any>, tenantId: string) => {
+  const filter: any = { tenantId };
 
-    if (query.client)   filter.client   = new mongoose.Types.ObjectId(query.client);
-    if (query.loggedBy) filter.loggedBy = new mongoose.Types.ObjectId(query.loggedBy);
-    if (query.category) filter.category = query.category;
-    if (query.status)   filter.status   = query.status;
-    if (query.rating)   filter.rating   = Number(query.rating);
+  if (query.client) filter.clientId = query.client;
+  if (query.loggedBy) filter.loggedBy = query.loggedBy;
+  if (query.category) filter.category = query.category;
+  if (query.status) filter.status = query.status;
+  if (query.rating) filter.rating = Number(query.rating);
 
-    if (query.startDate || query.endDate) {
-        filter.createdAt = {};
-        if (query.startDate) filter.createdAt.$gte = new Date(query.startDate);
-        if (query.endDate)   filter.createdAt.$lte = new Date(new Date(query.endDate).setHours(23, 59, 59, 999));
-    }
+  if (query.startDate || query.endDate) {
+    filter.createdAt = {};
+    if (query.startDate) filter.createdAt[Op.gte] = new Date(query.startDate);
+    if (query.endDate) filter.createdAt[Op.lte] = new Date(new Date(query.endDate).setHours(23, 59, 59, 999));
+  }
 
-    return filter;
+  return filter;
 };
 
 export const createFeedbackService = async (
-    payload: Record<string, any>,
-    loggedBy: string
+  payload: Record<string, any>,
+  loggedBy: string
 ) => {
-    const client = await Client.findById(payload.client);
-    if (!client) throw new ApiError(404, 'Client not found');
+  const tenantId = getTenantId();
+  
+  const client = await Client.findOne({ where: { id: payload.client, tenantId } });
+  if (!client) throw new ApiError(404, 'Client not found');
 
-    const feedback = await Feedback.create({
-        ...payload,
-        client:   new mongoose.Types.ObjectId(payload.client),
-        loggedBy: new mongoose.Types.ObjectId(loggedBy),
-        status:   'OPEN',
-    });
+  const feedback = await Feedback.create({
+    ...payload,
+    tenantId,
+    clientId: payload.client,
+    loggedBy,
+    status: 'OPEN',
+  });
 
-    return Feedback.findById(feedback._id)
-        .populate('client',   'name phone email')
-        .populate('loggedBy', 'name email');
+  return await Feedback.findByPk(feedback.id, {
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
 
 export const getAllFeedbacksService = async (
-    query: Record<string, any>,
-    page: number = 1,
-    limit: number = 10
+  query: Record<string, any>,
+  page: number = 1,
+  limit: number = 10
 ) => {
-    const filter = buildFilterQuery(query);
-    const skip   = (page - 1) * limit;
+  const tenantId = getTenantId();
+  const where = buildFilterQuery(query, tenantId);
+  const offset = (page - 1) * limit;
 
-    const [feedbacks, total] = await Promise.all([
-        Feedback.find(filter)
-            .populate('client',     'name phone email')
-            .populate('loggedBy',   'name email')
-            .populate('resolvedBy', 'name email')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit),
-        Feedback.countDocuments(filter),
-    ]);
+  const { rows, count } = await Feedback.findAndCountAll({
+    where,
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+      { model: User, as: 'resolvedByUser', attributes: ['name', 'email'] },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit,
+    offset,
+  });
 
-    return {
-        feedbacks,
-        total,
-        page,
-        totalPages:  Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-    };
+  return {
+    feedbacks: rows,
+    total: count,
+    page,
+    totalPages: Math.ceil(count / limit),
+    hasNextPage: page < Math.ceil(count / limit),
+    hasPrevPage: page > 1,
+  };
 };
 
 export const getFeedbackByIdService = async (feedbackId: string) => {
-    const feedback = await Feedback.findById(feedbackId)
-        .populate('client',     'name phone email status')
-        .populate('loggedBy',   'name email')
-        .populate('resolvedBy', 'name email');
+  const tenantId = getTenantId();
+  const feedback = await Feedback.findOne({
+    where: { id: feedbackId, tenantId },
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email', 'status'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+      { model: User, as: 'resolvedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 
-    if (!feedback) throw new ApiError(404, 'Feedback not found');
-    return feedback;
+  if (!feedback) throw new ApiError(404, 'Feedback not found');
+  return feedback;
 };
 
 export const updateFeedbackService = async (
-    feedbackId: string,
-    payload: Record<string, any>,
-    updatedBy: string
+  feedbackId: string,
+  payload: Record<string, any>,
+  updatedBy: string
 ) => {
-    const feedback = await Feedback.findById(feedbackId);
-    if (!feedback) throw new ApiError(404, 'Feedback not found');
+  const tenantId = getTenantId();
+  const feedback = await Feedback.findOne({ where: { id: feedbackId, tenantId } });
+  if (!feedback) throw new ApiError(404, 'Feedback not found');
 
-    if (feedback.status === 'RESOLVED') {
-        throw new ApiError(400, 'Cannot edit a resolved feedback');
-    }
+  if (feedback.status === 'RESOLVED') {
+    throw new ApiError(400, 'Cannot edit a resolved feedback');
+  }
 
-    // Prevent changing client or loggedBy references
-    delete payload.client;
-    delete payload.loggedBy;
-    delete payload.resolvedBy;
-    delete payload.resolvedAt;
+  delete payload.client;
+  delete payload.loggedBy;
+  delete payload.clientId;
+  delete payload.resolvedBy;
+  delete payload.resolvedAt;
 
-    Object.assign(feedback, payload);
-    await feedback.save();
+  await feedback.update(payload);
 
-    return Feedback.findById(feedback._id)
-        .populate('client',   'name phone email')
-        .populate('loggedBy', 'name email');
+  return await Feedback.findByPk(feedbackId, {
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
 
 export const resolveFeedbackService = async (
-    feedbackId: string,
-    resolvedNote: string,
-    resolvedBy: string
+  feedbackId: string,
+  resolvedNote: string,
+  resolvedBy: string
 ) => {
-    const feedback = await Feedback.findById(feedbackId);
-    if (!feedback) throw new ApiError(404, 'Feedback not found');
+  const tenantId = getTenantId();
+  const feedback = await Feedback.findOne({ where: { id: feedbackId, tenantId } });
+  if (!feedback) throw new ApiError(404, 'Feedback not found');
 
-    if (feedback.status === 'RESOLVED') {
-        throw new ApiError(400, 'Feedback is already resolved');
-    }
+  if (feedback.status === 'RESOLVED') {
+    throw new ApiError(400, 'Feedback is already resolved');
+  }
 
-    feedback.status       = 'RESOLVED';
-    feedback.resolvedBy   = new mongoose.Types.ObjectId(resolvedBy);
-    feedback.resolvedAt   = new Date();
-    feedback.resolvedNote = resolvedNote;
+  await feedback.update({
+    status: 'RESOLVED',
+    resolvedBy,
+    resolvedAt: new Date(),
+    resolvedNote,
+  });
 
-    await feedback.save();
-
-    return Feedback.findById(feedback._id)
-        .populate('client',     'name phone email')
-        .populate('loggedBy',   'name email')
-        .populate('resolvedBy', 'name email');
+  return await Feedback.findByPk(feedbackId, {
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+      { model: User, as: 'resolvedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
 
 export const deleteFeedbackService = async (feedbackId: string) => {
-    const feedback = await Feedback.findById(feedbackId);
-    if (!feedback) throw new ApiError(404, 'Feedback not found');
+  const tenantId = getTenantId();
+  const feedback = await Feedback.findOne({ where: { id: feedbackId, tenantId } });
+  if (!feedback) throw new ApiError(404, 'Feedback not found');
 
-    await Feedback.findByIdAndDelete(feedbackId);
-    return { message: 'Feedback deleted successfully' };
+  await feedback.destroy();
+  return { message: 'Feedback deleted successfully' };
 };
 
 export const getFeedbacksByClientService = async (
-    clientId: string,
-    page: number = 1,
-    limit: number = 10
+  clientId: string,
+  page: number = 1,
+  limit: number = 10
 ) => {
-    const client = await Client.findById(clientId);
-    if (!client) throw new ApiError(404, 'Client not found');
+  const tenantId = getTenantId();
+  const client = await Client.findOne({ where: { id: clientId, tenantId } });
+  if (!client) throw new ApiError(404, 'Client not found');
 
-    const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-    const [feedbacks, total] = await Promise.all([
-        Feedback.find({ client: new mongoose.Types.ObjectId(clientId) })
-            .populate('loggedBy',   'name email')
-            .populate('resolvedBy', 'name email')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit),
-        Feedback.countDocuments({ client: new mongoose.Types.ObjectId(clientId) }),
-    ]);
+  const { rows, count } = await Feedback.findAndCountAll({
+    where: { clientId, tenantId },
+    include: [
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+      { model: User, as: 'resolvedByUser', attributes: ['name', 'email'] },
+    ],
+    order: [['createdAt', 'DESC']],
+    limit,
+    offset,
+  });
 
-    return {
-        feedbacks,
-        total,
-        page,
-        totalPages:  Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-    };
+  return {
+    feedbacks: rows,
+    total: count,
+    page,
+    totalPages: Math.ceil(count / limit),
+    hasNextPage: page < Math.ceil(count / limit),
+    hasPrevPage: page > 1,
+  };
 };
 
 export const getFeedbackStatsService = async (filters: Record<string, any> = {}) => {
-    const matchStage: Record<string, any> = {};
+  const tenantId = getTenantId();
+  const match: any = { tenantId };
 
-    if (filters.loggedBy)  matchStage.loggedBy = new mongoose.Types.ObjectId(filters.loggedBy);
-    if (filters.startDate || filters.endDate) {
-        matchStage.createdAt = {};
-        if (filters.startDate) matchStage.createdAt.$gte = new Date(filters.startDate);
-        if (filters.endDate)   matchStage.createdAt.$lte = new Date(filters.endDate);
-    }
+  if (filters.loggedBy) match.loggedBy = filters.loggedBy;
+  if (filters.startDate || filters.endDate) {
+    match.createdAt = {};
+    if (filters.startDate) match.createdAt[Op.gte] = new Date(filters.startDate);
+    if (filters.endDate) match.createdAt[Op.lte] = new Date(filters.endDate);
+  }
 
-    const [byCategory, byRating, byStatus, totals] = await Promise.all([
-        Feedback.aggregate([
-            { $match: matchStage },
-            { $group: { _id: '$category', count: { $sum: 1 }, avgRating: { $avg: '$rating' } } },
-            { $sort: { count: -1 } },
-        ]),
-        Feedback.aggregate([
-            { $match: matchStage },
-            { $group: { _id: '$rating', count: { $sum: 1 } } },
-            { $sort: { _id: 1 } },
-        ]),
-        Feedback.aggregate([
-            { $match: matchStage },
-            { $group: { _id: '$status', count: { $sum: 1 } } },
-        ]),
-        Feedback.aggregate([
-            { $match: matchStage },
-            {
-                $group: {
-                    _id:       null,
-                    total:     { $sum: 1 },
-                    avgRating: { $avg: '$rating' },
-                    open:      { $sum: { $cond: [{ $eq: ['$status', 'OPEN'] }, 1, 0] } },
-                    resolved:  { $sum: { $cond: [{ $eq: ['$status', 'RESOLVED'] }, 1, 0] } },
-                },
-            },
-        ]),
-    ]);
+  const byCategoryRows = await Feedback.findAll({
+    where: match,
+    attributes: [
+      ['category', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'],
+      [Sequelize.fn('AVG', Sequelize.col('rating')), 'avgRating']
+    ],
+    group: ['category'],
+    order: [[Sequelize.fn('COUNT', Sequelize.col('id')), 'DESC']],
+  });
+  const byCategory = byCategoryRows.map(r => r.get({ plain: true }));
 
-    const summary = totals[0] || { total: 0, avgRating: 0, open: 0, resolved: 0 };
+  const byRatingRows = await Feedback.findAll({
+    where: match,
+    attributes: [
+      ['rating', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'],
+    ],
+    group: ['rating'],
+    order: [['rating', 'ASC']],
+  });
+  const byRating = byRatingRows.map(r => r.get({ plain: true }));
 
-    return {
-        summary: {
-            total:     summary.total,
-            open:      summary.open,
-            resolved:  summary.resolved,
-            avgRating: summary.avgRating ? Number(summary.avgRating.toFixed(2)) : 0,
-        },
-        byCategory,
-        byRating,
-        byStatus,
-    };
+  const byStatusRows = await Feedback.findAll({
+    where: match,
+    attributes: [
+      ['status', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'],
+    ],
+    group: ['status'],
+  });
+  const byStatus = byStatusRows.map(r => r.get({ plain: true }));
+
+  const totalsRow = await Feedback.findOne({
+    where: match,
+    attributes: [
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'total'],
+      [Sequelize.fn('AVG', Sequelize.col('rating')), 'avgRating'],
+      [Sequelize.literal(`SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END)`), 'open'],
+      [Sequelize.literal(`SUM(CASE WHEN status = 'RESOLVED' THEN 1 ELSE 0 END)`), 'resolved'],
+    ],
+    raw: true,
+  }) as any;
+
+  return {
+    summary: {
+      total: parseInt(totalsRow?.total || '0', 10),
+      open: parseInt(totalsRow?.open || '0', 10),
+      resolved: parseInt(totalsRow?.resolved || '0', 10),
+      avgRating: totalsRow?.avgRating ? Number(parseFloat(totalsRow.avgRating).toFixed(2)) : 0,
+    },
+    byCategory,
+    byRating,
+    byStatus,
+  };
 };

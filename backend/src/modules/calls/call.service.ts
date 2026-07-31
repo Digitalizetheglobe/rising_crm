@@ -1,212 +1,240 @@
-import mongoose from 'mongoose';
+import { Op, Sequelize } from 'sequelize';
+import Call from './call.model';
+import Client from '../clients/client.model';
+import User from '../auth/auth.model';
 import { ApiError } from '../../utils/ApiError';
-import { Client } from '../clients/client.model';
-import { Call } from './call.model';
+import { getTenantId } from '../../middleware/tenant.middleware';
 
-// ── Helper: build filter query ────────────────────────────────────────────────
-const buildFilterQuery = (query: Record<string, any>) => {
-    const filter: Record<string, any> = {};
+const buildFilterQuery = (query: Record<string, any>, tenantId: string) => {
+  const filter: any = { tenantId };
 
-    if (query.client)    filter.client    = new mongoose.Types.ObjectId(query.client);
-    if (query.loggedBy)  filter.loggedBy  = new mongoose.Types.ObjectId(query.loggedBy);
-    if (query.outcome)   filter.outcome   = query.outcome;
-    if (query.direction) filter.direction = query.direction;
-    if (query.purpose)   filter.purpose   = query.purpose;
+  if (query.client) filter.clientId = query.client;
+  if (query.loggedBy) filter.loggedBy = query.loggedBy;
+  if (query.outcome) filter.outcome = query.outcome;
+  if (query.direction) filter.direction = query.direction;
+  if (query.purpose) filter.purpose = query.purpose;
 
-    if (query.startDate || query.endDate) {
-        filter.callDate = {};
-        if (query.startDate) filter.callDate.$gte = new Date(query.startDate);
-        if (query.endDate)   filter.callDate.$lte = new Date(new Date(query.endDate).setHours(23, 59, 59, 999));
-    }
+  if (query.startDate || query.endDate) {
+    filter.callDate = {};
+    if (query.startDate) filter.callDate[Op.gte] = new Date(query.startDate);
+    if (query.endDate) filter.callDate[Op.lte] = new Date(new Date(query.endDate).setHours(23, 59, 59, 999));
+  }
 
-    // Calls with next follow-up due today
-    if (query.nextCallToday === 'true') {
-        const today    = new Date(); today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(); tomorrow.setHours(23, 59, 59, 999);
-        filter.nextCallDate = { $gte: today, $lte: tomorrow };
-    }
+  if (query.nextCallToday === 'true') {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(); tomorrow.setHours(23, 59, 59, 999);
+    filter.nextCallDate = { [Op.gte]: today, [Op.lte]: tomorrow };
+  }
 
-    return filter;
+  return filter;
 };
 
-// ── Create Call ───────────────────────────────────────────────────────────────
 export const createCallService = async (
-    payload: Record<string, any>,
-    loggedBy: string
+  payload: Record<string, any>,
+  loggedBy: string
 ) => {
-    const client = await Client.findById(payload.client);
-    if (!client) throw new ApiError(404, 'Client not found');
+  const tenantId = getTenantId();
 
-    const call = await Call.create({
-        ...payload,
-        client:  new mongoose.Types.ObjectId(payload.client),
-        loggedBy: new mongoose.Types.ObjectId(loggedBy),
-    });
+  const client = await Client.findOne({ where: { id: payload.client, tenantId } });
+  if (!client) throw new ApiError(404, 'Client not found');
 
-    return call
-        .populate('client', 'name phone email')
-        .then((c) => c.populate('loggedBy', 'name email'));
+  const call = await Call.create({
+    ...payload,
+    tenantId,
+    clientId: payload.client,
+    loggedBy,
+  });
+
+  return await Call.findByPk(call.id, {
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
 
-// ── Get All Calls ─────────────────────────────────────────────────────────────
 export const getAllCallsService = async (
-    query: Record<string, any>,
-    page: number = 1,
-    limit: number = 10
+  query: Record<string, any>,
+  page: number = 1,
+  limit: number = 10
 ) => {
-    const filter = buildFilterQuery(query);
-    const skip   = (page - 1) * limit;
+  const tenantId = getTenantId();
+  const where = buildFilterQuery(query, tenantId);
+  const offset = (page - 1) * limit;
 
-    const [calls, total] = await Promise.all([
-        Call.find(filter)
-            .populate('client',   'name phone email')
-            .populate('loggedBy', 'name email')
-            .sort({ callDate: -1 })
-            .skip(skip)
-            .limit(limit),
-        Call.countDocuments(filter),
-    ]);
+  const { rows, count } = await Call.findAndCountAll({
+    where,
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+    ],
+    order: [['callDate', 'DESC']],
+    limit,
+    offset,
+  });
 
-    return {
-        calls,
-        total,
-        page,
-        totalPages:  Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-    };
+  return {
+    calls: rows,
+    total: count,
+    page,
+    totalPages: Math.ceil(count / limit),
+    hasNextPage: page < Math.ceil(count / limit),
+    hasPrevPage: page > 1,
+  };
 };
 
-// ── Get Single Call ───────────────────────────────────────────────────────────
 export const getCallByIdService = async (callId: string) => {
-    const call = await Call.findById(callId)
-        .populate('client',   'name phone email status')
-        .populate('loggedBy', 'name email');
+  const tenantId = getTenantId();
+  const call = await Call.findOne({
+    where: { id: callId, tenantId },
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email', 'status'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 
-    if (!call) throw new ApiError(404, 'Call not found');
-    return call;
+  if (!call) throw new ApiError(404, 'Call not found');
+  return call;
 };
 
-// ── Update Call ───────────────────────────────────────────────────────────────
 export const updateCallService = async (
-    callId: string,
-    payload: Record<string, any>,
-    updatedBy: string
+  callId: string,
+  payload: Record<string, any>,
+  updatedBy: string
 ) => {
-    const call = await Call.findById(callId);
-    if (!call) throw new ApiError(404, 'Call not found');
+  const tenantId = getTenantId();
+  const call = await Call.findOne({ where: { id: callId, tenantId } });
+  if (!call) throw new ApiError(404, 'Call not found');
 
-    // Only the person who logged the call or admin roles can edit
-    if (call.loggedBy.toString() !== updatedBy) {
-        throw new ApiError(403, 'You are not authorised to edit this call log');
-    }
+  if (call.loggedBy !== updatedBy) {
+    throw new ApiError(403, 'You are not authorised to edit this call log');
+  }
 
-    // Prevent changing the client reference after creation
-    delete payload.client;
-    delete payload.loggedBy;
+  delete payload.client;
+  delete payload.loggedBy;
+  delete payload.clientId;
 
-    Object.assign(call, payload);
-    await call.save();
+  await call.update(payload);
 
-    return call
-        .populate('client',   'name phone email')
-        .then((c) => c.populate('loggedBy', 'name email'));
+  return await Call.findByPk(callId, {
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone', 'email'] },
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+    ],
+  });
 };
 
-// ── Delete Call ───────────────────────────────────────────────────────────────
 export const deleteCallService = async (callId: string) => {
-    const call = await Call.findById(callId);
-    if (!call) throw new ApiError(404, 'Call not found');
+  const tenantId = getTenantId();
+  const call = await Call.findOne({ where: { id: callId, tenantId } });
+  if (!call) throw new ApiError(404, 'Call not found');
 
-    await Call.findByIdAndDelete(callId);
-    return { message: 'Call log deleted successfully' };
+  await call.destroy();
+  return { message: 'Call log deleted successfully' };
 };
 
-// ── Get Calls for a Specific Client ──────────────────────────────────────────
 export const getCallsByClientService = async (
-    clientId: string,
-    page: number = 1,
-    limit: number = 10
+  clientId: string,
+  page: number = 1,
+  limit: number = 10
 ) => {
-    const client = await Client.findById(clientId);
-    if (!client) throw new ApiError(404, 'Client not found');
+  const tenantId = getTenantId();
+  
+  const client = await Client.findOne({ where: { id: clientId, tenantId } });
+  if (!client) throw new ApiError(404, 'Client not found');
 
-    const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-    const [calls, total] = await Promise.all([
-        Call.find({ client: new mongoose.Types.ObjectId(clientId) })
-            .populate('loggedBy', 'name email')
-            .sort({ callDate: -1 })
-            .skip(skip)
-            .limit(limit),
-        Call.countDocuments({ client: new mongoose.Types.ObjectId(clientId) }),
-    ]);
+  const { rows, count } = await Call.findAndCountAll({
+    where: { clientId, tenantId },
+    include: [
+      { model: User, as: 'loggedByUser', attributes: ['name', 'email'] },
+    ],
+    order: [['callDate', 'DESC']],
+    limit,
+    offset,
+  });
 
-    return {
-        calls,
-        total,
-        page,
-        totalPages:  Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
-        hasPrevPage: page > 1,
-    };
+  return {
+    calls: rows,
+    total: count,
+    page,
+    totalPages: Math.ceil(count / limit),
+    hasNextPage: page < Math.ceil(count / limit),
+    hasPrevPage: page > 1,
+  };
 };
 
-// ── Get Call Stats ────────────────────────────────────────────────────────────
 export const getCallStatsService = async (filters: Record<string, any> = {}) => {
-    const matchStage: Record<string, any> = {};
+  const tenantId = getTenantId();
+  const where: any = { tenantId };
 
-    if (filters.loggedBy)  matchStage.loggedBy  = new mongoose.Types.ObjectId(filters.loggedBy);
-    if (filters.client)    matchStage.client     = new mongoose.Types.ObjectId(filters.client);
-    if (filters.startDate || filters.endDate) {
-        matchStage.callDate = {};
-        if (filters.startDate) matchStage.callDate.$gte = new Date(filters.startDate);
-        if (filters.endDate)   matchStage.callDate.$lte = new Date(filters.endDate);
-    }
+  if (filters.loggedBy) where.loggedBy = filters.loggedBy;
+  if (filters.client) where.clientId = filters.client;
+  if (filters.startDate || filters.endDate) {
+    where.callDate = {};
+    if (filters.startDate) where.callDate[Op.gte] = new Date(filters.startDate);
+    if (filters.endDate) where.callDate[Op.lte] = new Date(filters.endDate);
+  }
 
-    const [byOutcome, byPurpose, byDirection, totals] = await Promise.all([
-        Call.aggregate([
-            { $match: matchStage },
-            { $group: { _id: '$outcome', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-        ]),
-        Call.aggregate([
-            { $match: matchStage },
-            { $group: { _id: '$purpose', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-        ]),
-        Call.aggregate([
-            { $match: matchStage },
-            { $group: { _id: '$direction', count: { $sum: 1 } } },
-        ]),
-        Call.aggregate([
-            { $match: matchStage },
-            {
-                $group: {
-                    _id:             null,
-                    total:           { $sum: 1 },
-                    totalDuration:   { $sum: { $ifNull: ['$duration', 0] } },
-                    answered:        { $sum: { $cond: [{ $eq: ['$outcome', 'ANSWERED'] }, 1, 0] } },
-                    withNextCall:    { $sum: { $cond: [{ $ifNull: ['$nextCallDate', false] }, 1, 0] } },
-                },
-            },
-        ]),
-    ]);
+  const byOutcomeRows = await Call.findAll({
+    where,
+    attributes: [
+      ['outcome', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
+    ],
+    group: ['outcome'],
+    order: [[Sequelize.fn('COUNT', Sequelize.col('id')), 'DESC']],
+  });
+  const byOutcome = byOutcomeRows.map(r => r.get({ plain: true }));
 
-    const summary = totals[0] || { total: 0, totalDuration: 0, answered: 0, withNextCall: 0 };
+  const byPurposeRows = await Call.findAll({
+    where,
+    attributes: [
+      ['purpose', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
+    ],
+    group: ['purpose'],
+    order: [[Sequelize.fn('COUNT', Sequelize.col('id')), 'DESC']],
+  });
+  const byPurpose = byPurposeRows.map(r => r.get({ plain: true }));
 
-    return {
-        summary: {
-            total:          summary.total,
-            answered:       summary.answered,
-            withNextCall:   summary.withNextCall,
-            totalDurationSeconds: summary.totalDuration,
-            answerRate:     summary.total > 0
-                ? ((summary.answered / summary.total) * 100).toFixed(1) + '%'
-                : '0%',
-        },
-        byOutcome,
-        byPurpose,
-        byDirection,
-    };
+  const byDirectionRows = await Call.findAll({
+    where,
+    attributes: [
+      ['direction', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
+    ],
+    group: ['direction'],
+  });
+  const byDirection = byDirectionRows.map(r => r.get({ plain: true }));
+
+  const totalsRow = await Call.findOne({
+    where,
+    attributes: [
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'total'],
+      [Sequelize.fn('SUM', Sequelize.col('duration')), 'totalDuration'],
+      [Sequelize.literal(`SUM(CASE WHEN outcome = 'ANSWERED' THEN 1 ELSE 0 END)`), 'answered'],
+      [Sequelize.literal(`SUM(CASE WHEN "nextCallDate" IS NOT NULL THEN 1 ELSE 0 END)`), 'withNextCall'],
+    ],
+    raw: true,
+  }) as any;
+
+  const total = parseInt(totalsRow?.total || '0', 10);
+  const answered = parseInt(totalsRow?.answered || '0', 10);
+  const withNextCall = parseInt(totalsRow?.withNextCall || '0', 10);
+  const totalDuration = parseFloat(totalsRow?.totalDuration || '0');
+
+  return {
+    summary: {
+      total,
+      answered,
+      withNextCall,
+      totalDurationSeconds: totalDuration,
+      answerRate: total > 0 ? ((answered / total) * 100).toFixed(1) + '%' : '0%',
+    },
+    byOutcome,
+    byPurpose,
+    byDirection,
+  };
 };

@@ -1,4 +1,4 @@
-import mongoose, { Model } from 'mongoose';
+import { Model, ModelStatic } from 'sequelize';
 
 interface PaginationResult<T> {
     data: T[];
@@ -9,30 +9,28 @@ interface PaginationResult<T> {
     hasPrevPage: boolean;
 }
 
-export const paginate = async <T>(
-    model: Model<T>,
+export const paginate = async <T extends Model>(
+    model: ModelStatic<T>,
     query: Record<string, any> = {},
     page = 1,
     limit = 10,
-    populate?: string | string[]
+    include?: any
 ): Promise<PaginationResult<T>> => {
-    const skip = (page - 1) * limit;
-    const total = await model.countDocuments(query);
-
-    let q = model.find(query).skip(skip).limit(limit).sort({ createdAt: -1 });
-    if (populate) {
-        const fields = Array.isArray(populate) ? populate : [populate];
-        fields.forEach(f => { q = q.populate(f) as typeof q; });
-    }
-
-    const data = await q.exec();
+    const offset = (page - 1) * limit;
+    const { count, rows } = await model.findAndCountAll({
+        where: query,
+        offset,
+        limit,
+        order: [['createdAt', 'DESC']],
+        include,
+    });
 
     return {
-        data,
-        total,
+        data: rows,
+        total: count,
         page,
-        totalPages: Math.ceil(total / limit),
-        hasNextPage: page < Math.ceil(total / limit),
+        totalPages: Math.ceil(count / limit),
+        hasNextPage: page < Math.ceil(count / limit),
         hasPrevPage: page > 1,
     };
 };

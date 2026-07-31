@@ -22,6 +22,7 @@ import uploadRoutes from '../modules/uploads/upload.routes';
 import importExportRoutes from '../modules/imports-exports/importExport.routes';
 import sitevisitRoutes from '../modules/sitevisits/sitevisit.routes';
 import metaWebhookRoutes from '../modules/metaWebhook/metaWebhook.routes';
+import savedFilterRoutes from '../modules/saved-filters/savedFilter.routes';
 
 const router = Router();
 
@@ -47,6 +48,7 @@ router.use('/reports', reportRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/data', importExportRoutes);
 router.use('/sitevisits', sitevisitRoutes);
+router.use('/saved-filters', savedFilterRoutes);
 
 router.get('/health', (_req, res) => {
     res.json({ success: true, message: 'CRM API is running.' });

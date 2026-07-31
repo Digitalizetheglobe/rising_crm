@@ -1,179 +1,190 @@
-// import mongoose from 'mongoose';
-// export const Lead = mongoose.model('Lead', new mongoose.Schema({}, { strict: false }));
-import mongoose, { Schema, Document } from 'mongoose';
+import { DataTypes, Model, Optional } from 'sequelize';
+import sequelize from '../../config/sequelize';
+import User from '../auth/auth.model';
+import Tenant from '../tenants/tenant.model';
 import {
     LEAD_STATUSES,
     LEAD_SOURCES,
     LEAD_PRIORITIES,
     BUDGET_RANGES,
     PROPERTY_TYPES,
-    LeadStatus,
-    LeadSource,
-    LeadPriority,
 } from './lead.constants';
 
-// ── Activity Log Entry ─────────────────────────────────────────────────────────
-export interface ILeadActivity {
-    action: string;
-    description: string;
-    performedBy: mongoose.Types.ObjectId;
-    performedAt: Date;
-    previousStatus?: LeadStatus;
-    newStatus?: LeadStatus;
-    metadata?: Record<string, any>;
-}
-
-// ── Reassignment History Entry ─────────────────────────────────────────────────
-export interface IReassignmentHistory {
-    fromExecutive: mongoose.Types.ObjectId;
-    toExecutive:   mongoose.Types.ObjectId;
-    reassignedBy:  mongoose.Types.ObjectId;
-    reassignedAt:  Date;
-    reason?:       string;
-}
-
-// ── Lead Document Interface ────────────────────────────────────────────────────
-export interface ILead extends Document {
+export interface LeadAttributes {
+    id: string;
+    tenantId: string;
+    
     // Basic Info
-    name:  string;
+    name: string;
     phone: string;
     email?: string;
 
     // Lead Details
-    source:            LeadSource;
-    status:            LeadStatus;
-    priority:          LeadPriority;
-    budgetRange?:      string;
-    propertyType?:     string;
+    source: string;
+    status: string;
+    priority: string;
+    budgetRange?: string;
+    propertyType?: string;
     preferredLocation?: string;
 
     // Project & Unit Interest
-    interestedProject?: mongoose.Types.ObjectId;
-    interestedUnit?:    mongoose.Types.ObjectId;
+    interestedProjectId?: string;
+    interestedUnitId?: string;
 
     // Assignment
-    assignedTo?:  mongoose.Types.ObjectId;
-    assignedBy?:  mongoose.Types.ObjectId;
-    assignedAt?:  Date;
+    assignedTo?: string;
+    assignedBy?: string;
+    assignedAt?: Date;
 
     // Follow Up
     nextFollowUpDate?: Date;
-    lastContactedAt?:  Date;
+    lastContactedAt?: Date;
 
     // Conversion tracking
-    enquiryId?: mongoose.Types.ObjectId;  // if created from an enquiry
+    enquiryId?: string;
 
     // Lost / Duplicate reason
-    lostReason?:      string;
-    duplicateOfLead?: mongoose.Types.ObjectId;
+    lostReason?: string;
+    duplicateOfLeadId?: string;
 
-    // Activity & Reassignment logs
-    activityLog:        ILeadActivity[];
-    reassignmentHistory: IReassignmentHistory[];
+    // Activity & Reassignment logs (Stored as JSONB)
+    activityLog: any[];
+    reassignmentHistory: any[];
 
     // Notes
     notes?: string;
 
     // Meta
-    createdBy: mongoose.Types.ObjectId;
+    createdBy: string;
+    
+    createdAt?: Date;
+    updatedAt?: Date;
 }
 
-// ── Sub-schemas ────────────────────────────────────────────────────────────────
-const LeadActivitySchema = new Schema<ILeadActivity>(
-    {
-        action:         { type: String, required: true },
-        description:    { type: String, required: true },
-        performedBy:    { type: Schema.Types.ObjectId, ref: 'User', required: true },
-        performedAt:    { type: Date, default: Date.now },
-        previousStatus: { type: String, enum: LEAD_STATUSES },
-        newStatus:      { type: String, enum: LEAD_STATUSES },
-        metadata:       { type: Schema.Types.Mixed },
-    },
-    { _id: true }
-);
+export interface LeadCreationAttributes extends Optional<LeadAttributes, 'id' | 'status' | 'priority' | 'activityLog' | 'reassignmentHistory'> {}
 
-const ReassignmentHistorySchema = new Schema<IReassignmentHistory>(
-    {
-        fromExecutive: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-        toExecutive:   { type: Schema.Types.ObjectId, ref: 'User', required: true },
-        reassignedBy:  { type: Schema.Types.ObjectId, ref: 'User', required: true },
-        reassignedAt:  { type: Date, default: Date.now },
-        reason:        { type: String },
-    },
-    { _id: true }
-);
+class Lead extends Model<LeadAttributes, LeadCreationAttributes> implements LeadAttributes {
+    public id!: string;
+    public tenantId!: string;
+    public name!: string;
+    public phone!: string;
+    public email!: string;
+    public source!: string;
+    public status!: string;
+    public priority!: string;
+    public budgetRange!: string;
+    public propertyType!: string;
+    public preferredLocation!: string;
+    public interestedProjectId!: string;
+    public interestedUnitId!: string;
+    public assignedTo!: string;
+    public assignedBy!: string;
+    public assignedAt!: Date;
+    public nextFollowUpDate!: Date;
+    public lastContactedAt!: Date;
+    public enquiryId!: string;
+    public lostReason!: string;
+    public duplicateOfLeadId!: string;
+    public activityLog!: any[];
+    public reassignmentHistory!: any[];
+    public notes!: string;
+    public createdBy!: string;
 
-// ── Main Lead Schema ───────────────────────────────────────────────────────────
-const LeadSchema = new Schema<ILead>(
-    {
-        // Basic Info
-        name:  { type: String, required: true, trim: true },
-        phone: { type: String, required: true, trim: true },
-        email: { type: String, trim: true, lowercase: true },
+    public readonly createdAt!: Date;
+    public readonly updatedAt!: Date;
+}
 
-        // Lead Details
+Lead.init(
+    {
+        id: {
+            type: DataTypes.UUID,
+            defaultValue: DataTypes.UUIDV4,
+            primaryKey: true,
+        },
+        tenantId: {
+            type: DataTypes.UUID,
+            allowNull: false,
+            references: {
+                model: 'tenants',
+                key: 'id'
+            }
+        },
+        name: { type: DataTypes.STRING, allowNull: false },
+        phone: { type: DataTypes.STRING, allowNull: false },
+        email: { type: DataTypes.STRING, allowNull: true },
         source: {
-            type: String,
-            enum: LEAD_SOURCES,
-            required: true,
+            type: DataTypes.STRING,
+            allowNull: false,
+            validate: { isIn: [LEAD_SOURCES] }
         },
         status: {
-            type: String,
-            enum: LEAD_STATUSES,
-            default: 'NEW',
+            type: DataTypes.STRING,
+            defaultValue: 'NEW',
+            validate: { isIn: [LEAD_STATUSES] }
         },
         priority: {
-            type: String,
-            enum: LEAD_PRIORITIES,
-            default: 'Medium',
+            type: DataTypes.STRING,
+            defaultValue: 'Medium',
+            validate: { isIn: [LEAD_PRIORITIES] }
         },
-        budgetRange:       { type: String, enum: BUDGET_RANGES },
-        propertyType:      { type: String, enum: PROPERTY_TYPES },
-        preferredLocation: { type: String, trim: true },
-
-        // Project & Unit
-        interestedProject: { type: Schema.Types.ObjectId, ref: 'Project' },
-        interestedUnit:    { type: Schema.Types.ObjectId, ref: 'Unit' },
-
-        // Assignment
-        assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
-        assignedBy: { type: Schema.Types.ObjectId, ref: 'User' },
-        assignedAt: { type: Date },
-
-        // Follow Up
-        nextFollowUpDate: { type: Date },
-        lastContactedAt:  { type: Date },
-
-        // Conversion tracking
-        enquiryId: { type: Schema.Types.ObjectId, ref: 'Enquiry' },
-
-        // Lost / Duplicate
-        lostReason:       { type: String, trim: true },
-        duplicateOfLead:  { type: Schema.Types.ObjectId, ref: 'Lead' },
-
-        // Logs
-        activityLog:         { type: [LeadActivitySchema], default: [] },
-        reassignmentHistory: { type: [ReassignmentHistorySchema], default: [] },
-
-        // Notes
-        notes: { type: String, trim: true },
-
-        // Meta
-        createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        budgetRange: { type: DataTypes.STRING, allowNull: true, validate: { isIn: [BUDGET_RANGES] } },
+        propertyType: { type: DataTypes.STRING, allowNull: true, validate: { isIn: [PROPERTY_TYPES] } },
+        preferredLocation: { type: DataTypes.STRING, allowNull: true },
+        interestedProjectId: { type: DataTypes.UUID, allowNull: true },
+        interestedUnitId: { type: DataTypes.UUID, allowNull: true },
+        assignedTo: {
+            type: DataTypes.UUID,
+            allowNull: true,
+            references: { model: 'users', key: 'id' }
+        },
+        assignedBy: {
+            type: DataTypes.UUID,
+            allowNull: true,
+            references: { model: 'users', key: 'id' }
+        },
+        assignedAt: { type: DataTypes.DATE, allowNull: true },
+        nextFollowUpDate: { type: DataTypes.DATE, allowNull: true },
+        lastContactedAt: { type: DataTypes.DATE, allowNull: true },
+        enquiryId: { type: DataTypes.UUID, allowNull: true },
+        lostReason: { type: DataTypes.STRING, allowNull: true },
+        duplicateOfLeadId: {
+            type: DataTypes.UUID,
+            allowNull: true,
+            references: { model: 'leads', key: 'id' }
+        },
+        activityLog: {
+            type: DataTypes.JSONB,
+            defaultValue: []
+        },
+        reassignmentHistory: {
+            type: DataTypes.JSONB,
+            defaultValue: []
+        },
+        notes: { type: DataTypes.TEXT, allowNull: true },
+        createdBy: {
+            type: DataTypes.UUID,
+            allowNull: false,
+            references: { model: 'users', key: 'id' }
+        },
     },
     {
+        sequelize,
+        tableName: 'leads',
         timestamps: true,
+        indexes: [
+            { fields: ['status'] },
+            { fields: ['assignedTo'] },
+            { fields: ['source'] },
+            { fields: ['priority'] },
+            { fields: ['phone'] },
+            { fields: ['nextFollowUpDate'] },
+            { fields: ['tenantId'] },
+        ]
     }
 );
 
-// ── Indexes ────────────────────────────────────────────────────────────────────
-LeadSchema.index({ status: 1 });
-LeadSchema.index({ assignedTo: 1 });
-LeadSchema.index({ source: 1 });
-LeadSchema.index({ priority: 1 });
-LeadSchema.index({ phone: 1 });
-LeadSchema.index({ createdAt: -1 });
-LeadSchema.index({ nextFollowUpDate: 1 });
-LeadSchema.index({ assignedTo: 1, status: 1 }); // compound — most common query
+Lead.belongsTo(User, { foreignKey: 'assignedTo', as: 'assignedUser' });
+Lead.belongsTo(User, { foreignKey: 'createdBy', as: 'creator' });
+Lead.belongsTo(Tenant, { foreignKey: 'tenantId', as: 'tenant' });
 
-export const Lead = mongoose.model<ILead>('Lead', LeadSchema);
+export default Lead;

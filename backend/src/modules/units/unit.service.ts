@@ -1,9 +1,9 @@
-import mongoose from 'mongoose';
-import { Unit } from './unit.model';
+import { Op, Sequelize } from 'sequelize';
+import Unit from './unit.model';
+import Project from '../projects/project.model';
 import { ApiError } from '../../utils/ApiError';
 import { UnitType, UnitStatus, UnitFacing } from './unit.constants';
-
-// ─── Create Single Unit ───────────────────────────────────────────────────────
+import { getTenantId } from '../../middleware/tenant.middleware';
 
 export const createUnitService = async (body: {
   project: string;
@@ -16,16 +16,17 @@ export const createUnitService = async (body: {
   facing?: string;
   description?: string;
 }) => {
-  // Verify project exists
-  const project = await mongoose.model('Project').findById(body.project);
+  const tenantId = getTenantId();
+  
+  const project = await Project.findOne({ where: { id: body.project, tenantId } });
   if (!project) throw new ApiError(404, 'Project not found');
 
-  // Check for duplicate unit number within the same project
-  const exists = await Unit.findOne({ project: body.project, unitNumber: body.unitNumber });
+  const exists = await Unit.findOne({ where: { projectId: body.project, unitNumber: body.unitNumber, tenantId } });
   if (exists) throw new ApiError(409, `Unit number "${body.unitNumber}" already exists in this project`);
 
   const unit = await Unit.create({
-    project: body.project,
+    tenantId,
+    projectId: body.project,
     unitNumber: body.unitNumber,
     type: body.type as UnitType,
     floor: body.floor,
@@ -35,10 +36,11 @@ export const createUnitService = async (body: {
     ...(body.facing ? { facing: body.facing as UnitFacing } : {}),
     ...(body.description ? { description: body.description } : {}),
   });
-  return unit.populate('project', 'name location status');
-};
 
-// ─── Bulk Create Units ────────────────────────────────────────────────────────
+  return await Unit.findByPk(unit.id, {
+    include: [{ model: Project, as: 'project', attributes: ['name', 'location', 'status'] }],
+  });
+};
 
 export const bulkCreateUnitsService = async (body: {
   project: string;
@@ -52,11 +54,16 @@ export const bulkCreateUnitsService = async (body: {
     description?: string;
   }[];
 }) => {
-  const project = await mongoose.model('Project').findById(body.project);
+  const tenantId = getTenantId();
+  
+  const project = await Project.findOne({ where: { id: body.project, tenantId } });
   if (!project) throw new ApiError(404, 'Project not found');
 
-  // Fetch existing unit numbers for this project
-  const existingUnits = await Unit.find({ project: body.project }).select('unitNumber');
+  const existingUnits = await Unit.findAll({
+    where: { projectId: body.project, tenantId },
+    attributes: ['unitNumber'],
+  });
+  
   const existingNumbers = new Set(existingUnits.map((u) => u.unitNumber));
 
   const toInsert: any[] = [];
@@ -66,24 +73,23 @@ export const bulkCreateUnitsService = async (body: {
     if (existingNumbers.has(u.unitNumber)) {
       skipped.push(u.unitNumber);
     } else {
-      toInsert.push({ ...u, project: body.project, status: 'Available' });
-      existingNumbers.add(u.unitNumber); // prevent dupes within the same batch
+      toInsert.push({ ...u, tenantId, projectId: body.project, status: 'Available' });
+      existingNumbers.add(u.unitNumber);
     }
   }
 
-  let inserted: any[] = [];
+  let insertedCount = 0;
   if (toInsert.length > 0) {
-    inserted = await Unit.insertMany(toInsert);
+    const inserted = await Unit.bulkCreate(toInsert);
+    insertedCount = inserted.length;
   }
 
   return {
-    insertedCount: inserted.length,
+    insertedCount,
     skippedCount: skipped.length,
     skippedUnitNumbers: skipped,
   };
 };
-
-// ─── List Units ───────────────────────────────────────────────────────────────
 
 export const getUnitsService = async (query: {
   projectId?: string;
@@ -99,72 +105,67 @@ export const getUnitsService = async (query: {
   page?: string;
   limit?: string;
 }) => {
+  const tenantId = getTenantId();
   const page = Math.max(1, parseInt(query.page || '1', 10));
   const limit = Math.min(100, Math.max(1, parseInt(query.limit || '10', 10)));
-  const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
-  const filter: Record<string, any> = {};
+  const where: any = { tenantId };
 
-  if (query.projectId) {
-    filter.project = new mongoose.Types.ObjectId(query.projectId);
-  }
-
-  if (query.status) filter.status = query.status;
-  if (query.type) filter.type = query.type;
-  if (query.facing) filter.facing = query.facing;
-
-  if (query.floor !== undefined) {
-    filter.floor = parseInt(query.floor, 10);
-  }
+  if (query.projectId) where.projectId = query.projectId;
+  if (query.status) where.status = query.status;
+  if (query.type) where.type = query.type;
+  if (query.facing) where.facing = query.facing;
+  if (query.floor !== undefined) where.floor = parseInt(query.floor, 10);
 
   if (query.minPrice || query.maxPrice) {
-    filter.price = {};
-    if (query.minPrice) filter.price.$gte = parseFloat(query.minPrice);
-    if (query.maxPrice) filter.price.$lte = parseFloat(query.maxPrice);
+    where.price = {};
+    if (query.minPrice) where.price[Op.gte] = parseFloat(query.minPrice);
+    if (query.maxPrice) where.price[Op.lte] = parseFloat(query.maxPrice);
   }
 
   if (query.minArea || query.maxArea) {
-    filter.area = {};
-    if (query.minArea) filter.area.$gte = parseFloat(query.minArea);
-    if (query.maxArea) filter.area.$lte = parseFloat(query.maxArea);
+    where.area = {};
+    if (query.minArea) where.area[Op.gte] = parseFloat(query.minArea);
+    if (query.maxArea) where.area[Op.lte] = parseFloat(query.maxArea);
   }
 
   if (query.search) {
-    filter.$or = [
-      { unitNumber: { $regex: query.search, $options: 'i' } },
-      { description: { $regex: query.search, $options: 'i' } },
+    where[Op.or] = [
+      { unitNumber: { [Op.iLike]: `%${query.search}%` } },
+      { description: { [Op.iLike]: `%${query.search}%` } },
     ];
   }
 
-  const [units, total] = await Promise.all([
-    Unit.find(filter)
-      .populate('project', 'name location status')
-      .sort({ floor: 1, unitNumber: 1 })
-      .skip(skip)
-      .limit(limit),
-    Unit.countDocuments(filter),
-  ]);
+  const { rows, count } = await Unit.findAndCountAll({
+    where,
+    include: [{ model: Project, as: 'project', attributes: ['name', 'location', 'status'] }],
+    order: [['floor', 'ASC'], ['unitNumber', 'ASC']],
+    limit,
+    offset,
+  });
 
   return {
-    units,
+    units: rows,
     pagination: {
       page,
       limit,
-      total,
-      totalPages: Math.ceil(total / limit),
+      total: count,
+      totalPages: Math.ceil(count / limit),
     },
   };
 };
 
-// ─── Get Single Unit ──────────────────────────────────────────────────────────
-
 export const getUnitByIdService = async (unitId: string) => {
-  const unit = await Unit.findById(unitId).populate('project', 'name location status totalUnits launchDate');
+  const tenantId = getTenantId();
+  const unit = await Unit.findOne({
+    where: { id: unitId, tenantId },
+    include: [{ model: Project, as: 'project', attributes: ['name', 'location', 'status', 'totalUnits', 'launchDate'] }],
+  });
+  
   if (!unit) throw new ApiError(404, 'Unit not found');
   return unit;
 };
-
-// ─── Update Unit ──────────────────────────────────────────────────────────────
 
 export const updateUnitService = async (
   unitId: string,
@@ -178,65 +179,58 @@ export const updateUnitService = async (
     description?: string;
   }
 ) => {
-  const unit = await Unit.findById(unitId);
+  const tenantId = getTenantId();
+  const unit = await Unit.findOne({ where: { id: unitId, tenantId } });
   if (!unit) throw new ApiError(404, 'Unit not found');
 
-  // If unit is Booked or Sold, block changes to price/type/area
   if (unit.status !== 'Available') {
     const blockedFields = ['type', 'area', 'price'];
     const attemptedBlocked = blockedFields.filter((f) => (body as any)[f] !== undefined);
     if (attemptedBlocked.length > 0) {
-      throw new ApiError(
-        400,
-        `Cannot update ${attemptedBlocked.join(', ')} on a ${unit.status} unit`
-      );
+      throw new ApiError(400, `Cannot update ${attemptedBlocked.join(', ')} on a ${unit.status} unit`);
     }
   }
 
-  // Check unitNumber uniqueness if changed
   if (body.unitNumber && body.unitNumber !== unit.unitNumber) {
     const duplicate = await Unit.findOne({
-      project: unit.project,
-      unitNumber: body.unitNumber,
-      _id: { $ne: unitId },
+      where: {
+        projectId: unit.projectId,
+        unitNumber: body.unitNumber,
+        tenantId,
+        id: { [Op.ne]: unitId }
+      },
     });
     if (duplicate) {
       throw new ApiError(409, `Unit number "${body.unitNumber}" already exists in this project`);
     }
   }
 
-  const updated = await Unit.findByIdAndUpdate(unitId, { $set: body }, { new: true }).populate(
-    'project',
-    'name location status'
-  );
+  await unit.update(body);
 
-  return updated;
+  return await Unit.findByPk(unitId, {
+    include: [{ model: Project, as: 'project', attributes: ['name', 'location', 'status'] }],
+  });
 };
 
-// ─── Update Unit Status (Admin only) ─────────────────────────────────────────
-
 export const updateUnitStatusService = async (unitId: string, status: string) => {
-  const unit = await Unit.findById(unitId);
+  const tenantId = getTenantId();
+  const unit = await Unit.findOne({ where: { id: unitId, tenantId } });
   if (!unit) throw new ApiError(404, 'Unit not found');
 
-  // A Sold unit cannot be made Available directly — must go through cancellation flow
   if (unit.status === 'Sold' && status === 'Available') {
     throw new ApiError(400, 'A Sold unit cannot be directly set to Available. Cancel the booking first.');
   }
 
-  const updated = await Unit.findByIdAndUpdate(
-    unitId,
-    { $set: { status } },
-    { new: true }
-  ).populate('project', 'name location status');
+  await unit.update({ status: status as UnitStatus });
 
-  return updated;
+  return await Unit.findByPk(unitId, {
+    include: [{ model: Project, as: 'project', attributes: ['name', 'location', 'status'] }],
+  });
 };
 
-// ─── Delete Unit ──────────────────────────────────────────────────────────────
-
 export const deleteUnitService = async (unitId: string) => {
-  const unit = await Unit.findById(unitId);
+  const tenantId = getTenantId();
+  const unit = await Unit.findOne({ where: { id: unitId, tenantId } });
   if (!unit) throw new ApiError(404, 'Unit not found');
 
   if (unit.status === 'Booked') {
@@ -246,58 +240,67 @@ export const deleteUnitService = async (unitId: string) => {
     throw new ApiError(400, 'Cannot delete a Sold unit.');
   }
 
-  await Unit.findByIdAndDelete(unitId);
+  await unit.destroy();
   return { deleted: true };
 };
 
-// ─── Stats ─────────────────────────────────────────────────────────────────────
-
 export const getUnitStatsService = async (projectId?: string) => {
-  const match: Record<string, any> = {};
-  if (projectId) match.project = new mongoose.Types.ObjectId(projectId);
+  const tenantId = getTenantId();
+  const where: any = { tenantId };
+  if (projectId) where.projectId = projectId;
 
-  const [byStatus, byType, totals] = await Promise.all([
-    Unit.aggregate([
-      { $match: match },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } },
-    ]),
+  // By Status
+  const byStatusRows = await Unit.findAll({
+    where,
+    attributes: [
+      ['status', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count']
+    ],
+    group: ['status'],
+    order: [['status', 'ASC']],
+  });
+  const byStatus = byStatusRows.map(r => r.get({ plain: true }));
 
-    Unit.aggregate([
-      { $match: match },
-      { $group: { _id: '$type', count: { $sum: 1 }, avgPrice: { $avg: '$price' } } },
-      { $sort: { count: -1 } },
-    ]),
+  // By Type
+  const byTypeRows = await Unit.findAll({
+    where,
+    attributes: [
+      ['type', '_id'],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'],
+      [Sequelize.fn('AVG', Sequelize.col('price')), 'avgPrice']
+    ],
+    group: ['type'],
+    order: [[Sequelize.fn('COUNT', Sequelize.col('id')), 'DESC']],
+  });
+  const byType = byTypeRows.map(r => r.get({ plain: true }));
 
-    Unit.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: null,
-          totalUnits: { $sum: 1 },
-          availableUnits: { $sum: { $cond: [{ $eq: ['$status', 'Available'] }, 1, 0] } },
-          bookedUnits: { $sum: { $cond: [{ $eq: ['$status', 'Booked'] }, 1, 0] } },
-          soldUnits: { $sum: { $cond: [{ $eq: ['$status', 'Sold'] }, 1, 0] } },
-          minPrice: { $min: '$price' },
-          maxPrice: { $max: '$price' },
-          avgPrice: { $avg: '$price' },
-          totalArea: { $sum: '$area' },
-        },
-      },
-    ]),
-  ]);
+  // Totals
+  const totalsRow = await Unit.findOne({
+    where,
+    attributes: [
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'totalUnits'],
+      [Sequelize.literal(`SUM(CASE WHEN status = 'Available' THEN 1 ELSE 0 END)`), 'availableUnits'],
+      [Sequelize.literal(`SUM(CASE WHEN status = 'Booked' THEN 1 ELSE 0 END)`), 'bookedUnits'],
+      [Sequelize.literal(`SUM(CASE WHEN status = 'Sold' THEN 1 ELSE 0 END)`), 'soldUnits'],
+      [Sequelize.fn('MIN', Sequelize.col('price')), 'minPrice'],
+      [Sequelize.fn('MAX', Sequelize.col('price')), 'maxPrice'],
+      [Sequelize.fn('AVG', Sequelize.col('price')), 'avgPrice'],
+      [Sequelize.fn('SUM', Sequelize.col('area')), 'totalArea'],
+    ],
+    raw: true,
+  }) as any;
 
   return {
-    totalUnits: totals[0]?.totalUnits || 0,
-    availableUnits: totals[0]?.availableUnits || 0,
-    bookedUnits: totals[0]?.bookedUnits || 0,
-    soldUnits: totals[0]?.soldUnits || 0,
+    totalUnits: parseInt(totalsRow?.totalUnits || '0', 10),
+    availableUnits: parseInt(totalsRow?.availableUnits || '0', 10),
+    bookedUnits: parseInt(totalsRow?.bookedUnits || '0', 10),
+    soldUnits: parseInt(totalsRow?.soldUnits || '0', 10),
     priceRange: {
-      min: totals[0]?.minPrice || 0,
-      max: totals[0]?.maxPrice || 0,
-      avg: Math.round(totals[0]?.avgPrice || 0),
+      min: parseFloat(totalsRow?.minPrice || '0'),
+      max: parseFloat(totalsRow?.maxPrice || '0'),
+      avg: Math.round(parseFloat(totalsRow?.avgPrice || '0')),
     },
-    totalArea: totals[0]?.totalArea || 0,
+    totalArea: parseFloat(totalsRow?.totalArea || '0'),
     byStatus,
     byType,
   };

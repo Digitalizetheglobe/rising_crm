@@ -1,13 +1,12 @@
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { Types } from 'mongoose';
-import { User } from '../users/user.model';
-import { Lead } from '../leads/lead.model';
-import { Client } from '../clients/client.model';
-import { Payment } from '../payments/payment.model';
-import { Project } from '../projects/project.model';
-import { Unit } from '../units/unit.model';
-import { Booking } from '../bookings/booking.model';
+import User from '../auth/auth.model';
+import Lead from '../leads/lead.model';
+import Client from '../clients/client.model';
+import Payment from '../payments/payment.model';
+import Project from '../projects/project.model';
+import Unit from '../units/unit.model';
+import Booking from '../bookings/booking.model';
 import { ApiError } from '../../utils/ApiError';
 import {
   LEAD_COLUMNS, CLIENT_COLUMNS, PAYMENT_COLUMNS,
@@ -18,6 +17,8 @@ import {
   validateProjectRow, validateUnitRow, RowError,
 } from './importExport.validator';
 import { LEAD_STATUSES, LEAD_SOURCES, PROPERTY_TYPES, LeadStatus, LeadSource } from '../leads/lead.constants';
+import { getTenantId } from '../../middleware/tenant.middleware';
+import { Op } from 'sequelize';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -27,8 +28,6 @@ import { LEAD_STATUSES, LEAD_SOURCES, PROPERTY_TYPES, LeadStatus, LeadSource } f
 const toDropdown = (values: readonly string[]) =>
   `"${values.join(',')}"`;
 
-// Normalize an incoming status string to its exact Mongoose enum value.
-// Handles: 'New'→'NEW', 'Contacted'→'CONTACTED', 'Hot'→'NEW', 'Dead'→'LOST', etc.
 const STATUS_MAP: Record<string, string> = {
   'new':                    'NEW',
   'hot':                    'NEW',
@@ -55,13 +54,10 @@ const STATUS_MAP: Record<string, string> = {
 const normalizeStatus = (raw: string): string => {
   if (!raw) return 'NEW';
   const key = raw.toString().trim().toLowerCase();
-  // Already a valid enum value (uppercase)
   if ((LEAD_STATUSES as readonly string[]).includes(raw.trim())) return raw.trim();
   return STATUS_MAP[key] || 'NEW';
 };
 
-// Normalize an incoming source string to its exact Mongoose enum value.
-// Falls back to 'Other' if not matched, returns empty string if empty.
 const normalizeSource = (raw: string): string => {
   if (!raw) return '';
   const val = raw.toString().trim();
@@ -70,19 +66,16 @@ const normalizeSource = (raw: string): string => {
   return match || 'Other';
 };
 
-// Parse the uploaded file buffer into an array of row objects
 const parseExcel = (buffer: Buffer): Record<string, any>[] => {
   const workbook  = XLSX.read(buffer, { type: 'buffer', cellDates: true });
   const sheet     = workbook.Sheets[workbook.SheetNames[0]];
   return XLSX.utils.sheet_to_json(sheet, { defval: '' });
 };
 
-// Normalise header keys — remove *, trim, lowercase, camelCase
 const normaliseRow = (row: Record<string, any>): Record<string, any> => {
   const result: Record<string, any> = {};
   for (const key of Object.keys(row)) {
     const clean = key.replace(/\*/g, '').trim();
-    // convert "Agent Email" → "agentEmail"
     const camel = clean
       .replace(/\s+(.)/g, (_, c) => c.toUpperCase())
       .replace(/^./, c => c.toLowerCase());
@@ -91,24 +84,22 @@ const normaliseRow = (row: Record<string, any>): Record<string, any> => {
   return result;
 };
 
-// Resolve agent: first try Excel agentEmail column, fallback to uploaderId
 const resolveAgent = async (
   agentEmail: string,
   uploaderId: string,
+  tenantId: string,
   adminOverrideId?: string
-): Promise<Types.ObjectId> => {
-  if (adminOverrideId) return new Types.ObjectId(adminOverrideId);
+): Promise<string> => {
+  if (adminOverrideId) return adminOverrideId;
 
   if (agentEmail) {
-    const agent = await User.findOne({ email: agentEmail.toLowerCase() });
-    if (agent) return agent._id as Types.ObjectId;
+    const agent = await User.findOne({ where: { email: agentEmail.toLowerCase(), tenantId } });
+    if (agent) return agent.id;
   }
 
-  // fallback: assign to uploader
-  return new Types.ObjectId(uploaderId);
+  return uploaderId;
 };
 
-// Style the header row of an ExcelJS worksheet
 const styleHeader = (sheet: ExcelJS.Worksheet) => {
   const headerRow = sheet.getRow(1);
   headerRow.eachCell((cell: any) => {
@@ -132,18 +123,12 @@ interface ImportResult {
   errors:   RowError[];
 }
 
-// ── Import Leads ─────────────────────────────────────────────────────────────
-// Supports both the NEW 20-col Lead Master template and the legacy format.
-// New template keys (after normaliseRow camelCase):
-//   leadId, leadDate, leadSource, firstName, lastName, phoneNumber,
-//   alternatePhone, emailId, city, assignedExecutive, leadStatus,
-//   propertyType, budgetMin, budgetMax, preferredLocation, sizeRequired,
-//   purpose, loanRequired, timelineToBuy, remarks
 export const importLeads = async (
   buffer: Buffer,
   uploaderId: string,
   adminOverrideAgentId?: string
 ): Promise<ImportResult> => {
+  const tenantId = getTenantId();
   const raw    = parseExcel(buffer);
   const errors: RowError[] = [];
   let inserted = 0;
@@ -153,40 +138,22 @@ export const importLeads = async (
     const row    = normaliseRow(raw[i]);
     const rowNum = i + 2;
 
-    // ── Normalise: support both new template keys and legacy keys ─────────────
-    // Name: new template splits into firstName + lastName
     const name = [
       row.firstName || row.name || '',
       row.lastName  || '',
     ].filter(Boolean).join(' ').trim();
 
-    // Phone: new = phoneNumber, legacy = phone
     const phone = (row.phoneNumber || row.phone || '').toString().trim();
-
-    // Email: new = emailId, legacy = email
     const email = (row.emailId || row.email || '').toString().trim();
-
-    // Source: new = leadSource, legacy = source — normalize to enum or fallback to 'Other'
     const rawSource = (row.leadSource || row.source || '').toString().trim();
     const source = normalizeSource(rawSource);
-
-    // Status: new = leadStatus, legacy = status — normalize to enum
     const status = normalizeStatus((row.leadStatus || row.status || '').toString());
-
-    // Notes/Remarks: new = remarks, legacy = notes
     const notes = (row.remarks || row.notes || '').toString().trim();
-
-    // Preferred location / city
     const preferredLocation = (row.preferredLocation || row.city || '').toString().trim();
-
-    // Property type
     const propertyType = (row.propertyType || '').toString().trim();
-
-    // Assigned executive: new = assignedExecutive (name), legacy = agentEmail
     const agentEmail        = (row.agentEmail || '').toString().trim();
     const assignedExecName  = (row.assignedExecutive || '').toString().trim();
 
-    // ── Validate required fields ──────────────────────────────────────────────
     const rowErrors: string[] = [];
     if (!name)                              rowErrors.push('Name / First Name is required');
     if (!/^[6-9]\d{9}$/.test(phone))       rowErrors.push('Valid 10-digit phone number is required');
@@ -199,33 +166,26 @@ export const importLeads = async (
       continue;
     }
 
-    // ── Resolve assigned executive ────────────────────────────────────────────
-    let assignedTo: Types.ObjectId;
+    let assignedTo: string;
     if (adminOverrideAgentId) {
-      assignedTo = new Types.ObjectId(adminOverrideAgentId);
+      assignedTo = adminOverrideAgentId;
     } else if (assignedExecName) {
-      // Try to find by name (case-insensitive) from new template
       const agent = await User.findOne({
-        name: { $regex: new RegExp(`^${assignedExecName}$`, 'i') },
+        where: { tenantId, name: { [Op.iLike]: assignedExecName } }
       });
       if (agent) {
-        assignedTo = agent._id as Types.ObjectId;
+        assignedTo = agent.id;
       } else if (agentEmail) {
-        // Fallback to email if name not found
-        const agentByEmail = await User.findOne({ email: agentEmail.toLowerCase() });
-        assignedTo = agentByEmail
-          ? (agentByEmail._id as Types.ObjectId)
-          : new Types.ObjectId(uploaderId);
+        const agentByEmail = await User.findOne({ where: { tenantId, email: agentEmail.toLowerCase() } });
+        assignedTo = agentByEmail ? agentByEmail.id : uploaderId;
       } else {
-        assignedTo = new Types.ObjectId(uploaderId);
+        assignedTo = uploaderId;
       }
     } else {
-      // Legacy path: resolve by agentEmail
-      assignedTo = await resolveAgent(agentEmail, uploaderId);
+      assignedTo = await resolveAgent(agentEmail, uploaderId, tenantId);
     }
 
-    // ── Skip duplicate phone numbers ──────────────────────────────────────────
-    const exists = await Lead.findOne({ phone });
+    const exists = await Lead.findOne({ where: { phone, tenantId } });
     if (exists) {
       errors.push({ row: rowNum, errors: [`Phone ${phone} already exists — skipped`] });
       skipped++;
@@ -233,6 +193,7 @@ export const importLeads = async (
     }
 
     await Lead.create({
+      tenantId,
       name,
       phone,
       email:             email || undefined,
@@ -242,10 +203,10 @@ export const importLeads = async (
       preferredLocation: preferredLocation || undefined,
       propertyType:      propertyType || undefined,
       assignedTo,
-      assignedBy:        new Types.ObjectId(uploaderId),
+      assignedBy:        uploaderId,
       assignedAt:        new Date(),
-      createdBy:         new Types.ObjectId(uploaderId),
-    });
+      createdBy:         uploaderId,
+    } as any);
 
     inserted++;
   }
@@ -253,12 +214,12 @@ export const importLeads = async (
   return { inserted, skipped, errors };
 };
 
-// ── Import Clients ────────────────────────────────────────────────────────────
 export const importClients = async (
   buffer: Buffer,
   uploaderId: string,
   adminOverrideAgentId?: string
 ): Promise<ImportResult> => {
+  const tenantId = getTenantId();
   const raw    = parseExcel(buffer);
   const errors: RowError[] = [];
   let inserted = 0;
@@ -271,9 +232,9 @@ export const importClients = async (
     const err = validateClientRow(row, rowNum);
     if (err) { errors.push(err); skipped++; continue; }
 
-    const assignedTo = await resolveAgent(row.agentEmail, uploaderId, adminOverrideAgentId);
+    const assignedTo = await resolveAgent(row.agentEmail, uploaderId, tenantId, adminOverrideAgentId);
 
-    const exists = await Client.findOne({ phone: row.phone });
+    const exists = await Client.findOne({ where: { phone: row.phone, tenantId } });
     if (exists) {
       errors.push({ row: rowNum, errors: [`Phone ${row.phone} already exists — skipped`] });
       skipped++;
@@ -281,6 +242,7 @@ export const importClients = async (
     }
 
     await Client.create({
+      tenantId,
       name:        row.name,
       phone:       row.phone,
       email:       row.email || undefined,
@@ -288,8 +250,8 @@ export const importClients = async (
       aadhaarNumber: row.aadhaar || undefined,
       panNumber:     row.pan || undefined,
       assignedTo,
-      createdBy:   new Types.ObjectId(uploaderId),
-    });
+      createdBy:   uploaderId,
+    } as any);
 
     inserted++;
   }
@@ -297,12 +259,12 @@ export const importClients = async (
   return { inserted, skipped, errors };
 };
 
-// ── Import Payments ───────────────────────────────────────────────────────────
 export const importPayments = async (
   buffer: Buffer,
   uploaderId: string,
   adminOverrideAgentId?: string
 ): Promise<ImportResult> => {
+  const tenantId = getTenantId();
   const raw    = parseExcel(buffer);
   const errors: RowError[] = [];
   let inserted = 0;
@@ -315,34 +277,34 @@ export const importPayments = async (
     const err = validatePaymentRow(row, rowNum);
     if (err) { errors.push(err); skipped++; continue; }
 
-    // Verify booking exists
-    const booking = await Booking.findById(row.bookingId);
+    const booking = await Booking.findOne({ where: { id: row.bookingId, tenantId } });
     if (!booking) {
       errors.push({ row: rowNum, errors: [`Booking ID ${row.bookingId} not found`] });
       skipped++;
       continue;
     }
 
-    const client = await Client.findOne({ phone: row.clientPhone });
+    const client = await Client.findOne({ where: { phone: row.clientPhone, tenantId } });
     if (!client) {
       errors.push({ row: rowNum, errors: [`Client with phone ${row.clientPhone} not found`] });
       skipped++;
       continue;
     }
 
-    const assignedTo = await resolveAgent(row.agentEmail, uploaderId, adminOverrideAgentId);
+    const assignedTo = await resolveAgent(row.agentEmail, uploaderId, tenantId, adminOverrideAgentId);
 
     await Payment.create({
-      booking:       booking._id,
-      client:        client._id,
+      tenantId,
+      bookingId:     booking.id,
+      clientId:      client.id,
       amount:        Number(row.amount),
       dueDate:       new Date(row.dueDate),
       paidDate:      row.paidDate ? new Date(row.paidDate) : undefined,
       status:        row.status,
-      paymentMode:   row.paymentMode || undefined,
+      paymentType:   row.paymentMode || 'Cash', // Defaulting to Cash if unknown, since model might require enum
       receiptNumber: row.receiptNumber || undefined,
       recordedBy:    assignedTo,
-    });
+    } as any);
 
     inserted++;
   }
@@ -350,8 +312,8 @@ export const importPayments = async (
   return { inserted, skipped, errors };
 };
 
-// ── Import Projects ───────────────────────────────────────────────────────────
 export const importProjects = async (buffer: Buffer): Promise<ImportResult> => {
+  const tenantId = getTenantId();
   const raw    = parseExcel(buffer);
   const errors: RowError[] = [];
   let inserted = 0;
@@ -365,7 +327,7 @@ export const importProjects = async (buffer: Buffer): Promise<ImportResult> => {
     if (err) { errors.push(err); skipped++; continue; }
 
     const exists = await Project.findOne({
-      name: { $regex: new RegExp(`^${row.name}$`, 'i') },
+      where: { tenantId, name: { [Op.iLike]: row.name } },
     });
     if (exists) {
       errors.push({ row: rowNum, errors: [`Project "${row.name}" already exists — skipped`] });
@@ -374,6 +336,7 @@ export const importProjects = async (buffer: Buffer): Promise<ImportResult> => {
     }
 
     await Project.create({
+      tenantId,
       name:        row.name,
       location:    row.location,
       description: row.description || undefined,
@@ -383,7 +346,7 @@ export const importProjects = async (buffer: Buffer): Promise<ImportResult> => {
       amenities:   row.amenities
         ? row.amenities.split(',').map((a: string) => a.trim()).filter(Boolean)
         : [],
-    });
+    } as any);
 
     inserted++;
   }
@@ -391,8 +354,8 @@ export const importProjects = async (buffer: Buffer): Promise<ImportResult> => {
   return { inserted, skipped, errors };
 };
 
-// ── Import Units ──────────────────────────────────────────────────────────────
 export const importUnits = async (buffer: Buffer): Promise<ImportResult> => {
+  const tenantId = getTenantId();
   const raw    = parseExcel(buffer);
   const errors: RowError[] = [];
   let inserted = 0;
@@ -406,7 +369,7 @@ export const importUnits = async (buffer: Buffer): Promise<ImportResult> => {
     if (err) { errors.push(err); skipped++; continue; }
 
     const project = await Project.findOne({
-      name: { $regex: new RegExp(`^${row.projectName}$`, 'i') },
+      where: { tenantId, name: { [Op.iLike]: row.projectName } },
     });
     if (!project) {
       errors.push({ row: rowNum, errors: [`Project "${row.projectName}" not found`] });
@@ -415,8 +378,7 @@ export const importUnits = async (buffer: Buffer): Promise<ImportResult> => {
     }
 
     const exists = await Unit.findOne({
-      project:    project._id,
-      unitNumber: row.unitNumber,
+      where: { tenantId, projectId: project.id, unitNumber: row.unitNumber },
     });
     if (exists) {
       errors.push({ row: rowNum, errors: [`Unit ${row.unitNumber} in "${row.projectName}" already exists`] });
@@ -425,7 +387,8 @@ export const importUnits = async (buffer: Buffer): Promise<ImportResult> => {
     }
 
     await Unit.create({
-      project:    project._id,
+      tenantId,
+      projectId:  project.id,
       unitNumber: row.unitNumber,
       type:       row.type,
       floor:      row.floor ? Number(row.floor) : undefined,
@@ -433,7 +396,7 @@ export const importUnits = async (buffer: Buffer): Promise<ImportResult> => {
       price:      Number(row.price),
       status:     row.status,
       facing:     row.facing || undefined,
-    });
+    } as any);
 
     inserted++;
   }
@@ -454,26 +417,30 @@ export interface ExportFilters {
 
 const buildDateFilter = (startDate?: string, endDate?: string) => {
   if (!startDate && !endDate) return {};
-  const filter: Record<string, Date> = {};
-  if (startDate) filter.$gte = new Date(startDate);
-  if (endDate)   filter.$lte = new Date(new Date(endDate).setHours(23, 59, 59));
+  const filter: any = {};
+  if (startDate) filter[Op.gte] = new Date(startDate);
+  if (endDate)   filter[Op.lte] = new Date(new Date(endDate).setHours(23, 59, 59));
   return { createdAt: filter };
 };
 
-// ── Export Leads ──────────────────────────────────────────────────────────────
 export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffer> => {
-  const query: Record<string, any> = {
+  const tenantId = getTenantId();
+  const query: any = {
+    tenantId,
     ...buildDateFilter(filters.startDate, filters.endDate),
   };
-  if (filters.agentId)   query.assignedTo       = new Types.ObjectId(filters.agentId);
-  if (filters.projectId) query.interestedProject = new Types.ObjectId(filters.projectId);
+  if (filters.agentId)   query.assignedTo = filters.agentId;
+  if (filters.projectId) query.interestedProjectId = filters.projectId;
 
-  const leads = await Lead.find(query)
-    .populate<{ assignedTo: { name: string; email: string } }>('assignedTo', 'name email')
-    .populate<{ interestedProject: { name: string } }>('interestedProject', 'name')
-    .sort({ createdAt: -1 });
+  const leads = await Lead.findAll({
+    where: query,
+    include: [
+      { model: User, as: 'assignedUser', attributes: ['name', 'email'] },
+      { model: Project, as: 'interestedProject', attributes: ['name'] },
+    ],
+    order: [['createdAt', 'DESC']],
+  });
 
-  // ── Workbook matching Lead Master template exactly ─────────────────────────
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Rising CRM';
   wb.created = new Date();
@@ -505,7 +472,6 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
     { header: 'Remarks',                 key: 'remarks',           width: 35 },
   ];
 
-  // ── Header styling (identical to crmTemplate.service.ts) ──────────────────
   const headerRow = sheet.getRow(1);
   headerRow.eachCell((cell) => {
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B3A5C' } };
@@ -519,7 +485,6 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
   headerRow.height = 22;
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
-  // ── Populate data rows ─────────────────────────────────────────────────────
   leads.forEach((lead: any, idx: number) => {
     const rowIndex = idx + 2;
     const nameParts = (lead.name || '').trim().split(' ');
@@ -527,7 +492,7 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
     const lastName  = nameParts.slice(1).join(' ') || '';
 
     const row = sheet.addRow({
-      leadId:            (lead._id as any)?.toString() || '',
+      leadId:            lead.id || '',
       leadDate:          lead.createdAt ? new Date(lead.createdAt) : '',
       leadSource:        lead.source || '',
       firstName,
@@ -536,7 +501,7 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
       alternatePhone:    '',
       emailId:           lead.email || '',
       city:              lead.preferredLocation || '',
-      assignedExecutive: (lead.assignedTo as any)?.name || '',
+      assignedExecutive: lead.assignedUser?.name || '',
       leadStatus:        lead.status || '',
       propertyType:      lead.propertyType || '',
       budgetMin:         '',
@@ -549,20 +514,16 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
       remarks:           lead.notes || '',
     });
 
-    // Dropdowns — use exact model enum values
     sheet.getCell(`C${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_SOURCES)] };
     sheet.getCell(`K${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_STATUSES)] };
     sheet.getCell(`L${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(PROPERTY_TYPES)] };
     sheet.getCell(`Q${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Self Use,Investment,Rental"'] };
     sheet.getCell(`R${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Yes,No"'] };
     sheet.getCell(`S${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Immediate,1-3 months,6+ months"'] };
-
-    // Formats
     sheet.getCell(`B${rowIndex}`).numFmt = 'DD/MM/YYYY';
     sheet.getCell(`M${rowIndex}`).numFmt = '₹#,##0.00';
     sheet.getCell(`N${rowIndex}`).numFmt = '₹#,##0.00';
 
-    // Alternating row shading
     row.eachCell((cell: any) => {
       cell.fill = {
         type: 'pattern', pattern: 'solid',
@@ -571,7 +532,6 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
     });
   });
 
-  // ── Blank rows up to 1000 — keep dropdowns/formats ready ──────────────────
   const dataEnd = leads.length + 2;
   for (let i = dataEnd; i <= 1000; i++) {
     sheet.getCell(`C${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_SOURCES)] };
@@ -588,16 +548,19 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
   return wb.xlsx.writeBuffer();
 };
 
-// ── Export Clients ────────────────────────────────────────────────────────────
 export const exportClients = async (filters: ExportFilters): Promise<ExcelJS.Buffer> => {
-  const query: Record<string, any> = {
+  const tenantId = getTenantId();
+  const query: any = {
+    tenantId,
     ...buildDateFilter(filters.startDate, filters.endDate),
   };
-  if (filters.agentId) query.assignedTo = new Types.ObjectId(filters.agentId);
+  if (filters.agentId) query.assignedTo = filters.agentId;
 
-  const clients = await Client.find(query)
-    .populate<{ assignedTo: { name: string; email: string } }>('assignedTo', 'name email')
-    .sort({ createdAt: -1 });
+  const clients = await Client.findAll({
+    where: query,
+    include: [{ model: User, as: 'assignedUser', attributes: ['name', 'email'] }],
+    order: [['createdAt', 'DESC']],
+  });
 
   const wb    = new ExcelJS.Workbook();
   const sheet = wb.addWorksheet('Clients');
@@ -612,33 +575,38 @@ export const exportClients = async (filters: ExportFilters): Promise<ExcelJS.Buf
       address:    c.address?.line1 || '',
       aadhaar:    c.aadhaarNumber || '',
       pan:        c.panNumber || '',
-      agentEmail: (c.assignedTo as any)?.email || '',
+      agentEmail: c.assignedUser?.email || '',
     });
   });
 
   return wb.xlsx.writeBuffer();
 };
 
-// ── Export Payments ───────────────────────────────────────────────────────────
 export const exportPayments = async (filters: ExportFilters): Promise<ExcelJS.Buffer> => {
-  const query: Record<string, any> = {
+  const tenantId = getTenantId();
+  const query: any = {
+    tenantId,
     ...buildDateFilter(filters.startDate, filters.endDate),
   };
-  if (filters.agentId) query.recordedBy = new Types.ObjectId(filters.agentId);
+  if (filters.agentId) query.recordedBy = filters.agentId;
 
-  // if projectId filter — find all bookings for that project first
   if (filters.projectId) {
-    const bookings = await Booking.find({
-      project: new Types.ObjectId(filters.projectId),
-    }).select('_id');
-    query.booking = { $in: bookings.map((b: any) => b._id) };
+    const bookings = await Booking.findAll({
+      where: { projectId: filters.projectId, tenantId },
+      attributes: ['id']
+    });
+    query.bookingId = { [Op.in]: bookings.map((b: any) => b.id) };
   }
 
-  const payments = await Payment.find(query)
-    .populate<{ client: { name: string; phone: string } }>('client', 'name phone')
-    .populate<{ booking: { _id: Types.ObjectId } }>('booking', '_id')
-    .populate<{ recordedBy: { email: string } }>('recordedBy', 'email')
-    .sort({ createdAt: -1 });
+  const payments = await Payment.findAll({
+    where: query,
+    include: [
+      { model: Client, as: 'client', attributes: ['name', 'phone'] },
+      { model: Booking, as: 'booking', attributes: ['id'] },
+      { model: User, as: 'recordedByUser', attributes: ['email'] },
+    ],
+    order: [['createdAt', 'DESC']],
+  });
 
   const wb    = new ExcelJS.Workbook();
   const sheet = wb.addWorksheet('Payments');
@@ -647,29 +615,30 @@ export const exportPayments = async (filters: ExportFilters): Promise<ExcelJS.Bu
 
   payments.forEach((p: any) => {
     sheet.addRow({
-      clientPhone:   (p.client as any)?.phone || '',
-      bookingId:     (p.booking as any)?._id?.toString() || '',
+      clientPhone:   p.client?.phone || '',
+      bookingId:     p.booking?.id || '',
       amount:        p.amount,
       dueDate:       new Date(p.dueDate).toLocaleDateString('en-IN'),
       paidDate:      p.paidDate ? new Date(p.paidDate).toLocaleDateString('en-IN') : '',
       status:        p.status,
-      paymentMode:   p.paymentMode || '',
+      paymentMode:   p.paymentType || '',
       receiptNumber: p.receiptNumber || '',
-      agentEmail:    (p.recordedBy as any)?.email || '',
+      agentEmail:    p.recordedByUser?.email || '',
     });
   });
 
   return wb.xlsx.writeBuffer();
 };
 
-// ── Export Projects ───────────────────────────────────────────────────────────
 export const exportProjects = async (filters: ExportFilters): Promise<ExcelJS.Buffer> => {
-  const query: Record<string, any> = {
+  const tenantId = getTenantId();
+  const query: any = {
+    tenantId,
     ...buildDateFilter(filters.startDate, filters.endDate),
   };
-  if (filters.projectId) query._id = new Types.ObjectId(filters.projectId);
+  if (filters.projectId) query.id = filters.projectId;
 
-  const projects = await Project.find(query).sort({ createdAt: -1 });
+  const projects = await Project.findAll({ where: query, order: [['createdAt', 'DESC']] });
 
   const wb    = new ExcelJS.Workbook();
   const sheet = wb.addWorksheet('Projects');
@@ -693,16 +662,19 @@ export const exportProjects = async (filters: ExportFilters): Promise<ExcelJS.Bu
   return wb.xlsx.writeBuffer();
 };
 
-// ── Export Units ──────────────────────────────────────────────────────────────
 export const exportUnits = async (filters: ExportFilters): Promise<ExcelJS.Buffer> => {
-  const query: Record<string, any> = {
+  const tenantId = getTenantId();
+  const query: any = {
+    tenantId,
     ...buildDateFilter(filters.startDate, filters.endDate),
   };
-  if (filters.projectId) query.project = new Types.ObjectId(filters.projectId);
+  if (filters.projectId) query.projectId = filters.projectId;
 
-  const units = await Unit.find(query)
-    .populate<{ project: { name: string } }>('project', 'name')
-    .sort({ createdAt: -1 });
+  const units = await Unit.findAll({
+    where: query,
+    include: [{ model: Project, as: 'project', attributes: ['name'] }],
+    order: [['createdAt', 'DESC']],
+  });
 
   const wb    = new ExcelJS.Workbook();
   const sheet = wb.addWorksheet('Units');
@@ -711,7 +683,7 @@ export const exportUnits = async (filters: ExportFilters): Promise<ExcelJS.Buffe
 
   units.forEach((u: any) => {
     sheet.addRow({
-      projectName: (u.project as any)?.name || '',
+      projectName: u.project?.name || '',
       unitNumber:  u.unitNumber,
       type:        u.type,
       floor:       u.floor ?? '',
@@ -725,7 +697,6 @@ export const exportUnits = async (filters: ExportFilters): Promise<ExcelJS.Buffe
   return wb.xlsx.writeBuffer();
 };
 
-// ── Download blank template ───────────────────────────────────────────────────
 type TemplateType = 'leads' | 'clients' | 'payments' | 'projects' | 'units';
 
 const TEMPLATE_COLUMNS: Record<TemplateType, any[]> = {
@@ -745,7 +716,6 @@ export const downloadTemplate = async (type: TemplateType): Promise<ExcelJS.Buff
   sheet.columns = columns;
   styleHeader(sheet);
 
-  // Add one example row with placeholder text
   const exampleRow: Record<string, string> = {};
   columns.forEach(col => { exampleRow[col.key] = `example_${col.key}`; });
   const row = sheet.addRow(exampleRow);

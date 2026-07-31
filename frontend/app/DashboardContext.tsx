@@ -37,13 +37,13 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const addToast = (message: string, type: "success" | "info" = "success") => {
+  const addToast = React.useCallback((message: string, type: "success" | "info" = "success") => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3000);
-  };
+  }, []);
 
   return (
     <DashboardContext.Provider

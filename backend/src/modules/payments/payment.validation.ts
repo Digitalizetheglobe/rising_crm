@@ -2,10 +2,10 @@ import Joi from 'joi';
 import { PAYMENT_STATUSES, PAYMENT_MODES, PAYMENT_TYPES } from './payment.constants';
 
 export const createPaymentSchema = Joi.object({
-  booking: Joi.string().hex().length(24).required().messages({
+  booking: Joi.string().uuid().required().messages({
     'any.required': 'Booking ID is required',
   }),
-  client: Joi.string().hex().length(24).required().messages({
+  client: Joi.string().uuid().required().messages({
     'any.required': 'Client ID is required',
   }),
   paymentType: Joi.string()

@@ -13,12 +13,12 @@ export const createLeadSchema = Joi.object({
     budgetRange:       Joi.string().valid(...BUDGET_RANGES).optional(),
     propertyType:      Joi.string().valid(...PROPERTY_TYPES).optional(),
     preferredLocation: Joi.string().optional().allow(''),
-    interestedProject: Joi.string().hex().length(24).optional(),
-    interestedUnit:    Joi.string().hex().length(24).optional(),
-    assignedTo:        Joi.string().hex().length(24).optional(),
+    interestedProject: Joi.string().uuid().optional(),
+    interestedUnit:    Joi.string().uuid().optional(),
+    assignedTo:        Joi.string().uuid().optional(),
     nextFollowUpDate:  Joi.date().optional(),
     notes:             Joi.string().optional().allow(''),
-    enquiryId:         Joi.string().hex().length(24).optional(),
+    enquiryId:         Joi.string().uuid().optional(),
 });
 
 export const updateLeadSchema = Joi.object({
@@ -30,8 +30,8 @@ export const updateLeadSchema = Joi.object({
     budgetRange:       Joi.string().valid(...BUDGET_RANGES).optional(),
     propertyType:      Joi.string().valid(...PROPERTY_TYPES).optional(),
     preferredLocation: Joi.string().optional().allow(''),
-    interestedProject: Joi.string().hex().length(24).optional(),
-    interestedUnit:    Joi.string().hex().length(24).optional(),
+    interestedProject: Joi.string().uuid().optional(),
+    interestedUnit:    Joi.string().uuid().optional(),
     nextFollowUpDate:  Joi.date().optional(),
     lastContactedAt:   Joi.date().optional(),
     notes:             Joi.string().optional().allow(''),
@@ -45,7 +45,7 @@ export const updateLeadStatusSchema = Joi.object({
         then:      Joi.required().messages({ 'any.required': 'Lost reason is required when marking as lost' }),
         otherwise: Joi.optional().allow(''),
     }),
-    duplicateOfLead: Joi.string().hex().length(24).when('status', {
+    duplicateOfLead: Joi.string().uuid().when('status', {
         is:        'DUPLICATE',
         then:      Joi.required().messages({ 'any.required': 'Original lead ID is required when marking as duplicate' }),
         otherwise: Joi.optional(),
@@ -53,6 +53,6 @@ export const updateLeadStatusSchema = Joi.object({
 });
 
 export const assignLeadSchema = Joi.object({
-    assignedTo: Joi.string().hex().length(24).required().messages({ 'any.required': 'Sales executive ID is required' }),
+    assignedTo: Joi.string().uuid().required().messages({ 'any.required': 'Sales executive ID is required' }),
     reason:     Joi.string().optional().allow(''),
 });

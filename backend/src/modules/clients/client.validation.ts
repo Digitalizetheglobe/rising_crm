@@ -1,7 +1,7 @@
 import Joi from 'joi';
 import { CLIENT_STATUSES } from './client.constants';
 
-const objectId = Joi.string().hex().length(24);
+const objectId = Joi.string().uuid();
 const phoneSchema = Joi.string().trim().pattern(/^[6-9]\d{9}$/);
 
 const addressSchema = Joi.object({

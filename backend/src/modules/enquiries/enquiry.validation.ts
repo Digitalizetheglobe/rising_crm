@@ -13,7 +13,7 @@ export const createEnquirySchema = Joi.object({
     budgetRange:       Joi.string().valid('Under 25L', '25L-50L', '50L-1Cr', '1Cr-2Cr', 'Above 2Cr').optional(),
     propertyType:      Joi.string().valid('1BHK', '2BHK', '3BHK', '4+BHK', 'Villa', 'Banglow', 'Plot', 'Residential', 'Commercial', 'Apartment', 'Shop', 'Office').optional(),
     preferredLocation: Joi.string().optional().allow(''),
-    interestedProject: Joi.string().hex().length(24).optional(),
+    interestedProject: Joi.string().uuid().optional(),
     notes:             Joi.string().optional().allow(''),
 });
 
@@ -27,7 +27,7 @@ export const updateEnquirySchema = Joi.object({
     budgetRange:       Joi.string().valid('Under 25L', '25L-50L', '50L-1Cr', '1Cr-2Cr', 'Above 2Cr').optional(),
     propertyType:      Joi.string().valid('1BHK', '2BHK', '3BHK', '4+BHK', 'Villa', 'Banglow', 'Plot', 'Residential', 'Commercial', 'Apartment', 'Shop', 'Office').optional(),
     preferredLocation: Joi.string().optional().allow(''),
-    interestedProject: Joi.string().hex().length(24).optional(),
+    interestedProject: Joi.string().uuid().optional(),
     notes:             Joi.string().optional().allow(''),
     lastContactedAt:   Joi.date().optional(),
 });
@@ -46,13 +46,13 @@ export const updateStatusSchema = Joi.object({
 });
 
 export const assignEnquirySchema = Joi.object({
-    assignedTo: Joi.string().hex().length(24).required().messages({
+    assignedTo: Joi.string().uuid().required().messages({
         'any.required': 'Sales executive ID is required',
     }),
 });
 
 export const convertToLeadSchema = Joi.object({
-    assignedTo:      Joi.string().hex().length(24).required().messages({
+    assignedTo:      Joi.string().uuid().required().messages({
                          'any.required': 'Sales executive to assign the lead is required',
                      }),
     followUpDate:    Joi.date().min('now').required().messages({

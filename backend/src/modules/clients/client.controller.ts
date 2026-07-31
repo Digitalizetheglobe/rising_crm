@@ -23,7 +23,7 @@ const sendExcel = (res: Response, buffer: ExcelJS.Buffer, filename: string) => {
 
 export const createClient = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const client = await createClientService(req.body, req.user!.UserId);
+        const client = await createClientService(req.body, req.user!.UserId, req.user!.tenantId!);
         res.status(201).json({ success: true, message: 'Client created successfully', data: client });
     } catch (error: any) {
         const code = error.statusCode || 400;
@@ -41,7 +41,7 @@ export const getAllClients = async (req: AuthRequest, res: Response): Promise<vo
             queryParams.assignedTo = req.user!.UserId;
         }
 
-        const result = await getAllClientsService(queryParams, page, limit);
+        const result = await getAllClientsService(queryParams, page, limit, req.user!.tenantId!);
         res.status(200).json({ success: true, data: result });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
@@ -50,7 +50,7 @@ export const getAllClients = async (req: AuthRequest, res: Response): Promise<vo
 
 export const getClientById = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const client = await getClientByIdService(req.params.id as string);
+        const client = await getClientByIdService(req.params.id as string, req.user!.tenantId!);
         res.status(200).json({ success: true, data: client });
     } catch (error: any) {
         const code = error.statusCode || 500;
@@ -60,7 +60,7 @@ export const getClientById = async (req: AuthRequest, res: Response): Promise<vo
 
 export const updateClient = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const client = await updateClientService(req.params.id as string, req.body, req.user!.UserId);
+        const client = await updateClientService(req.params.id as string, req.body, req.user!.UserId, req.user!.tenantId!);
         res.status(200).json({ success: true, message: 'Client updated successfully', data: client });
     } catch (error: any) {
         const code = error.statusCode || 400;
@@ -70,7 +70,7 @@ export const updateClient = async (req: AuthRequest, res: Response): Promise<voi
 
 export const deleteClient = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const result = await deleteClientService(req.params.id as string);
+        const result = await deleteClientService(req.params.id as string, req.user!.tenantId!);
         res.status(200).json({ success: true, message: result.message });
     } catch (error: any) {
         const code = error.statusCode || 400;
@@ -80,7 +80,7 @@ export const deleteClient = async (req: AuthRequest, res: Response): Promise<voi
 
 export const uploadClientDocuments = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const client = await uploadClientDocumentsService(req.params.id as string, req.body, req.user!.UserId);
+        const client = await uploadClientDocumentsService(req.params.id as string, req.body, req.user!.UserId, req.user!.tenantId!);
         res.status(200).json({ success: true, message: 'Client documents updated successfully', data: client });
     } catch (error: any) {
         const code = error.statusCode || 400;
@@ -90,7 +90,7 @@ export const uploadClientDocuments = async (req: AuthRequest, res: Response): Pr
 
 export const getClientBookings = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const bookings = await getClientBookingsService(req.params.id as string);
+        const bookings = await getClientBookingsService(req.params.id as string, req.user!.tenantId!);
         res.status(200).json({ success: true, data: bookings });
     } catch (error: any) {
         const code = error.statusCode || 500;
@@ -100,7 +100,7 @@ export const getClientBookings = async (req: AuthRequest, res: Response): Promis
 
 export const getClientPayments = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const payments = await getClientPaymentsService(req.params.id as string);
+        const payments = await getClientPaymentsService(req.params.id as string, req.user!.tenantId!);
         res.status(200).json({ success: true, data: payments });
     } catch (error: any) {
         const code = error.statusCode || 500;
@@ -108,25 +108,21 @@ export const getClientPayments = async (req: AuthRequest, res: Response): Promis
     }
 };
 
-export const importClients = async (req: AuthRequest, res: Response): Promise<void> => {
+export const exportClients = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        if (!req.file) throw new ApiError(400, 'Please upload an Excel or CSV file.');
-        const result = await importClientsService(req.file.buffer, req.user!.UserId, req.body.agentId);
-        res.status(200).json({ success: true, message: 'Clients import complete', data: result });
+        const queryParams = { ...req.query } as Record<string, any>;
+        const buffer = await exportClientsService(queryParams);
+        sendExcel(res, buffer, 'clients');
     } catch (error: any) {
-        const code = error.statusCode || 400;
-        res.status(code).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-export const exportClients = async (req: AuthRequest, res: Response): Promise<void> => {
+export const importClients = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const buffer = await exportClientsService({
-            agentId: req.query.agentId as string | undefined,
-            startDate: req.query.startDate as string | undefined,
-            endDate: req.query.endDate as string | undefined,
-        });
-        sendExcel(res, buffer, 'clients');
+        if (!req.file) throw new ApiError(400, 'Excel file is required');
+        const result = await importClientsService(req.file.buffer, req.user!.UserId);
+        res.status(200).json({ success: true, ...result });
     } catch (error: any) {
         const code = error.statusCode || 500;
         res.status(code).json({ success: false, message: error.message });

@@ -15,6 +15,7 @@ import {
   Star,
 } from "lucide-react";
 import KPICard from "../../Components/KPICard";
+import AdvancedDataGrid, { StatusCellRenderer } from "../../Components/AdvancedDataGrid";
 
 type TabKey = "timeline" | "booking" | "documents" | "feedback";
 
@@ -196,6 +197,21 @@ const computeProfileCompletion = (client: ClientDetail | null) => {
 export default function ClientPage() {
   const { searchQuery, addToast } = useDashboard();
 
+  const [columnDefs] = useState<any[]>([
+    { field: 'name', headerName: 'Name', checkboxSelection: true, headerCheckboxSelection: true, pinned: 'left', minWidth: 200, editable: true },
+    { field: 'phone', headerName: 'Phone', minWidth: 150, editable: true },
+    { field: 'email', headerName: 'Email', minWidth: 220, editable: true },
+    { field: 'status', headerName: 'Status', minWidth: 150, cellRenderer: StatusCellRenderer, editable: true },
+    { 
+      field: 'leadStatus', 
+      headerName: 'Lead Status', 
+      minWidth: 180,
+      cellRenderer: StatusCellRenderer,
+      valueFormatter: (params: any) => params.value ? leadStatusLabel(params.value) : "-",
+      editable: false
+    },
+  ]);
+
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [selectedClientId, setSelectedClientId  ] = useState<string | null>(null);
   const [clientDetail, setClientDetail] = useState<ClientDetail | null>(null);
@@ -221,6 +237,107 @@ export default function ClientPage() {
     duration: "",
     nextCallDate: "",
   });
+
+  const handleCellValueChanged = async (event: any) => {
+    const { data, colDef, newValue } = event;
+    const field = colDef.field;
+    const clientId = data.id;
+
+    if (!clientId) return;
+
+    try {
+      const payload = { [field]: newValue };
+      const res = await fetch(`${API_URL}/v1/clients/${clientId}`, {
+        method: "PUT",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success) {
+        addToast("Client updated successfully!", "success");
+        fetchClients();
+      } else {
+        addToast(json.message || "Failed to update client", "error");
+        fetchClients();
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error updating client", "error");
+      fetchClients();
+    }
+  };
+
+  const [selectedClients, setSelectedClients] = useState<any[]>([]);
+
+  const handleBulkUpdateField = async (field: string, val: string) => {
+    if (selectedClients.length === 0) return;
+    setLoadingList(true);
+    let successCount = 0;
+    try {
+      await Promise.all(
+        selectedClients.map(async (client) => {
+          const clientId = client.id;
+          if (!clientId) return;
+
+          const payload = { [field]: val };
+          const res = await fetch(`${API_URL}/v1/clients/${clientId}`, {
+            method: "PUT",
+            headers: {
+              ...getAuthHeaders(),
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+          const json = await res.json();
+          if (json.success) {
+            successCount++;
+          }
+        })
+      );
+      addToast(`Bulk updated ${successCount} clients successfully!`, "success");
+      setSelectedClients([]);
+      fetchClients();
+    } catch (e: any) {
+      addToast(e.message || "Error bulk updating clients", "error");
+      fetchClients();
+    } finally {
+      setLoadingList(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedClients.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedClients.length} clients?`)) return;
+    setLoadingList(true);
+    let successCount = 0;
+    try {
+      await Promise.all(
+        selectedClients.map(async (client) => {
+          const clientId = client.id;
+          if (!clientId) return;
+
+          const res = await fetch(`${API_URL}/v1/clients/${clientId}`, {
+            method: "DELETE",
+            headers: getAuthHeaders(),
+          });
+          const json = await res.json();
+          if (json.success) {
+            successCount++;
+          }
+        })
+      );
+      addToast(`Deleted ${successCount} clients successfully!`, "success");
+      setSelectedClients([]);
+      fetchClients();
+    } catch (e: any) {
+      addToast(e.message || "Error deleting clients", "error");
+      fetchClients();
+    } finally {
+      setLoadingList(false);
+    }
+  };
 
   const fetchClients = useCallback(async () => {
     setLoadingList(true);
@@ -533,55 +650,19 @@ export default function ClientPage() {
             <KPICard title="Site Visits" value={clients.filter(c => c.leadStatus === 'SITE_VISIT_SCHEDULED' || c.leadStatus === 'SITE_VISIT_COMPLETED').length} subtext="Scheduled/Completed" accentColor="#EF4444" />
             <KPICard title="Booked" value={clients.filter(c => c.leadStatus === 'BOOKED' || c.leadStatus === 'BOOKING_IN_PROGRESS').length} subtext="Successfully booked" accentColor="#10B981" />
           </div>
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-visible mt-6">
-            <div className="hidden sm:block overflow-visible">
-            <table className="w-full min-w-[700px] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Name</th>
-                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Phone</th>
-                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Email</th>
-                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Status</th>
-                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Lead Status</th>
-                  <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-semibold text-[14.5px] text-slate-700">
-                {loadingList ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-500 text-sm">Loading clients...</td>
-                  </tr>
-                ) : clients.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">No clients found.</td>
-                  </tr>
-                ) : (
-                  clients.map((client) => (
-                    <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group relative z-0">
-                      <td className="py-4 px-6 text-slate-800 font-medium hover:text-brand cursor-pointer" onClick={() => setSelectedClientId(client.id)}>{client.name}</td>
-                      <td className="py-4 px-6 text-slate-600">{client.phone}</td>
-                      <td className="py-4 px-6 text-slate-600">{client.email || "-"}</td>
-                      <td className="py-4 px-6">
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-sm">
-                          {client.status}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-slate-500">{client.leadStatus ? leadStatusLabel(client.leadStatus) : "-"}</td>
-                      <td className="py-4 px-6 text-right relative">
-                        <button
-                          onClick={() => setSelectedClientId(client.id)}
-                          className="px-3 py-1.5 rounded-xl text-brand hover:bg-brand/10 transition-colors text-sm font-semibold"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="block sm:hidden divide-y divide-slate-100">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 mt-6 overflow-hidden">
+            <div className="hidden sm:block h-[65vh]">
+              <AdvancedDataGrid
+                rowData={clients}
+                columnDefs={columnDefs}
+                gridId="clients-grid"
+                loading={loadingList}
+                onRowClicked={(e) => setSelectedClientId(e.data.id)}
+                onCellValueChanged={handleCellValueChanged}
+                onSelectionChanged={setSelectedClients}
+              />
+            </div>
+            <div className="block sm:hidden divide-y divide-slate-100">
             {loadingList ? (
               <div className="py-12 text-center text-slate-500 text-sm">Loading clients...</div>
             ) : clients.length === 0 ? (
@@ -1000,6 +1081,49 @@ export default function ClientPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Bulk Actions Bar */}
+      {selectedClients.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-[#1E293B]/90 backdrop-blur-md text-white px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-6 border border-slate-700/50 animate-fade-in font-sans">
+          <div className="flex items-center gap-2">
+            <span className="bg-primary text-white text-[11px] font-extrabold px-2 py-0.5 rounded-full shadow-inner">
+              {selectedClients.length}
+            </span>
+            <span className="text-[13px] font-semibold tracking-wide text-slate-300">Selected</span>
+          </div>
+
+          <div className="h-6 w-px bg-slate-700"></div>
+
+          {/* Bulk Update Status */}
+          <div className="relative group">
+            <button className="text-[13px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+              Change Status
+              <svg className="w-4.5 h-4.5 text-slate-400 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <div className="absolute bottom-full mb-2 left-0 hidden group-hover:block bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-2 w-40 text-[12.5px] font-medium text-left">
+              {["Active", "Inactive", "Pending"].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => handleBulkUpdateField("status", status)}
+                  className="w-full text-left px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer"
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-6 w-px bg-slate-700"></div>
+
+          {/* Bulk Delete */}
+          <button
+            onClick={handleBulkDelete}
+            className="text-[13px] font-bold bg-[#F87171] hover:bg-red-500 text-white px-4 py-2 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+          >
+            Delete
+          </button>
         </div>
       )}
     </div>

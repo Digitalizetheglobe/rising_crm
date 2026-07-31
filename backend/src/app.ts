@@ -6,6 +6,11 @@ import { errorHandler } from './middleware/error.middleware';
 import router from './routes/index';
 import { UPLOADS_DIR, ensureUploadsDir } from './config/uploads';
 
+// Explicit model registrations
+import './modules/auth/session.model';
+import './modules/roles/permission.model';
+import './modules/audit/auditLog.model';
+
 ensureUploadsDir();
 
 const app: Application = express();

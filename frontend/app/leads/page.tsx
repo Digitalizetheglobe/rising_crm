@@ -8,6 +8,7 @@ import { downloadCrmTemplateExcel } from "../../lib/services/importExportService
 import { useAuth } from "../AuthContext";
 import LeadDetailModule from "../../Components/leadDetailModule";
 import PageHeader from "../../Components/PageHeader";
+import AdvancedDataGrid, { StatusCellRenderer } from "../../Components/AdvancedDataGrid";
 import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../../lib/pageLayout";
 import { useDashboard } from "../DashboardContext";
 import { DownloadIcon, UploadIcon } from "lucide-react";
@@ -137,6 +138,15 @@ const DUMMY_LEADS: Lead[] = [
 export default function LeadsPage() {
   const { searchQuery, setSearchQuery, addToast } = useDashboard();
   const { user } = useAuth();
+  const [columnDefs] = useState<any[]>([
+    { field: 'name', headerName: 'Name', checkboxSelection: true, headerCheckboxSelection: true, minWidth: 150, pinned: 'left', editable: true },
+    { field: 'projectName', headerName: 'Project', minWidth: 130, editable: true },
+    { field: 'propertyType', headerName: 'Property Interest', minWidth: 150, editable: true },
+    { field: 'source', headerName: 'Source', minWidth: 120, editable: true },
+    { field: 'assignEmployee', headerName: 'Assign Employee', minWidth: 150, editable: true },
+    { field: 'status', headerName: 'Status', minWidth: 140, cellRenderer: StatusCellRenderer, editable: true },
+    { field: 'lastContacted', headerName: 'Last Contacted', minWidth: 140, editable: true },
+  ]);
 
   // Filter & Search states
   const [statusFilter, setStatusFilter] = useState("All status");
@@ -430,6 +440,149 @@ export default function LeadsPage() {
   };
 
   // Action handlers
+  const handleCellValueChanged = async (event: any) => {
+    const { data, colDef, newValue } = event;
+    const field = colDef.field;
+    const leadId = data.id;
+
+    if (!leadId) return;
+
+    try {
+      const payload: any = {};
+      if (field === 'projectName') {
+        const project = projectsList.find(p => p.name.toLowerCase() === newValue.toLowerCase());
+        if (project) {
+          payload.interestedProject = project.id;
+        } else {
+          addToast("Invalid project name", "error");
+          fetchLeads();
+          return;
+        }
+      } else if (field === 'assignEmployee') {
+        const matchedUser = users.find(u => u.name.toLowerCase() === newValue.toLowerCase());
+        if (matchedUser) {
+          payload.assignedTo = matchedUser.id || matchedUser._id;
+        } else {
+          addToast("Invalid employee name", "error");
+          fetchLeads();
+          return;
+        }
+      } else {
+        payload[field] = newValue;
+      }
+
+      const res = await fetch(`${API_URL}/v1/leads/${leadId}`, {
+        method: "PUT",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (json.success) {
+        addToast("Lead updated successfully!", "success");
+        fetchLeads();
+        fetchStats();
+      } else {
+        addToast(json.message || "Failed to update lead", "error");
+        fetchLeads();
+      }
+    } catch (err: any) {
+      addToast(err.message || "Error updating lead", "error");
+      fetchLeads();
+    }
+  };
+
+  const [selectedLeads, setSelectedLeads] = useState<any[]>([]);
+
+  const handleBulkUpdateField = async (field: string, val: string) => {
+    if (selectedLeads.length === 0) return;
+    setLoading(true);
+    let successCount = 0;
+    try {
+      await Promise.all(
+        selectedLeads.map(async (lead) => {
+          const leadId = lead.id;
+          if (!leadId) return;
+
+          const payload: any = {};
+          if (field === 'projectName') {
+            const project = projectsList.find(p => p.name.toLowerCase() === val.toLowerCase());
+            if (project) {
+              payload.interestedProject = project.id;
+            } else {
+              return;
+            }
+          } else if (field === 'status') {
+            let mappedStatus = "NEW";
+            if (val === "Hot Lead") mappedStatus = "QUALIFIED";
+            if (val === "Closed") mappedStatus = "WON";
+            payload.status = mappedStatus;
+          } else {
+            payload[field] = val;
+          }
+
+          const res = await fetch(`${API_URL}/v1/leads/${leadId}`, {
+            method: "PUT",
+            headers: {
+              ...getAuthHeaders(),
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          });
+          const json = await res.json();
+          if (json.success) {
+            successCount++;
+          }
+        })
+      );
+      addToast(`Bulk updated ${successCount} leads successfully!`, "success");
+      setSelectedLeads([]);
+      fetchLeads();
+      fetchStats();
+    } catch (e: any) {
+      addToast(e.message || "Error bulk updating leads", "error");
+      fetchLeads();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedLeads.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedLeads.length} leads?`)) return;
+    setLoading(true);
+    let successCount = 0;
+    try {
+      await Promise.all(
+        selectedLeads.map(async (lead) => {
+          const leadId = lead.id;
+          if (!leadId) return;
+
+          const res = await fetch(`${API_URL}/v1/leads/${leadId}`, {
+            method: "DELETE",
+            headers: getAuthHeaders(),
+          });
+          const json = await res.json();
+          if (json.success) {
+            successCount++;
+          }
+        })
+      );
+      addToast(`Deleted ${successCount} leads successfully!`, "success");
+      setSelectedLeads([]);
+      fetchLeads();
+      fetchStats();
+    } catch (e: any) {
+      addToast(e.message || "Error deleting leads", "error");
+      fetchLeads();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   const handleDeleteLead = async (id: string) => {
     try {
       const res = await fetch(`${API_URL}/v1/leads/${id}`, {
@@ -847,262 +1000,15 @@ export default function LeadsPage() {
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-visible">
 
         {/* Desktop and Tablet table presentation */}
-        <div className="hidden sm:block overflow-visible">
-          <table className="w-full min-w-[700px] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/50">
-                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Name</th>
-                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Project</th>
-                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Property interest</th>
-                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Source</th>
-                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Assign Employee</th>
-                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Status</th>
-                <th className="py-4.5 px-6 font-medium text-[14px] text-brand uppercase tracking-wider">Last contacted</th>
-                <th className="py-4.5 px-4 font-medium text-[14px] text-brand uppercase tracking-wider text-center w-24">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-semibold text-[14.5px] text-slate-700">
-              {filteredLeads.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400 font-medium">
-                    No leads matched your filters.
-                  </td>
-                </tr>
-              ) : (
-                filteredLeads.map((lead) => (
-                  <tr key={lead.id} className={`hover:bg-slate-50/50 transition-colors group ${activeRowActionId === lead.id ? 'relative z-50' : 'relative z-0'}`}>
-                    <td className="py-4 px-6 text-slate-800 font-medium hover:text-brand cursor-pointer" onClick={() => { setSelectedLead(lead); setIsDetailModalOpen(true); }}>{lead.name}</td>
-                    <td className="py-4 px-6 text-slate-800 font-bold text-[13.5px]">{lead.projectName || "—"}</td>
-                    <td className="py-4 px-6 text-slate-800 font-medium">{lead.propertyType !== "Not specified" ? lead.propertyType : "-"}</td>
-                    <td className="py-4 px-6 text-slate-600">
-                      {lead.source === "META_ADS" || lead.platform ? (
-                        <div>
-                          <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${lead.platform === 'instagram' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
-                            {lead.platform === 'instagram' ? 'Instagram' : 'Facebook'}
-                          </span>
-                          {lead.metaCampaignName && (
-                            <div className="text-[11px] text-slate-400 mt-1 font-medium">{lead.metaCampaignName}</div>
-                          )}
-                        </div>
-                      ) : (
-                        lead.source !== "Not specified" ? lead.source : "Unknown"
-                      )}
-                    </td>
-                    <td className="py-4 px-6">
-                      {lead.assignEmployee && lead.assignEmployee !== "Not specified" && lead.assignEmployee !== "-" ? (
-                        <span className="text-slate-700 font-medium">{lead.assignEmployee}</span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5  text-[11.5px] font-medium text-slate-400 ">
-                          Unassigned
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6">
-                      {lead.status === "Hot Lead" ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-sm animate-pulse-subtle">
-                          Hot Lead
-                        </span>
-                      ) : lead.status === "Closed" ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-[#F0FDF4] text-[#15803d] border border-emerald-200/50 shadow-sm">
-                          Closed
-                        </span>
-                      ) : lead.status === "New lead" ? (
-                        <span className="inline-flex items-center px-3 py-1  text-[12px] font-medium   text-blue-600">
-                          New lead
-                        </span>
-                      ) : lead.status ? (
-                        <span className="inline-flex items-center px-3 py-1  text-[12px] font-medium  text-green-600 ">
-                          {(lead.status as string).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-3 py-1  text-[12px] font-medium  text-green-400 ">
-                          New
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-slate-500 font-medium">{lead.lastContacted}</td>
-                    <td className="py-4 px-4 text-center relative w-24">
-                      <button
-                        onClick={() => {
-                          setActiveRowActionId(activeRowActionId === lead.id ? null : lead.id);
-                        }}
-                        className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                      >
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
-                      </button>
-
-                      {/* {activeRowActionId === lead.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setActiveRowActionId(null)} />
-                          <div className="absolute right-6 mt-1 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-semibold text-[13px] text-left">
-
-                            <span className="block px-3 py-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1">Details</span>
-                            <button
-                              onClick={() => { setSelectedLead(lead); setIsDetailModalOpen(true); setActiveRowActionId(null); }}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                              View Details
-                            </button>
-
-                            <div className="my-1 border-t border-slate-100" />
-
-                          
-                            <span className="block px-3 py-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1">Follow Up</span>
-                            <button
-                              onClick={() => { addToast("Follow-up scheduler opened", "info"); setActiveRowActionId(null); }}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-violet-600 hover:bg-violet-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                              Schedule Follow-up
-                            </button>
-
-                            <div className="my-1 border-t border-slate-100" />
-
-                        
-                            <span className="block px-3 py-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1">Convert</span>
-                            <button
-                              onClick={() => { addToast(`Converting ${lead.name} to client...`, "success"); setActiveRowActionId(null); }}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-emerald-600 hover:bg-emerald-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                              Convert to Client
-                            </button>
-
-                            <div className="my-1 border-t border-slate-100" />
-
-                       
-                            <span className="block px-3 py-1 text-[11px] font-medium text-slate-400 uppercase tracking-wider mb-1">Update Status</span>
-                            <button
-                              onClick={() => handleChangeLeadStatus(lead.id, "Hot Lead")}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-[#EB3539] hover:bg-red-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <span className="w-2 h-2 rounded-full bg-[#EB3539]" /> Hot Lead
-                            </button>
-                            <button
-                              onClick={() => handleChangeLeadStatus(lead.id, "New lead")}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-[#1d4ed8] hover:bg-blue-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <span className="w-2 h-2 rounded-full bg-[#1d4ed8]" /> New Lead
-                            </button>
-                            <button
-                              onClick={() => handleChangeLeadStatus(lead.id, "Closed")}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-[#15803d] hover:bg-emerald-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <span className="w-2 h-2 rounded-full bg-[#15803d]" /> Closed
-                            </button>
-
-                            <div className="my-1 border-t border-slate-100" />
-
-                            
-                            <button
-                              onClick={() => handleDeleteLead(lead.id)}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              Delete Lead
-                            </button>
-
-                          </div>
-                        </>
-                      )} */}
-                      {activeRowActionId === lead.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setActiveRowActionId(null)} />
-                          <div className="absolute right-6 mt-1 w-44 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-semibold text-[13px] text-left">
-
-                            <button
-                              onClick={() => { setSelectedLead(lead); setIsDetailModalOpen(true); setActiveRowActionId(null); }}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-blue-600 hover:bg-blue-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                              View Details
-                            </button>
-
-                            <button
-                              onClick={() => { setSelectedLead(lead); setIsAssignModalOpen(true); setActiveRowActionId(null); }}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-indigo-600 hover:bg-indigo-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                              Assign
-                            </button>
-
-                            <button
-                              onClick={() => { setSelectedLead(lead); setIsFollowUpModalOpen(true); setActiveRowActionId(null); }}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-violet-600 hover:bg-violet-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                              Follow-up
-                            </button>
-
-                            <div className="my-1 border-t border-slate-100" />
-
-                            <select
-                              defaultValue=""
-                              onChange={async (e) => {
-                                const status = e.target.value;
-                                if (!status) return;
-                                const res = await fetch(`${API_URL}/v1/leads/${lead.id}/status`, {
-                                  method: "PATCH", headers: getAuthHeaders(),
-                                  body: JSON.stringify({ status }),
-                                });
-                                const json = await res.json();
-                                json.success
-                                  ? (addToast(`Moved to ${status.replace(/_/g, " ")}`, "success"), fetchLeads(), fetchStats())
-                                  : addToast(json.message || "Invalid transition", "info");
-                                setActiveRowActionId(null);
-                              }}
-                              className="w-full px-3 py-1.5 rounded-xl bg-slate-50 text-slate-600 text-[13px] font-semibold border border-slate-200 cursor-pointer outline-none"
-                            >
-                              <option value="" disabled>Move Pipeline...</option>
-                              <option value="CONTACTED">Contacted</option>
-                              <option value="QUALIFIED">Qualified</option>
-                              <option value="SITE_VISIT_SCHEDULED">Site Visit Scheduled</option>
-                              <option value="SITE_VISIT_COMPLETED">Site Visit Completed</option>
-                              <option value="INTERESTED">Interested</option>
-                              <option value="NEGOTIATION">Negotiation</option>
-                              <option value="BOOKING_IN_PROGRESS">Booking In Progress</option>
-                              <option value="BOOKED">Booked</option>
-                              <option value="PAYMENT_IN_PROGRESS">Payment In Progress</option>
-                            </select>
-
-                            <div className="my-1 border-t border-slate-100" />
-
-                            <button
-                              onClick={async () => {
-                                if (lead.status !== "BOOKED") { addToast("Lead must be BOOKED to convert", "info"); setActiveRowActionId(null); return; }
-                                const res = await fetch(`${API_URL}/v1/leads/${lead.id}/convert`, { method: "POST", headers: getAuthHeaders() });
-                                const json = await res.json();
-                                json.success
-                                  ? (addToast(`${lead.name} converted to Client!`, "success"), fetchLeads(), fetchStats())
-                                  : addToast(json.message || "Failed", "info");
-                                setActiveRowActionId(null);
-                              }}
-                              className={`w-full text-left px-3 py-1.5 rounded-xl flex items-center gap-2 ${lead.status === "BOOKED" ? "text-emerald-600 hover:bg-emerald-50 cursor-pointer" : "text-slate-300 cursor-not-allowed"}`}
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                              Convert to Client
-                            </button>
-
-                            <div className="my-1 border-t border-slate-100" />
-
-                            <button
-                              onClick={() => handleDeleteLead(lead.id)}
-                              className="w-full text-left px-3 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 cursor-pointer flex items-center gap-2"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                              Delete
-                            </button>
-
-                          </div>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="hidden sm:block overflow-hidden" style={{ height: '65vh' }}>
+          <AdvancedDataGrid 
+            rowData={filteredLeads}
+            columnDefs={columnDefs}
+            gridId="leads-grid"
+            loading={loading}
+            onCellValueChanged={handleCellValueChanged}
+            onSelectionChanged={setSelectedLeads}
+          />
         </div>
 
         {/* Mobile Only Presentation */}
@@ -1580,6 +1486,68 @@ export default function LeadsPage() {
           }
         }}
       />
+
+      {/* Floating Bulk Actions Bar */}
+      {selectedLeads.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-[#1E293B]/90 backdrop-blur-md text-white px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-6 border border-slate-700/50 animate-fade-in font-sans">
+          <div className="flex items-center gap-2">
+            <span className="bg-primary text-white text-[11px] font-extrabold px-2 py-0.5 rounded-full shadow-inner">
+              {selectedLeads.length}
+            </span>
+            <span className="text-[13px] font-semibold tracking-wide text-slate-300">Selected</span>
+          </div>
+
+          <div className="h-6 w-px bg-slate-700"></div>
+
+          {/* Bulk Update Status */}
+          <div className="relative group">
+            <button className="text-[13px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+              Change Status
+              <svg className="w-4.5 h-4.5 text-slate-400 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <div className="absolute bottom-full mb-2 left-0 hidden group-hover:block bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-2 w-40 text-[12.5px] font-medium text-left">
+              {["New lead", "Hot Lead", "Closed"].map((status) => (
+                <button
+                  key={status}
+                  onClick={() => handleBulkUpdateField("status", status)}
+                  className="w-full text-left px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer"
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bulk Update Project */}
+          <div className="relative group">
+            <button className="text-[13px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+              Change Project
+              <svg className="w-4.5 h-4.5 text-slate-400 group-hover:translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <div className="absolute bottom-full mb-2 left-0 hidden group-hover:block bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-2 w-48 text-[12.5px] font-medium text-left max-h-48 overflow-y-auto scrollbar-thin">
+              {projectsList.map((proj) => (
+                <button
+                  key={proj.id}
+                  onClick={() => handleBulkUpdateField("projectName", proj.name)}
+                  className="w-full text-left px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white cursor-pointer"
+                >
+                  {proj.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-6 w-px bg-slate-700"></div>
+
+          {/* Bulk Delete */}
+          <button
+            onClick={handleBulkDelete}
+            className="text-[13px] font-bold bg-[#F87171] hover:bg-red-500 text-white px-4 py-2 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+          >
+            Delete
+          </button>
+        </div>
+      )}
 
     </div>
   );

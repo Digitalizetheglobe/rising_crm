@@ -1,12 +1,13 @@
 import crypto from 'crypto';
 import axios from 'axios';
-import mongoose from 'mongoose';
-import { MetaWebhookEvent } from './metaWebhook.model';
-import { UnmatchedMetaLead } from './unmatchedMetaLeads.model';
-import { Project } from '../projects/project.model';
-import { Enquiry } from '../enquiries/enquiry.model';
+import MetaWebhookEvent from './metaWebhook.model';
+import UnmatchedMetaLead from './unmatchedMetaLeads.model';
+import Project from '../projects/project.model';
+import Enquiry from '../enquiries/enquiry.model';
 import { createNotification } from '../notifications/notification.helper';
 import { ApiError } from '../../utils/ApiError';
+import { getTenantId } from '../../middleware/tenant.middleware';
+import { Op } from 'sequelize';
 
 interface MetaLeadData {
   leadgen_id: string;
@@ -99,29 +100,32 @@ export const fetchMetaLeadData = async (leadgenId: string): Promise<ParsedLeadDa
 };
 
 export const processMetaLead = async (metaLeadData: MetaLeadData) => {
+  const tenantId = getTenantId(); // Webhook routes should map to a specific tenant ID or resolve it somehow
   const { leadgen_id, ad_id, form_id, page_id } = metaLeadData;
 
   try {
-    const existingEnquiry = await Enquiry.findOne({ metaLeadId: leadgen_id });
+    const existingEnquiry = await Enquiry.findOne({ where: { metaLeadId: leadgen_id, tenantId } });
     if (existingEnquiry) {
-      console.log(
-        `[Meta Webhook] Enquiry already exists for leadgen_id: ${leadgen_id}`
-      );
+      console.log(`[Meta Webhook] Enquiry already exists for leadgen_id: ${leadgen_id}`);
       return;
     }
 
     const parsedData = await fetchMetaLeadData(leadgen_id);
 
+    // Assuming metaCampaigns is a JSONB array in Project model
     const projectMatch = await Project.findOne({
-      'metaCampaigns.adId': ad_id,
-      'metaCampaigns.isActive': true,
+      where: {
+        tenantId,
+        metaCampaigns: {
+          [Op.contains]: [{ adId: ad_id, isActive: true }]
+        }
+      }
     });
 
     if (!projectMatch) {
-      console.log(
-        `[Meta Webhook] No active campaign found for ad_id: ${ad_id}. Saving as unmatched.`
-      );
+      console.log(`[Meta Webhook] No active campaign found for ad_id: ${ad_id}. Saving as unmatched.`);
       await UnmatchedMetaLead.create({
+        tenantId,
         leadgenId: leadgen_id,
         adId: ad_id,
         formId: form_id,
@@ -131,6 +135,7 @@ export const processMetaLead = async (metaLeadData: MetaLeadData) => {
       });
 
       await MetaWebhookEvent.create({
+        tenantId,
         eventId: `${leadgen_id}-${Date.now()}`,
         leadgenId: leadgen_id,
         adId: ad_id,
@@ -145,12 +150,13 @@ export const processMetaLead = async (metaLeadData: MetaLeadData) => {
       return;
     }
 
-    const campaign = projectMatch.metaCampaigns!.find(
-      (c) => c.adId === ad_id && c.isActive
+    const campaign = projectMatch.metaCampaigns?.find(
+      (c: any) => c.adId === ad_id && c.isActive
     );
 
     if (!campaign) {
       await UnmatchedMetaLead.create({
+        tenantId,
         leadgenId: leadgen_id,
         adId: ad_id,
         formId: form_id,
@@ -160,6 +166,7 @@ export const processMetaLead = async (metaLeadData: MetaLeadData) => {
       });
 
       await MetaWebhookEvent.create({
+        tenantId,
         eventId: `${leadgen_id}-${Date.now()}`,
         leadgenId: leadgen_id,
         adId: ad_id,
@@ -175,29 +182,30 @@ export const processMetaLead = async (metaLeadData: MetaLeadData) => {
     }
 
     if (!parsedData.phone) {
-      console.warn(
-        `[Meta Webhook] Lead ${leadgen_id} has no phone number. Skipping.`
-      );
+      console.warn(`[Meta Webhook] Lead ${leadgen_id} has no phone number. Skipping.`);
       return;
     }
 
     const newEnquiry = await Enquiry.create({
+      tenantId,
       name: parsedData.fullName || 'Unknown',
       phone: parsedData.phone,
       email: parsedData.email,
       source: 'META_ADS',
       platform: parsedData.platform,
-      interestedProject: projectMatch._id,
-      assignedTo: campaign.defaultAssigneeId || undefined,
+      interestedProjectId: projectMatch.id,
+      assignedTo: campaign.defaultAssigneeId || null,
       metaLeadId: leadgen_id,
       metaAdId: ad_id,
       metaFormId: form_id,
       rawMetaPayload: metaLeadData,
       status: 'Pending',
       createdBy: projectMatch.createdBy,
-    });
+      isConverted: false,
+    } as any);
 
     await MetaWebhookEvent.create({
+      tenantId,
       eventId: `${leadgen_id}-${Date.now()}`,
       leadgenId: leadgen_id,
       adId: ad_id,
@@ -206,7 +214,7 @@ export const processMetaLead = async (metaLeadData: MetaLeadData) => {
       platform: parsedData.platform,
       rawPayload: metaLeadData,
       status: 'success',
-      enquiryId: newEnquiry._id,
+      enquiryId: newEnquiry.id,
     });
 
     if (campaign.defaultAssigneeId) {
@@ -215,7 +223,7 @@ export const processMetaLead = async (metaLeadData: MetaLeadData) => {
         title: 'New Meta Ads Enquiry',
         message: `New enquiry from ${parsedData.fullName || 'Unknown'} (${parsedData.phone}) via ${campaign.campaignName}`,
         type: 'Lead',
-        refId: newEnquiry._id,
+        refId: newEnquiry.id,
         refModel: 'Enquiry',
       });
     }
@@ -224,6 +232,7 @@ export const processMetaLead = async (metaLeadData: MetaLeadData) => {
 
     const { leadgen_id, ad_id, form_id, page_id } = metaLeadData;
     await MetaWebhookEvent.create({
+      tenantId,
       eventId: `${leadgen_id}-${Date.now()}`,
       leadgenId: leadgen_id,
       adId: ad_id,
@@ -242,26 +251,25 @@ export const getUnmatchedLeads = async (
   page: number = 1,
   limit: number = 10
 ) => {
-  const filter: Record<string, any> = {};
+  const tenantId = getTenantId();
+  const offset = (page - 1) * limit;
 
-  if (query.status) filter.status = query.status;
+  const where: any = { tenantId };
+  if (query.status) where.status = query.status;
 
-  const skip = (page - 1) * limit;
-
-  const [leads, total] = await Promise.all([
-    UnmatchedMetaLead.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
-    UnmatchedMetaLead.countDocuments(filter),
-  ]);
+  const { rows, count } = await UnmatchedMetaLead.findAndCountAll({
+    where,
+    order: [['createdAt', 'DESC']],
+    limit,
+    offset,
+  });
 
   return {
-    leads,
-    total,
+    leads: rows,
+    total: count,
     page,
-    totalPages: Math.ceil(total / limit),
-    hasNextPage: page < Math.ceil(total / limit),
+    totalPages: Math.ceil(count / limit),
+    hasNextPage: page < Math.ceil(count / limit),
     hasPrevPage: page > 1,
   };
 };
@@ -270,10 +278,11 @@ export const resolveUnmatchedLead = async (
   unmatchedId: string,
   data: { notes?: string; status?: 'pending' | 'resolved' }
 ) => {
-  const unmatched = await UnmatchedMetaLead.findById(unmatchedId);
+  const tenantId = getTenantId();
+  const unmatched = await UnmatchedMetaLead.findOne({ where: { id: unmatchedId, tenantId } });
   if (!unmatched) throw new ApiError(404, 'Unmatched lead not found');
 
-  const updateData: Record<string, any> = {};
+  const updateData: any = {};
 
   if (data.notes !== undefined) updateData.notes = data.notes;
   if (data.status) {
@@ -283,11 +292,6 @@ export const resolveUnmatchedLead = async (
     }
   }
 
-  const updated = await UnmatchedMetaLead.findByIdAndUpdate(
-    unmatchedId,
-    { $set: updateData },
-    { new: true }
-  );
-
-  return updated;
+  await unmatched.update(updateData);
+  return unmatched;
 };
