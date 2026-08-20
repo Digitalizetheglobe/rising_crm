@@ -62,7 +62,7 @@ export default function EmployeeDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center pb-10">
-        <span className="w-10 h-10 rounded-full border-[3px] border-slate-200 border-t-[#EB3539] animate-spin" />
+        <span className="w-10 h-10 rounded-full border-[3px] border-slate-200 border-t-[#38B6FF] animate-spin" />
         <p className="mt-4 text-slate-500 font-medium">Loading details...</p>
       </div>
     );

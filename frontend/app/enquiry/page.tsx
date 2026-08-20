@@ -355,7 +355,7 @@ export default function EnquiryPage() {
       {/* 4 KPI Metric Cards - Styled exactly like the user mockup */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard title="Today's Enquiries" value={todayCount} subtext={sourceFilter === "All sources" ? "Received today" : `Filtered by ${sourceFilter}`} accentColor="#8b5cf6" />
-        <KPICard title="Total Enquiries" value={totalEnquiriesCount} subtext={sourceFilter === "All sources" ? "All time, all sources" : `Filtered by ${sourceFilter}`} accentColor="#EB3539" />
+        <KPICard title="Total Enquiries" value={totalEnquiriesCount} subtext={sourceFilter === "All sources" ? "All time, all sources" : `Filtered by ${sourceFilter}`} accentColor="#38B6FF" />
         <KPICard title="Pending response" value={pendingCount} subtext="Awaiting follow-up" accentColor="#3b82f6" />
         <KPICard title="Converted leads" value={totalLeadsCount} subtext="Successfully converted" accentColor="#10b981" />
       </div>
@@ -536,7 +536,7 @@ export default function EnquiryPage() {
                       <td className="py-4 px-6 text-slate-850 font-medium">{enq.contactNo}</td>
                       <td className="py-4 px-6">
                         {enq.status === "Pending" ? (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-xs">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold bg-sky-50 text-[#0284C7] border border-sky-200/50 shadow-xs">
                             Pending
                           </span>
                         ) : (
@@ -627,7 +627,7 @@ export default function EnquiryPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-slate-800 font-bold text-[16px]">{enq.name}</span>
                   {enq.status === "Pending" ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#FDF2F2] text-[#EB3539] border border-red-200/50 shadow-xs">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-[#0284C7] border border-sky-200/50 shadow-xs">
                       Pending
                     </span>
                   ) : (

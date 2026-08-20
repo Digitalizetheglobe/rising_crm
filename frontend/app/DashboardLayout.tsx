@@ -170,15 +170,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const renderSidebarContent = () => (
-    <div className="flex flex-col h-full bg-[#FAF5F5] border-r border-red-100/50 p-6 overflow-y-auto font-sans">
+    <div className="flex flex-col h-full bg-gradient-to-b from-[#0A1628] via-[#0F1E36] to-[#0A1628] border-r border-slate-800/80 p-6 overflow-y-auto font-sans text-slate-200">
       {/* Logo Container */}
-      <div className="flex items-center justify-center mb-8">
-        <div className="w-[100px] h-[44px] relative">
+      <div className="flex items-center justify-center mb-12 pt-1">
+        <div className="w-[170px] h-[58px] relative transition-transform hover:scale-105 duration-300">
           <Image
-            src="/logo/logo_rising.png"
-            alt="Rising Spaces Logo"
-            width={100}
-            height={44}
+            src="/logo/Dtg_new_logo.png"
+            alt="Digitalize The Globe CRM Logo"
+            width={140}
+            height={40}
             className="object-contain"
             priority
           />
@@ -186,7 +186,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Main Menu List */}
-      <nav className="flex-1 space-y-1 mt-4">
+      <nav className="flex-1 space-y-1.5 mt-2">
         {navEntries.map((entry) => {
           if (entry.type === "link") {
             const isActive = getIsActive(entry.href);
@@ -207,12 +207,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 key={entry.name}
                 href={entry.href}
                 onClick={() => handleNavClick(entry.href, entry.name)}
-                className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${isActive
-                    ? "bg-brand text-white shadow-lg shadow-brand/25 scale-[1.02]"
-                    : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm hover:translate-x-1"
+                className={`w-full flex items-center cursor-pointer gap-3.5 px-4 py-3 rounded-2xl text-[14.5px] font-semibold transition-all duration-300 ${isActive
+                    ? "bg-[#38B6FF] text-white shadow-lg shadow-[#38B6FF]/30 scale-[1.02]"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white hover:translate-x-1"
                   }`}
               >
-                <span className={`transition-colors duration-300 ${isActive ? "text-white" : "text-slate-400"}`}>
+                <span className={`transition-colors duration-300 ${isActive ? "text-white" : "text-sky-400"}`}>
                   {icon}
                 </span>
                 {entry.name}
@@ -228,13 +228,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <button
                 type="button"
                 onClick={() => toggleGroup(entry.name)}
-                className={`w-full flex items-center justify-between cursor-pointer gap-3 px-4 py-3 rounded-2xl text-[15px] font-medium transition-all duration-300 ${hasActiveChild
-                    ? "bg-white text-brand shadow-sm"
-                    : "text-slate-500 hover:bg-white hover:text-brand hover:shadow-sm"
+                className={`w-full flex items-center justify-between cursor-pointer gap-3 px-4 py-3 rounded-2xl text-[14.5px] font-semibold transition-all duration-300 ${hasActiveChild
+                    ? "bg-white/10 text-[#38B6FF] shadow-sm"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
                   }`}
               >
                 <span className="flex items-center gap-3.5">
-                  <span className={`transition-colors duration-300 ${hasActiveChild ? "text-brand" : "text-slate-400"}`}>
+                  <span className={`transition-colors duration-300 ${hasActiveChild ? "text-[#38B6FF]" : "text-sky-400"}`}>
                     {entry.name === "All Clients" && (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -265,7 +265,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   }`}
               >
                 <div className="overflow-hidden">
-                  <div className="ml-5 mt-1 mb-1 space-y-0.5 border-l-2 border-slate-200/80 pl-3">
+                  <div className="ml-5 mt-1 mb-1 space-y-1 border-l-2 border-slate-700/80 pl-3">
                     {entry.children.map((child) => {
                       const isActive = getIsActive(child.href);
                       return (
@@ -273,9 +273,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           key={child.name}
                           href={child.href}
                           onClick={() => handleNavClick(child.href, child.name)}
-                          className={`block px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-200 ${isActive
-                              ? "bg-brand text-white shadow-md shadow-brand/20"
-                              : "text-slate-500 hover:bg-white hover:text-brand hover:translate-x-0.5"
+                          className={`block px-3 py-2 rounded-xl text-[13.5px] font-medium transition-all duration-200 ${isActive
+                              ? "bg-[#38B6FF] text-white shadow-md shadow-[#38B6FF]/30"
+                              : "text-slate-400 hover:bg-white/10 hover:text-white hover:translate-x-0.5"
                             }`}
                         >
                           {child.name}
@@ -292,16 +292,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Sidebar Footer */}
       <div className="mt-8">
-        <div className="bg-brand text-white p-4 rounded-3xl shadow-xl shadow-brand/15 relative overflow-hidden group">
+        <div className="bg-gradient-to-br from-[#38B6FF] to-[#0284C7] text-white p-4 rounded-3xl shadow-xl shadow-[#38B6FF]/20 relative overflow-hidden group">
           <div className="absolute -right-6 -bottom-6 w-20 h-20 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500"></div>
           <div className="relative z-10 flex flex-col items-center text-center">
             <div className="flex items-center gap-1.5 mb-2.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span className="text-[12px] font-bold tracking-wide uppercase opacity-90">Ai Assistant Active</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-ping"></span>
+              <span className="text-[12px] font-bold tracking-wide uppercase opacity-95">DTG AI Active</span>
             </div>
             <button
               onClick={() => addToast("Upgrade premium plan integration triggered!", "success")}
-              className="w-full bg-white text-brand hover:bg-brand-light font-bold text-[13px] py-2 px-4 rounded-xl shadow-sm transition-all duration-300 active:scale-95 cursor-pointer font-sans"
+              className="w-full bg-white text-[#0284C7] hover:bg-sky-50 font-bold text-[13px] py-2 px-4 rounded-xl shadow-sm transition-all duration-300 active:scale-95 cursor-pointer font-sans"
             >
               Upgrade Plan
             </button>
@@ -352,12 +352,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity duration-300"
           />
           {/* Drawer container */}
-          <aside className="relative w-[270px] h-full bg-[#FAF5F5] z-10 shadow-2xl transition-transform duration-300 ease-out transform translate-x-0">
+          <aside className="relative w-[270px] h-full bg-[#0A1628] z-10 shadow-2xl transition-transform duration-300 ease-out transform translate-x-0">
             {renderSidebarContent()}
             {/* Close drawer button */}
             <button
               onClick={() => setIsSidebarOpen(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl bg-white/80 text-slate-500 hover:bg-white shadow-sm border border-slate-200/50 cursor-pointer"
+              className="absolute top-5 right-5 p-2 rounded-xl bg-white/10 text-slate-300 hover:bg-white/20 shadow-sm border border-slate-700/50 cursor-pointer"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

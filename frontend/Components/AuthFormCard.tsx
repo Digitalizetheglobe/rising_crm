@@ -12,12 +12,12 @@ export default function AuthFormCard({ title, subtitle, children, footer }: Auth
   return (
     <div className="w-full max-w-md animate-fade-in-up">
       <div className="flex flex-col items-center mb-8">
-        <div className="w-[120px] h-[52px] relative mb-6">
+        <div className="w-[160px] h-[56px] relative mb-6">
           <Image
-            src="/logo/logo_rising.png"
-            alt="Rising Spaces"
-            width={120}
-            height={52}
+            src="/logo/Dtg_new_logo.png"
+            alt="Digitalize The Globe"
+            width={160}
+            height={56}
             className="object-contain"
             priority
           />

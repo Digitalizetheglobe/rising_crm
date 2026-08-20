@@ -1,798 +1,749 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { API_URL } from "../config/api.config";
 import { getAuthHeaders } from "../lib/auth";
 import PageHeader from "../Components/PageHeader";
-import { PAGE_CONTAINER_CLASS, PRIMARY_ACTION_BTN_CLASS } from "../lib/pageLayout";
+import { PAGE_CONTAINER_CLASS } from "../lib/pageLayout";
 import { useDashboard } from "./DashboardContext";
-import { Download, Upload, ClipboardList, Sparkles, Bell, MapPin, FileCheck, Hourglass, Home as HomeIcon, TrendingUp, BarChart2, ChevronDown } from "lucide-react";
-
 import KPICard from "../Components/KPICard";
+import {
+  Users,
+  Activity,
+  Trash2,
+  Megaphone,
+  Sparkles,
+  PhoneCall,
+  MapPin,
+  FileCheck,
+  Calendar,
+  ChevronDown,
+  Clock,
+  Building,
+  CheckCircle2,
+  ArrowRight,
+  Filter,
+} from "lucide-react";
 
-// --- Helper Functions ---
-const formatCurrencyCr = (val: number) => {
-  if (!val) return "₹0";
-  if (val >= 10000000) return `₹${(val / 10000000).toFixed(1)} Cr`;
-  if (val >= 100000) return `₹${(val / 100000).toFixed(1)} L`;
-  return `₹${val.toLocaleString("en-IN")}`;
-};
+// --- Date Filter Preset Options ---
+const DATE_FILTER_OPTIONS = [
+  { label: "Today", value: "today" },
+  { label: "Yesterday", value: "yesterday" },
+  { label: "This Week", value: "this_week" },
+  { label: "This Month", value: "this_month" },
+  { label: "This Year", value: "this_year" },
+  { label: "All Time", value: "all" },
+  { label: "Custom Range", value: "custom" },
+];
 
-const formatCurrencyLakh = (val: number) => {
+const formatCurrency = (val: number) => {
   if (!val) return "₹0";
-  if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
+  if (val >= 10000000) return `₹${(val / 10000000).toFixed(2)} Cr`;
+  if (val >= 100000) return `₹${(val / 100000).toFixed(2)} L`;
   return `₹${val.toLocaleString("en-IN")}`;
 };
 
 export default function Home() {
   const { userName, addToast } = useDashboard();
-  const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState("all");
   const [projectsList, setProjectsList] = useState<any[]>([]);
 
+  // 1-3 & 8 Core Summaries
   const [summary, setSummary] = useState<any>({});
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [employeePerf, setEmployeePerf] = useState<any[]>([]);
-  const [topPerformers, setTopPerformers] = useState<any[]>([]);
-  const [visits, setVisits] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [leadTrends, setLeadTrends] = useState<any[]>([]);
-  const [leadFunnel, setLeadFunnel] = useState<any[]>([]);
-  const [leadSources, setLeadSources] = useState<any[]>([]);
-  const [todayWork, setTodayWork] = useState<any>({});
-  const [reminders, setReminders] = useState<any[]>([]);
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
+  const [loadingSummary, setLoadingSummary] = useState(true);
 
+  // 4. New Leads (with Date Filter)
+  const [newLeadsRange, setNewLeadsRange] = useState("today");
+  const [newLeadsStart, setNewLeadsStart] = useState("");
+  const [newLeadsEnd, setNewLeadsEnd] = useState("");
+  const [newLeadsData, setNewLeadsData] = useState<{ count: number; leads: any[] }>({ count: 0, leads: [] });
+  const [loadingNewLeads, setLoadingNewLeads] = useState(false);
+
+  // 5. Follow-Ups (with Date Filter)
+  const [followUpsRange, setFollowUpsRange] = useState("today");
+  const [followUpsStart, setFollowUpsStart] = useState("");
+  const [followUpsEnd, setFollowUpsEnd] = useState("");
+  const [followUpsData, setFollowUpsData] = useState<{ count: number; completedCount: number; pendingCount: number; followups: any[] }>({
+    count: 0,
+    completedCount: 0,
+    pendingCount: 0,
+    followups: [],
+  });
+  const [loadingFollowUps, setLoadingFollowUps] = useState(false);
+
+  // 6. Site Visits (with Date Filter)
+  const [siteVisitsRange, setSiteVisitsRange] = useState("today");
+  const [siteVisitsStart, setSiteVisitsStart] = useState("");
+  const [siteVisitsEnd, setSiteVisitsEnd] = useState("");
+  const [siteVisitsData, setSiteVisitsData] = useState<{ count: number; completedCount: number; confirmedCount: number; visits: any[] }>({
+    count: 0,
+    completedCount: 0,
+    confirmedCount: 0,
+    visits: [],
+  });
+  const [loadingSiteVisits, setLoadingSiteVisits] = useState(false);
+
+  // 7. Bookings (with Date Filter)
+  const [bookingsRange, setBookingsRange] = useState("today");
+  const [bookingsStart, setBookingsStart] = useState("");
+  const [bookingsEnd, setBookingsEnd] = useState("");
+  const [bookingsData, setBookingsData] = useState<{ count: number; totalRevenue: number; bookings: any[] }>({
+    count: 0,
+    totalRevenue: 0,
+    bookings: [],
+  });
+  const [loadingBookings, setLoadingBookings] = useState(false);
+
+  // Active Campaigns List
+  const [activeCampaignsData, setActiveCampaignsData] = useState<{ count: number; campaigns: any[] }>({ count: 0, campaigns: [] });
+
+  // Safe fetch helper to handle network offline / connection errors gracefully
+  const safeFetchJson = async (url: string) => {
     try {
-      const headers = getAuthHeaders();
-      const requests = [
-        fetch(`${API_URL}/v1/dashboard/summary?projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/project-inventory?projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/employee-performance`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/top-performers`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/today-visits?projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/payment-alerts`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/lead-trends?period=daily&range=7&projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/lead-funnel?projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/lead-sources?period=thisMonth&projectId=${selectedProject}`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/today-work`, { headers }).then(r => r.ok ? r.json() : null),
-        fetch(`${API_URL}/v1/dashboard/reminders`, { headers }).then(r => r.ok ? r.json() : null),
-      ];
-
-      const [sumData, invData, empData, topData, visData, payData, trendData, funnelData, srcData, workData, remData] = await Promise.all(requests);
-
-      if (sumData?.success) setSummary(sumData.data || {});
-      if (invData?.success) setInventory(invData.data || []);
-      if (empData?.success) setEmployeePerf(empData.data || []);
-      if (topData?.success) setTopPerformers(topData.data || []);
-      if (visData?.success) setVisits(visData.data || []);
-      if (payData?.success) setPayments(payData.data || []);
-      if (trendData?.success) setLeadTrends(trendData.data || []);
-      if (funnelData?.success) setLeadFunnel(funnelData.data || []);
-      if (srcData?.success) setLeadSources(srcData.data || []);
-      if (workData?.success) setTodayWork(workData.data || {});
-      if (remData?.success) {
-        // reminders returns { upcoming: [...], overdue: [...] }
-        const upcoming = (remData.data?.upcoming || []).map((r: any) => ({ ...r, isOverdue: false }));
-        const overdue = (remData.data?.overdue || []).map((r: any) => ({ ...r, isOverdue: true }));
-        setReminders([...overdue, ...upcoming]);
-      }
-
-    } catch (err: any) {
-      console.error(err);
-      addToast(err.message || "Error connecting to server", "info");
-    } finally {
-      setLoading(false);
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
     }
-  }, [addToast, selectedProject]);
+  };
 
+  // Load Projects List
   useEffect(() => {
     const fetchProjects = async () => {
-      try {
-        const res = await fetch(`${API_URL}/v1/projects?limit=100`, {
-          headers: getAuthHeaders(),
-        });
-        const json = await res.json();
-        if (json.success && json.data) {
-          setProjectsList(json.data.projects || []);
-        }
-      } catch (err) {
-        console.error("Failed to fetch projects list", err);
+      const json = await safeFetchJson(`${API_URL}/v1/projects?limit=100`);
+      if (json?.success && json?.data) {
+        setProjectsList(json.data.projects || []);
       }
     };
     fetchProjects();
   }, []);
 
+  // Fetch Summary
+  const fetchSummary = useCallback(async () => {
+    setLoadingSummary(true);
+    const json = await safeFetchJson(`${API_URL}/v1/dashboard/summary?projectId=${selectedProject}`);
+    if (json?.success) {
+      setSummary(json.data || {});
+    }
+    setLoadingSummary(false);
+  }, [selectedProject]);
+
+  // Fetch New Leads (Date Filtered)
+  const fetchNewLeads = useCallback(async () => {
+    setLoadingNewLeads(true);
+    let url = `${API_URL}/v1/dashboard/new-leads?projectId=${selectedProject}&dateRange=${newLeadsRange}`;
+    if (newLeadsRange === "custom" && newLeadsStart && newLeadsEnd) {
+      url += `&startDate=${newLeadsStart}&endDate=${newLeadsEnd}`;
+    }
+    const json = await safeFetchJson(url);
+    if (json?.success) {
+      setNewLeadsData(json.data || { count: 0, leads: [] });
+    }
+    setLoadingNewLeads(false);
+  }, [selectedProject, newLeadsRange, newLeadsStart, newLeadsEnd]);
+
+  // Fetch Follow Ups (Date Filtered)
+  const fetchFollowUps = useCallback(async () => {
+    setLoadingFollowUps(true);
+    let url = `${API_URL}/v1/dashboard/followups-filtered?projectId=${selectedProject}&dateRange=${followUpsRange}`;
+    if (followUpsRange === "custom" && followUpsStart && followUpsEnd) {
+      url += `&startDate=${followUpsStart}&endDate=${followUpsEnd}`;
+    }
+    const json = await safeFetchJson(url);
+    if (json?.success) {
+      setFollowUpsData(json.data || { count: 0, completedCount: 0, pendingCount: 0, followups: [] });
+    }
+    setLoadingFollowUps(false);
+  }, [selectedProject, followUpsRange, followUpsStart, followUpsEnd]);
+
+  // Fetch Site Visits (Date Filtered)
+  const fetchSiteVisits = useCallback(async () => {
+    setLoadingSiteVisits(true);
+    let url = `${API_URL}/v1/dashboard/site-visits-filtered?projectId=${selectedProject}&dateRange=${siteVisitsRange}`;
+    if (siteVisitsRange === "custom" && siteVisitsStart && siteVisitsEnd) {
+      url += `&startDate=${siteVisitsStart}&endDate=${siteVisitsEnd}`;
+    }
+    const json = await safeFetchJson(url);
+    if (json?.success) {
+      setSiteVisitsData(json.data || { count: 0, completedCount: 0, confirmedCount: 0, visits: [] });
+    }
+    setLoadingSiteVisits(false);
+  }, [selectedProject, siteVisitsRange, siteVisitsStart, siteVisitsEnd]);
+
+  // Fetch Bookings (Date Filtered)
+  const fetchBookings = useCallback(async () => {
+    setLoadingBookings(true);
+    let url = `${API_URL}/v1/dashboard/bookings-filtered?projectId=${selectedProject}&dateRange=${bookingsRange}`;
+    if (bookingsRange === "custom" && bookingsStart && bookingsEnd) {
+      url += `&startDate=${bookingsStart}&endDate=${bookingsEnd}`;
+    }
+    const json = await safeFetchJson(url);
+    if (json?.success) {
+      setBookingsData(json.data || { count: 0, totalRevenue: 0, bookings: [] });
+    }
+    setLoadingBookings(false);
+  }, [selectedProject, bookingsRange, bookingsStart, bookingsEnd]);
+
+  // Fetch Active Campaigns
+  const fetchActiveCampaigns = useCallback(async () => {
+    const json = await safeFetchJson(`${API_URL}/v1/dashboard/active-campaigns?projectId=${selectedProject}`);
+    if (json?.success) {
+      setActiveCampaignsData(json.data || { count: 0, campaigns: [] });
+    }
+  }, [selectedProject]);
+
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    fetchSummary();
+    fetchActiveCampaigns();
+  }, [fetchSummary, fetchActiveCampaigns]);
 
-  // Derived metrics
-  const totalUnits = inventory.reduce((sum, inv) => sum + (inv.totalUnits || 0), 0);
-  const unitsAvailable = inventory.reduce((sum, inv) => sum + (inv.available || 0), 0);
-  const openPct = totalUnits > 0 ? Math.round((unitsAvailable / totalUnits) * 100) : 0;
+  useEffect(() => {
+    fetchNewLeads();
+  }, [fetchNewLeads]);
 
-  const teamDeals = topPerformers.reduce((sum, p) => sum + (p.dealsClosedMonth || 0), 0);
-  const teamRevenue = topPerformers.reduce((sum, p) => sum + (p.revenue || 0), 0);
-  const teamAvgConv = topPerformers.length > 0 ? (topPerformers.reduce((sum, p) => sum + (p.conversionRate || 0), 0) / topPerformers.length).toFixed(1) : "0";
+  useEffect(() => {
+    fetchFollowUps();
+  }, [fetchFollowUps]);
+
+  useEffect(() => {
+    fetchSiteVisits();
+  }, [fetchSiteVisits]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
 
   return (
     <div className={PAGE_CONTAINER_CLASS}>
       <div className="space-y-6 animate-fade-in-up">
+        {/* --- Top Header & Project Filter --- */}
         <PageHeader
-          title={<>Welcome Back, <span className="text-brand">{userName}</span></>}
-          subtitle="Here's what requires your attention today"
+          title={<>Welcome Back, <span className="text-[#38B6FF] font-extrabold">{userName}</span></>}
+          subtitle="Real-time dashboard metrics and date-filtered activity"
           actions={
-            // <div className="flex items-center gap-2 bg-white border border-rose-200 hover:border-[#EB3539]/50 shadow-sm rounded-xl px-4 py-2.5 relative transition-all group w-[280px] cursor-pointer">
-            //   <span className="text-slate-500 text-[13px] font-medium whitespace-nowrap">Project:</span>
-            //   <select 
-            //     className="bg-transparent border-none text-[#EB3539] font-bold text-[14px] outline-none cursor-pointer pr-8 focus:ring-0 appearance-none flex-1 w-full"
-            //     value={selectedProject}
-            //     onChange={(e) => setSelectedProject(e.target.value)}
-            //   >
-            //     <option value="all" className="text-slate-800 font-medium">All Projects</option>
-            //     {projectsList.map((p) => (
-            //       <option key={p._id} value={p._id} className="text-slate-800 font-medium">
-            //         {p.name}
-            //       </option>
-            //     ))}
-            //   </select>
-            //   <div className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 bg-rose-50 rounded-md flex items-center justify-center group-hover:bg-[#EB3539] transition-colors">
-            //     <ChevronDown className="w-3.5 h-3.5 text-[#EB3539] group-hover:text-white transition-colors" />
-            //   </div>
-            // </div>
             <div className="relative w-[280px]">
               <select
                 value={selectedProject}
                 onChange={(e) => setSelectedProject(e.target.value)}
-                className="
-      w-full
-      h-12
-      pl-4
-      pr-12
-      rounded-xl
-      border border-rose-200
-      bg-white
-      text-[#EB3539]
-      font-semibold
-      text-sm
-      shadow-sm
-      outline-none
-      appearance-none
-      hover:border-[#EB3539]/50
-      focus:border-[#EB3539]
-      focus:ring-2
-      focus:ring-[#EB3539]/20
-      cursor-pointer
-    "
+                className="w-full h-12 pl-4 pr-12 rounded-xl border border-sky-200 bg-white text-[#0284C7] font-semibold text-sm shadow-sm outline-none appearance-none hover:border-[#38B6FF]/50 focus:border-[#38B6FF] focus:ring-2 focus:ring-[#38B6FF]/20 cursor-pointer"
               >
                 <option value="all">All Projects</option>
-
                 {projectsList.map((p) => (
-                  <option key={p._id} value={p._id}>
+                  <option key={p._id || p.id} value={p._id || p.id}>
                     {p.name}
                   </option>
                 ))}
               </select>
-
-              <ChevronDown
-                className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EB3539] pointer-events-none"
-              />
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#38B6FF] pointer-events-none" />
             </div>
           }
         />
 
-        {/* 8 KPI Cards — inner alignment updated to match Image 2 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* --- 8 Key Dashboard Cards Top Row (Items 1, 2, 3, 8) --- */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* 1. Total Leads */}
           <KPICard
             title="Total Leads"
-            value={(summary.totalLeads || 0).toLocaleString('en-IN')}
-            trend={summary.newLeadsTrendPct != null ? `${summary.newLeadsTrendPct > 0 ? '+' : ''}${summary.newLeadsTrendPct}% vs last mo.` : "—"}
-            isUp={(summary.newLeadsTrendPct ?? 0) >= 0}
-            subtext="All time, all sources"
-            accentColor="#3b82f6"
-          />
-          <KPICard
-            title="New Leads Today"
-            value={summary.newLeadsToday || 0}
-            trend="+3 vs yesterday"
+            value={(summary.totalLeads || 0).toLocaleString("en-IN")}
+            trend="All time leads"
             isUp={true}
-            subtext="Captured since midnight"
-            accentColor="#f59e0b"
+            subtext="Across all sources & statuses"
+            accentColor="#2563eb"
           />
+
+          {/* 2. Active Leads */}
           <KPICard
-            title="Today's Follow-Ups"
-            value={summary.todayFollowUps || 0}
-            trend="In progress"
+            title="Active Leads"
+            value={(summary.activeLeads || 0).toLocaleString("en-IN")}
+            trend="In Pipeline"
             isUp={true}
-            subtext={`${summary.todayFollowUpsDone || 0} completed so far`}
-            accentColor="#EB3539"
-          />
-          <KPICard
-            title="Today's Site Visits"
-            value={summary.todayVisits || 0}
-            trend="+2 vs yesterday"
-            isUp={true}
-            subtext="Scheduled & confirmed"
+            subtext="Excludes Lost & Duplicate"
             accentColor="#10b981"
           />
+
+          {/* 3. Dump Leads */}
           <KPICard
-            title="Yesterday's Bookings"
-            value={summary.yesterdayBookings || 0}
-            trend="+1 vs prev. day"
-            isUp={true}
-            subtext="Confirmed deals"
-            accentColor="#6366f1"
+            title="Dump Leads"
+            value={(summary.dumpLeads || 0).toLocaleString("en-IN")}
+            trend="Dropped / Dead"
+            isUp={false}
+            subtext="Lost, Duplicate & Hold"
+            accentColor="#ef4444"
           />
+
           <KPICard
-            title="Pending Payments"
-            value={summary.pendingPayments || 0}
-            trend={`${summary.overduePayments || 0} overdue`}
-            isUp={(summary.overduePayments ?? 0) === 0}
-            subtext="Due within 7 days"
-            accentColor="#f97316"
-          />
-          <KPICard
-            title="Units Available"
-            value={unitsAvailable || 0}
-            trend={`${openPct}% open`}
+            title="Active Campaigns"
+            value={(summary.activeCampaigns ?? activeCampaignsData.count ?? 0).toLocaleString("en-IN")}
+            trend="Running Ads"
             isUp={true}
-            subtext={`of ${totalUnits || 0} total units`}
-            accentColor="#14b8a6"
-          />
-          <KPICard
-            title="Conversion Rate"
-            value={`${summary.conversionRate || 0}%`}
-            trend="+1.2% this week"
-            isUp={true}
-            subtext="Lead-to-booking ratio"
-            accentColor="#a855f7"
+            subtext="Meta / Marketing campaigns"
+            accentColor="#8b5cf6"
           />
         </div>
 
-        {/* ROW 2: Lead Trend + Lead Funnel + Lead Sources */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* Lead Trend — last 7 days */}
-          {/* <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="text-[16px] font-bold text-slate-900">Lead trend — last 7 days</h3>
-              {leadTrends.length > 0 && (() => {
-                const last = leadTrends[leadTrends.length - 1]?.leads || 0;
-                const prev = leadTrends[leadTrends.length - 2]?.leads || 0;
-                const up = last >= prev;
-                return (
-                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${up ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
-                    {up ? '↑' : '↓'} {up ? 'Recovering' : 'Dipping'}
-                  </span>
-                );
-              })()}
-            </div>
-            {leadTrends.length === 0 ? (
-              <div className="flex items-center justify-center h-[150px]">
-                <p className="text-sm text-slate-400">No trend data available</p>
-              </div>
-            ) : (() => {
-              const maxVal = Math.max(...leadTrends.map((d: any) => d.leads), 1);
-              const minVal = Math.min(...leadTrends.map((d: any) => d.leads));
-              const W = 300; const H = 140; const padX = 10; const padTop = 16; const padBottom = 26;
-              const pts = leadTrends.map((d: any, i: number) => {
-                const x = padX + (i / Math.max(leadTrends.length - 1, 1)) * (W - padX * 2);
-                const range = maxVal - minVal || 1;
-                const y = padTop + ((maxVal - d.leads) / range) * (H - padTop - padBottom);
-                return { x, y, d };
-              });
-              const path = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-              const area = `${path} L${pts[pts.length - 1].x.toFixed(1)},${(H - padBottom).toFixed(1)} L${pts[0].x.toFixed(1)},${(H - padBottom).toFixed(1)} Z`;
-              return (
-                <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 150 }}>
-                  <defs>
-                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
-                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <path d={area} fill="url(#trendGrad)" />
-                  <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  {pts.map((p: any, i: number) => (
-                    <circle key={i} cx={p.x} cy={p.y} r="4" fill="white" stroke="#2563eb" strokeWidth="2" />
-                  ))}
-                  {pts.map((p: any, i: number) => (
-                    <text key={`lbl${i}`} x={p.x} y={H - 4} textAnchor="middle" fontSize="10" fill="#94a3b8" fontWeight="500">
-                      {p.d.date ? new Date(p.d.date).toLocaleDateString('en-IN', { weekday: 'short' }) : p.d.week || p.d.month || ''}
-                    </text>
-                  ))}
-                </svg>
-              );
-            })()}
-          </div> */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm relative">
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="text-[16px] font-bold text-slate-900">Lead trend — last 7 days</h3>
-              {leadTrends.length > 0 && (() => {
-                const last = leadTrends[leadTrends.length - 1]?.leads || 0;
-                const prev = leadTrends[leadTrends.length - 2]?.leads || 0;
-                const up = last >= prev;
-                return (
-                  <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 ${up ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'}`}>
-                    {up ? '↑' : '↓'} {up ? 'Recovering' : 'Dipping'}
-                  </span>
-                );
-              })()}
-            </div>
-
-            {leadTrends.length === 0 ? (
-              <div className="flex items-center justify-center h-[150px]">
-                <p className="text-sm text-slate-400">No trend data available</p>
-              </div>
-            ) : (() => {
-              const maxVal = Math.max(...leadTrends.map((d: any) => d.leads), 1);
-              const minVal = Math.min(...leadTrends.map((d: any) => d.leads));
-              const W = 300; const H = 140; const padX = 10; const padTop = 16; const padBottom = 26;
-
-              const pts = leadTrends.map((d: any, i: number) => {
-                const x = padX + (i / Math.max(leadTrends.length - 1, 1)) * (W - padX * 2);
-                const range = maxVal - minVal || 1;
-                const y = padTop + ((maxVal - d.leads) / range) * (H - padTop - padBottom);
-                return { x, y, d };
-              });
-
-              const path = pts.map((p: any, i: number) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-              const area = `${path} L${pts[pts.length - 1].x.toFixed(1)},${(H - padBottom).toFixed(1)} L${pts[0].x.toFixed(1)},${(H - padBottom).toFixed(1)} Z`;
-
-              // Mouse move handling function for connectivity tracking
-              const handleMouseMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
-                if (!svgRef.current || pts.length === 0) return;
-
-                // SVG ki actual screen width aur positioning nikalne ke liye
-                const rect = svgRef.current.getBoundingClientRect();
-                // Mouse ka X position SVG ke andar kitna hai (0 se lekar rect.width tak)
-                const mouseXInSvg = e.clientX - rect.left;
-                // Usko SVG ke internal coordinate matrix (0 se 300 W) mein convert kiya
-                const svgX = (mouseXInSvg / rect.width) * W;
-
-                // Sabse nikat (closest) point find karne ka logic
-                let closestIdx = 0;
-                let minDiff = Math.abs(pts[0].x - svgX);
-
-                for (let i = 1; i < pts.length; i++) {
-                  const diff = Math.abs(pts[i].x - svgX);
-                  if (diff < minDiff) {
-                    minDiff = diff;
-                    closestIdx = i;
-                  }
-                }
-                setHoveredIdx(closestIdx);
-              };
-
-              return (
-                <svg
-                  ref={svgRef}
-                  viewBox={`0 0 ${W} ${H}`}
-                  className="w-full"
-                  style={{ height: 150, cursor: 'pointer' }}
-                  onMouseMove={handleMouseMove}
-                  onMouseLeave={() => setHoveredIdx(null)}
-                >
-                  <defs>
-                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2563eb" stopOpacity="0.18" />
-                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Area under the curve */}
-                  <path d={area} fill="url(#trendGrad)" />
-
-                  {/* Main Connectivity Line */}
-                  <path d={path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-                  {/* Vertical Guide Line - Jab connectivity line par hover hoga tab dikhegi */}
-                  {hoveredIdx !== null && (
-                    <line
-                      x1={pts[hoveredIdx].x}
-                      y1={padTop}
-                      x2={pts[hoveredIdx].x}
-                      y2={H - padBottom}
-                      stroke="#e2e8f0"
-                      strokeWidth="1"
-                      strokeDasharray="3,3"
-                    />
-                  )}
-
-                  {/* Graphical Dots */}
-                  {pts.map((p: any, i: number) => (
-                    <circle
-                      key={i}
-                      cx={p.x}
-                      cy={p.y}
-                      r={hoveredIdx === i ? "5.5" : "4"}
-                      fill={hoveredIdx === i ? "#2563eb" : "white"}
-                      stroke="#2563eb"
-                      strokeWidth={hoveredIdx === i ? "2.5" : "2"}
-                      style={{ transition: 'all 0.1s ease', pointerEvents: 'none' }}
-                    />
-                  ))}
-
-                  {/* X-Axis Labels */}
-                  {pts.map((p: any, i: number) => (
-                    <text key={`lbl${i}`} x={p.x} y={H - 4} textAnchor="middle" fontSize="10" fill={hoveredIdx === i ? "#2563eb" : "#94a3b8"} fontWeight={hoveredIdx === i ? "600" : "500"} style={{ transition: 'color 0.1s ease' }}>
-                      {p.d.date ? new Date(p.d.date).toLocaleDateString('en-IN', { weekday: 'short' }) : p.d.week || p.d.month || ''}
-                    </text>
-                  ))}
-
-                  {/* Perfect SVG Tooltip over the connection point */}
-                  {hoveredIdx !== null && (
-                    <g transform={`translate(${pts[hoveredIdx].x}, ${pts[hoveredIdx].y - 14})`}>
-                      {/* Tooltip Card Background */}
-                      <rect
-                        x="-28"
-                        y="-16"
-                        width="56"
-                        height="20"
-                        rx="5"
-                        fill="#0f172a"
-                        className="shadow-lg"
-                      />
-                      {/* Tooltip Content */}
-                      <text
-                        textAnchor="middle"
-                        y="-3"
-                        fill="#ffffff"
-                        fontSize="10"
-                        fontWeight="600"
-                      >
-                        {pts[hoveredIdx].d.leads} Lds
-                      </text>
-                    </g>
-                  )}
-                </svg>
-              );
-            })()}
-          </div>
-          {/* Lead Funnel */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="text-[16px] font-bold text-slate-900">Lead funnel</h3>
-              <span className="text-[13px] font-medium text-slate-400">This month</span>
-            </div>
-            {leadFunnel.length === 0 ? (
-              <p className="text-sm text-slate-400 text-center py-10">No funnel data</p>
-            ) : (
-              <div className="space-y-2">
-                {(() => {
-                  const COLORS = ['#2563eb', '#7c3aed', '#d97706', '#059669', '#dc2626', '#0891b2', '#be185d'];
-                  const funnelStages = ['NEW', 'CONTACTED', 'INTERESTED', 'SITE_VISIT_COMPLETED', 'BOOKED', 'CLOSED'];
-                  const filtered = funnelStages
-                    .map(key => leadFunnel.find((f: any) => f.status === key))
-                    .filter(Boolean) as any[];
-                  const topCount = filtered[0]?.count || 1;
-                  return filtered.map((f: any, i: number) => {
-                    const pct = Math.round((f.count / topCount) * 100);
-                    const clr = COLORS[i % COLORS.length];
-                    const passRate = i > 0 ? `${Math.round((f.count / (filtered[i - 1]?.count || 1)) * 100)}% pass` : '';
-                    const shortLabel: Record<string, string> = { NEW: 'Total Leads', CONTACTED: 'Contacted', INTERESTED: 'Interested', SITE_VISIT_COMPLETED: 'Site Visited', BOOKED: 'Booked', CLOSED: 'Closed/Won' };
-                    return (
-                      <div key={f.status} className="flex items-center gap-2">
-                        <span className="text-[11px] text-slate-500 w-[76px] text-right flex-shrink-0">{shortLabel[f.status] || f.label}</span>
-                        <div className="flex-1 h-5 bg-slate-50 rounded overflow-hidden">
-                          <div className="h-full rounded flex items-center pl-2" style={{ width: `${Math.max(pct, 8)}%`, background: `${clr}22` }}>
-                            <span className="text-[11px] font-medium" style={{ color: clr }}>{f.count.toLocaleString()}</span>
-                          </div>
-                        </div>
-                        <span className="text-[10px] text-slate-400 w-[42px] flex-shrink-0">{passRate}</span>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            )}
-          </div>
-
-          {/* Lead Sources */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="text-[16px] font-bold text-slate-900">Lead sources</h3>
-              <span className="text-[13px] font-medium text-slate-400">This month</span>
-            </div>
-            {leadSources.length === 0 ? (
-              <div className="flex items-center justify-center h-[150px]">
-                <p className="text-sm text-slate-400">No source data available</p>
-              </div>
-            ) : (() => {
-              const SRC_COLORS = ['#2563eb', '#16a34a', '#7c3aed', '#d97706', '#94a3b8', '#dc2626', '#0891b2'];
-              const total = leadSources.reduce((s: number, d: any) => s + d.count, 0) || 1;
-              const R = 52; const cx = 64; const cy = 64;
-              const innerR = R * 0.58;
-              let startAngle = -Math.PI / 2;
-              const slices = leadSources.slice(0, 6).map((src: any, i: number) => {
-                const pct = src.count / total;
-                const sweep = pct * 2 * Math.PI;
-                const x1 = cx + R * Math.cos(startAngle);
-                const y1 = cy + R * Math.sin(startAngle);
-                const endA = startAngle + sweep;
-                const x2 = cx + R * Math.cos(endA);
-                const y2 = cy + R * Math.sin(endA);
-                const large = sweep > Math.PI ? 1 : 0;
-                // Donut arc path: outer arc then inner arc back
-                const d = [
-                  `M${(cx + innerR * Math.cos(startAngle)).toFixed(2)},${(cy + innerR * Math.sin(startAngle)).toFixed(2)}`,
-                  `L${x1.toFixed(2)},${y1.toFixed(2)}`,
-                  `A${R},${R} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)}`,
-                  `L${(cx + innerR * Math.cos(endA)).toFixed(2)},${(cy + innerR * Math.sin(endA)).toFixed(2)}`,
-                  `A${innerR},${innerR} 0 ${large} 0 ${(cx + innerR * Math.cos(startAngle)).toFixed(2)},${(cy + innerR * Math.sin(startAngle)).toFixed(2)}`,
-                  'Z'
-                ].join(' ');
-                const slice = { d, clr: SRC_COLORS[i % SRC_COLORS.length], src, pct };
-                startAngle = endA;
-                return slice;
-              });
-              return (
-                <div className="flex flex-col items-center gap-5">
-                  {/* Centered Donut */}
-                  <svg viewBox="0 0 128 128" style={{ width: 130, height: 130 }}>
-                    <circle cx={cx} cy={cy} r={R} fill="#f1f5f9" />
-                    {slices.map((sl, i) => (
-                      <path key={i} d={sl.d} fill={sl.clr} stroke="#fff" strokeWidth="2" />
-                    ))}
-                  </svg>
-                  {/* Horizontal legend row at bottom */}
-                  <div className="flex items-start justify-around w-full">
-                    {slices.map((sl, i) => (
-                      <div key={i} className="flex flex-col items-center gap-1 flex-1 min-w-0 px-1">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: sl.clr }} />
-                        <span className="text-[11px] font-medium text-slate-500 text-center leading-tight w-full truncate">{sl.src.source}</span>
-                        <span className="text-[13px] font-bold text-slate-800">{sl.src.percentage}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-
-        {/* ROW 3: Today's Work + Today's Reminders */}
+        {/* --- Main Interactive Section (Items 4, 5, 6, 7 with Date-wise Filters) --- */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* Today's Work */}
-          <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Today's work</h3>
-              <span className="text-[13px] text-slate-500">
-                {((todayWork.followUps?.length || 0) + (todayWork.visits?.length || 0) + (todayWork.newLeadsAssigned?.length || 0))} items
-              </span>
-            </div>
-            <div className="space-y-1">
-              {(todayWork.followUps || []).slice(0, 3).map((f: any) => (
-                <div key={f.id} className="flex items-center gap-2 py-2 border-b border-slate-50">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-slate-800 truncate">{f.type} — {f.leadName}</p>
-                    <p className="text-[11px] text-slate-500">{new Date(f.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Follow-up</span>
-                </div>
-              ))}
-              {(todayWork.visits || []).slice(0, 2).map((v: any) => (
-                <div key={v.id} className="flex items-center gap-2 py-2 border-b border-slate-50">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-slate-800 truncate">Site Visit — {v.leadName}</p>
-                    <p className="text-[11px] text-slate-500">{v.projectName} · {new Date(v.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Visit</span>
-                </div>
-              ))}
-              {(todayWork.newLeadsAssigned || []).slice(0, 2).map((l: any) => (
-                <div key={l.id} className="flex items-center gap-2 py-2 border-b border-slate-50">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-slate-800 truncate">New Lead — {l.name}</p>
-                    <p className="text-[11px] text-slate-500">{l.source} · {l.phone}</p>
-                  </div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">New</span>
-                </div>
-              ))}
-              {!loading && !todayWork.followUps?.length && !todayWork.visits?.length && !todayWork.newLeadsAssigned?.length && (
-                <p className="text-sm text-slate-400 py-6 text-center">All clear — nothing pending today!</p>
-              )}
-            </div>
-          </div>
-
-          {/* Today's Reminders */}
-          <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-900">Today's reminders</h3>
-            </div>
-            <div className="space-y-1">
-              {reminders.length === 0 && !loading && (
-                <p className="text-sm text-slate-400 py-6 text-center">No reminders for today</p>
-              )}
-              {reminders.slice(0, 6).map((r: any) => {
-                const isVisit = r.type === 'Site Visit';
-                const isOverdue = r.isOverdue;
-                const badgeBg = isOverdue ? 'bg-rose-50 text-rose-600' : isVisit ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600';
-                return (
-                  <div key={r.id} className="flex items-start gap-3 py-2 border-b border-slate-50 last:border-0">
-                    <span className="text-[11px] font-medium text-slate-500 w-[56px] pt-0.5 flex-shrink-0">
-                      {new Date(r.scheduledAt || r.time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-slate-800 truncate">{r.type} — {r.leadName || r.clientName}</p>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{r.notes || r.projectName || ''}</p>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium mt-1.5 inline-block ${badgeBg}`}>
-                        {isOverdue ? 'urgent' : isVisit ? 'visit' : 'call'}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Lower Section (Employee Follow-Ups, Top Performers, Site Visits, Payment Alerts) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-
-          {/* Employee Follow-Ups */}
-          <div className="lg:col-span-4 bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex flex-col">
-            <h3 className="text-lg font-bold text-slate-900">Employee Follow-Ups Today</h3>
-            <p className="text-[13px] text-slate-500 mb-6">Real-time progress per team member</p>
-            <div className="space-y-5 flex-1">
-              {employeePerf.length === 0 && !loading && <p className="text-sm text-slate-500">No data available.</p>}
-              {employeePerf.map((emp) => {
-                const pct = emp.todayFollowUps > 0 ? (emp.followUpsDone / emp.todayFollowUps) * 100 : 0;
-                const barColor = pct === 100 ? 'bg-emerald-500' : 'bg-[#1E293B]';
-                return (
-                  <div key={emp.id} className="flex items-center gap-3">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-[38px] h-[38px] rounded-full bg-[#1E293B] text-white flex items-center justify-center font-medium text-[13px]">
-                        {emp.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-                      </div>
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-end mb-1.5">
-                        <div className="truncate pr-2">
-                          <p className="text-[13px] font-medium text-slate-800 truncate">{emp.name}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{emp.role.replace(/_/g, ' ')}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-[12px] font-medium text-slate-800">{emp.followUpsDone}/{emp.todayFollowUps}</p>
-                          <p className="text-[10px] text-slate-400">Calls <span className="font-medium text-slate-800">{emp.callsMade}</span></p>
-                        </div>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-[5px] overflow-hidden">
-                        <div className={`${barColor} rounded-full h-full transition-all duration-500`} style={{ width: `${pct}%` }}></div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Top Performers */}
-          <div className="lg:col-span-4 bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex flex-col justify-between">
+          {/* ============================================================ */}
+          {/* ITEM 4: NEW LEADS (WITH DATE FILTER)                        */}
+          {/* ============================================================ */}
+          <div className="bg-white rounded-[28px] border border-slate-200/80 p-6 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col justify-between">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Top Performers</h3>
-              <p className="text-[13px] text-slate-500 mb-6">This month - by deals closed</p>
-              <div className="space-y-4">
-                {topPerformers.length === 0 && !loading && <p className="text-sm text-slate-500">No data available.</p>}
-                {topPerformers.map((emp, idx) => {
-                  const rankColors = [
-                    "bg-amber-100 text-amber-600",
-                    "bg-slate-200 text-slate-600",
-                    "bg-orange-100 text-orange-600",
-                    "bg-slate-100 text-slate-500",
-                    "bg-slate-100 text-slate-500"
-                  ];
-                  return (
-                    <div key={emp.userId} className="flex items-center gap-3">
-                      <div className={`w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] font-medium flex-shrink-0 ${rankColors[idx] || rankColors[4]}`}>
-                        {idx + 1}
-                      </div>
-                      <div className="relative flex-shrink-0">
-                        <div className="w-[30px] h-[30px] rounded-full bg-[#1E293B] text-white flex items-center justify-center font-medium text-[11px]">
-                          {emp.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()}
-                        </div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-slate-800 truncate">{emp.name}</p>
-                        <p className="text-[11px] text-slate-500">{emp.conversionRate}% conversion</p>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md shadow-amber-500/20 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">4. New Leads</h3>
+                    <p className="text-xs text-slate-500 font-medium">Filtered date-wise</p>
+                  </div>
+                </div>
+
+                {/* Date Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={newLeadsRange}
+                    onChange={(e) => setNewLeadsRange(e.target.value)}
+                    className="text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-1.5 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer transition-all"
+                  >
+                    {DATE_FILTER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom Date Picker Inputs */}
+              {newLeadsRange === "custom" && (
+                <div className="flex items-center gap-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <input
+                    type="date"
+                    value={newLeadsStart}
+                    onChange={(e) => setNewLeadsStart(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none bg-white font-medium"
+                  />
+                  <span className="text-xs text-slate-400 font-semibold">to</span>
+                  <input
+                    type="date"
+                    value={newLeadsEnd}
+                    onChange={(e) => setNewLeadsEnd(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none bg-white font-medium"
+                  />
+                </div>
+              )}
+
+              {/* Stat Highlight Banner */}
+              <div className="flex items-center justify-between mb-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent rounded-2xl p-4 border border-amber-200/70">
+                <div>
+                  <span className="text-3xl font-black text-amber-600 leading-none">
+                    {loadingNewLeads ? "..." : newLeadsData.count}
+                  </span>
+                  <p className="text-xs font-semibold text-amber-800 mt-1">New Leads captured in period</p>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-amber-100/80 flex items-center justify-center text-amber-600 font-bold text-xs">
+                  ⚡
+                </div>
+              </div>
+
+              {/* Item List */}
+              <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                {loadingNewLeads ? (
+                  <p className="text-xs text-slate-400 py-8 text-center font-medium">Loading new leads...</p>
+                ) : newLeadsData.leads.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-8 text-center font-medium">No new leads found for selected date range</p>
+                ) : (
+                  newLeadsData.leads.map((lead: any) => (
+                    <div key={lead.id} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 hover:bg-slate-100/70 hover:border-slate-200 transition-all">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-xs font-bold text-slate-800 truncate">{lead.name}</p>
+                        <p className="text-[11px] text-slate-500 font-medium truncate">{lead.phone} • {lead.source || "Direct"}</p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="text-[13px] font-medium text-slate-800">{emp.dealsClosedMonth}</p>
-                        <p className="text-[10px] text-slate-400">deals</p>
-                      </div>
-                      <div className="text-right w-16 flex-shrink-0">
-                        <p className="text-[13px] font-medium text-emerald-600">{formatCurrencyCr(emp.revenue)}</p>
-                        <p className="text-[10px] text-slate-400">revenue</p>
+                        <span className="inline-block text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200/60">
+                          {lead.status}
+                        </span>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          {new Date(lead.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                        </p>
                       </div>
                     </div>
-                  );
-                })}
+                  ))
+                )}
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-slate-100">
-              <p className="text-[11px] text-slate-400 font-medium mb-2 uppercase tracking-wide">Team this month</p>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[12px] text-slate-500 font-medium">Total Deals</span>
-                <span className="text-[14px] font-medium text-slate-800">{teamDeals}</span>
-              </div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[12px] text-slate-500 font-medium">Total Revenue</span>
-                <span className="text-[14px] font-medium text-slate-800">{formatCurrencyCr(teamRevenue)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[12px] text-slate-500 font-medium">Avg. Conversion</span>
-                <span className="text-[14px] font-medium text-slate-800">{teamAvgConv}%</span>
-              </div>
+            <div className="mt-4 pt-3.5 border-t border-slate-100">
+              <Link href="/leads?status=NEW" className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center justify-center gap-1.5 py-1 transition-colors">
+                <span>View All Leads</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
             </div>
           </div>
 
-          {/* Right Column: Site Visits & Payment Alerts */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
 
-            {/* Today's Site Visits */}
-            <div className="bg-white rounded-xl border border-slate-100 p-6 shadow-sm flex-1">
-              <h3 className="text-lg font-bold text-slate-900">Today's Site Visits</h3>
-              <p className="text-[13px] text-slate-500 mb-5">Scheduled appointments</p>
-              <div className="space-y-4">
-                {visits.length === 0 && !loading && <p className="text-sm text-slate-500">No visits scheduled today.</p>}
-                {visits.slice(0, 4).map(v => (
-                  <div key={v.id} className="flex gap-3 items-start">
-                    <div className="w-[60px] flex-shrink-0 pt-0.5">
-                      <p className="text-[11px] font-medium text-slate-800">
-                        {new Date(v.time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                      </p>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-slate-800 truncate">{v.clientName}</p>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{v.projectName} {v.unitNumber ? `- ${v.unitNumber}` : ''}</p>
-                      <p className="text-[11px] text-slate-500 truncate">with {v.executiveName}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${v.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : v.status === 'completed' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'}`}>
-                        {v.status === 'confirmed' ? 'Confirmed' : v.status === 'completed' ? 'Completed' : 'Pending'}
-                      </span>
-                    </div>
+          {/* ============================================================ */}
+          {/* ITEM 5: FOLLOW-UPS (WITH DATE FILTER)                        */}
+          {/* ============================================================ */}
+          <div className="bg-white rounded-[28px] border border-slate-200/80 p-6 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col justify-between">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20 flex items-center justify-center">
+                    <PhoneCall className="w-5 h-5" />
                   </div>
-                ))}
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">5. Follow-Ups</h3>
+                    <p className="text-xs text-slate-500 font-medium">Filtered date-wise</p>
+                  </div>
+                </div>
+
+                {/* Date Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={followUpsRange}
+                    onChange={(e) => setFollowUpsRange(e.target.value)}
+                    className="text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer transition-all"
+                  >
+                    {DATE_FILTER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom Date Picker Inputs */}
+              {followUpsRange === "custom" && (
+                <div className="flex items-center gap-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <input
+                    type="date"
+                    value={followUpsStart}
+                    onChange={(e) => setFollowUpsStart(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none bg-white font-medium"
+                  />
+                  <span className="text-xs text-slate-400 font-semibold">to</span>
+                  <input
+                    type="date"
+                    value={followUpsEnd}
+                    onChange={(e) => setFollowUpsEnd(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none bg-white font-medium"
+                  />
+                </div>
+              )}
+
+              {/* Stat Highlight Banner */}
+              <div className="flex items-center justify-between mb-4 bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent rounded-2xl p-4 border border-blue-200/70">
+                <div>
+                  <span className="text-3xl font-black text-blue-600 leading-none">
+                    {loadingFollowUps ? "..." : followUpsData.count}
+                  </span>
+                  <p className="text-xs font-semibold text-blue-800 mt-1">Total Scheduled Follow-Ups</p>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-[11px] px-3 py-1 rounded-full font-bold bg-emerald-100/90 text-emerald-700 border border-emerald-200/60">
+                    {followUpsData.completedCount} Done
+                  </span>
+                  <span className="text-[11px] px-3 py-1 rounded-full font-bold bg-amber-100/90 text-amber-700 border border-amber-200/60">
+                    {followUpsData.pendingCount} Pending
+                  </span>
+                </div>
+              </div>
+
+              {/* Item List */}
+              <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                {loadingFollowUps ? (
+                  <p className="text-xs text-slate-400 py-8 text-center font-medium">Loading follow-ups...</p>
+                ) : followUpsData.followups.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-8 text-center font-medium">No follow-ups found for selected date range</p>
+                ) : (
+                  followUpsData.followups.map((fu: any) => (
+                    <div key={fu.id} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 hover:bg-slate-100/70 hover:border-slate-200 transition-all">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-xs font-bold text-slate-800 truncate">{fu.leadName}</p>
+                        <p className="text-[11px] text-slate-500 font-medium truncate">{fu.type} • {fu.assignedToName}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className={`inline-block text-[10.5px] font-bold px-2.5 py-0.5 rounded-full ${fu.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/60' : 'bg-blue-100 text-blue-700 border border-blue-200/60'}`}>
+                          {fu.status}
+                        </span>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          {new Date(fu.scheduledAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
-            {/* Payment Alerts */}
-            <div className="bg-white rounded-xl border border-slate-100 p-6 shadow-sm">
-              <h3 className="text-lg font-bold text-slate-900">Payment Alerts</h3>
-              <p className="text-[13px] text-slate-500 mb-5">Overdue & due within 48hrs</p>
-              <div className="space-y-3">
-                {payments.length === 0 && !loading && <p className="text-sm text-slate-500">No urgent payments.</p>}
-                {payments.slice(0, 4).map(p => (
-                  <div key={p.id} className={`pl-3 py-1 border-l-2 ${p.status === 'Overdue' ? 'border-rose-500' : 'border-amber-400'} flex justify-between items-start`}>
-                    <div className="min-w-0 flex-1 pr-2">
-                      <p className="text-[13px] font-medium text-slate-800 truncate">{p.clientName}</p>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">{p.paymentType || 'Installment'} - <span className={`font-medium ${p.status === 'Overdue' ? 'text-rose-500' : 'text-amber-500'}`}>{p.dueLabel}</span></p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <p className={`text-[13px] font-medium ${p.status === 'Overdue' ? 'text-rose-600' : 'text-amber-500'}`}>
-                        {formatCurrencyLakh(p.amount)}
-                      </p>
-                    </div>
+            <div className="mt-4 pt-3.5 border-t border-slate-100">
+              <Link href="/followups" className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center justify-center gap-1.5 py-1 transition-colors">
+                <span>View All Follow-Ups</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+
+          {/* ============================================================ */}
+          {/* ITEM 6: SITE VISITS (WITH DATE FILTER)                       */}
+          {/* ============================================================ */}
+          <div className="bg-white rounded-[28px] border border-slate-200/80 p-6 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col justify-between">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20 flex items-center justify-center">
+                    <MapPin className="w-5 h-5" />
                   </div>
-                ))}
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">6. Site Visits</h3>
+                    <p className="text-xs text-slate-500 font-medium">Filtered date-wise</p>
+                  </div>
+                </div>
+
+                {/* Date Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={siteVisitsRange}
+                    onChange={(e) => setSiteVisitsRange(e.target.value)}
+                    className="text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer transition-all"
+                  >
+                    {DATE_FILTER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom Date Picker Inputs */}
+              {siteVisitsRange === "custom" && (
+                <div className="flex items-center gap-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <input
+                    type="date"
+                    value={siteVisitsStart}
+                    onChange={(e) => setSiteVisitsStart(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none bg-white font-medium"
+                  />
+                  <span className="text-xs text-slate-400 font-semibold">to</span>
+                  <input
+                    type="date"
+                    value={siteVisitsEnd}
+                    onChange={(e) => setSiteVisitsEnd(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none bg-white font-medium"
+                  />
+                </div>
+              )}
+
+              {/* Stat Highlight Banner */}
+              <div className="flex items-center justify-between mb-4 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent rounded-2xl p-4 border border-emerald-200/70">
+                <div>
+                  <span className="text-3xl font-black text-emerald-600 leading-none">
+                    {loadingSiteVisits ? "..." : siteVisitsData.count}
+                  </span>
+                  <p className="text-xs font-semibold text-emerald-800 mt-1">Total Site Visits Scheduled</p>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-[11px] px-3 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/60">
+                    {siteVisitsData.completedCount} Completed
+                  </span>
+                  <span className="text-[11px] px-3 py-1 rounded-full font-bold bg-teal-100 text-teal-800 border border-teal-200/60">
+                    {siteVisitsData.confirmedCount} Confirmed
+                  </span>
+                </div>
+              </div>
+
+              {/* Item List */}
+              <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                {loadingSiteVisits ? (
+                  <p className="text-xs text-slate-400 py-8 text-center font-medium">Loading site visits...</p>
+                ) : siteVisitsData.visits.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-8 text-center font-medium">No site visits found for selected date range</p>
+                ) : (
+                  siteVisitsData.visits.map((vis: any) => (
+                    <div key={vis.id} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 hover:bg-slate-100/70 hover:border-slate-200 transition-all">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-xs font-bold text-slate-800 truncate">{vis.clientName}</p>
+                        <p className="text-[11px] text-slate-500 font-medium truncate">{vis.projectName} • {vis.executiveName}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className={`inline-block text-[10.5px] font-bold px-2.5 py-0.5 rounded-full ${vis.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/60' : 'bg-teal-100 text-teal-700 border border-teal-200/60'}`}>
+                          {vis.status}
+                        </span>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          {new Date(vis.scheduledAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
+            <div className="mt-4 pt-3.5 border-t border-slate-100">
+              <Link href="/sitevisits" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center justify-center gap-1.5 py-1 transition-colors">
+                <span>View All Site Visits</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+
+          {/* ============================================================ */}
+          {/* ITEM 7: BOOKINGS (WITH DATE FILTER)                          */}
+          {/* ============================================================ */}
+          <div className="bg-white rounded-[28px] border border-slate-200/80 p-6 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 flex flex-col justify-between">
+            <div>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/20 flex items-center justify-center">
+                    <FileCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">7. Bookings</h3>
+                    <p className="text-xs text-slate-500 font-medium">Filtered date-wise</p>
+                  </div>
+                </div>
+
+                {/* Date Filter Dropdown */}
+                <div className="flex items-center gap-2">
+                  <Filter className="w-3.5 h-3.5 text-slate-400" />
+                  <select
+                    value={bookingsRange}
+                    onChange={(e) => setBookingsRange(e.target.value)}
+                    className="text-xs font-bold bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3.5 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer transition-all"
+                  >
+                    {DATE_FILTER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom Date Picker Inputs */}
+              {bookingsRange === "custom" && (
+                <div className="flex items-center gap-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <input
+                    type="date"
+                    value={bookingsStart}
+                    onChange={(e) => setBookingsStart(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none bg-white font-medium"
+                  />
+                  <span className="text-xs text-slate-400 font-semibold">to</span>
+                  <input
+                    type="date"
+                    value={bookingsEnd}
+                    onChange={(e) => setBookingsEnd(e.target.value)}
+                    className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 outline-none bg-white font-medium"
+                  />
+                </div>
+              )}
+
+              {/* Stat Highlight Banner */}
+              <div className="flex items-center justify-between mb-4 bg-gradient-to-r from-indigo-500/10 via-indigo-500/5 to-transparent rounded-2xl p-4 border border-indigo-200/70">
+                <div>
+                  <span className="text-3xl font-black text-indigo-600 leading-none">
+                    {loadingBookings ? "..." : bookingsData.count}
+                  </span>
+                  <p className="text-xs font-semibold text-indigo-800 mt-1">Total Confirmed Deals</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-extrabold text-indigo-600">
+                    {formatCurrency(bookingsData.totalRevenue)}
+                  </p>
+                  <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Booking Revenue</p>
+                </div>
+              </div>
+
+              {/* Item List */}
+              <div className="space-y-2.5 max-h-[280px] overflow-y-auto pr-1">
+                {loadingBookings ? (
+                  <p className="text-xs text-slate-400 py-8 text-center font-medium">Loading bookings...</p>
+                ) : bookingsData.bookings.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-8 text-center font-medium">No bookings found for selected date range</p>
+                ) : (
+                  bookingsData.bookings.map((bk: any) => (
+                    <div key={bk.id} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 border border-slate-100 hover:bg-slate-100/70 hover:border-slate-200 transition-all">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="text-xs font-bold text-slate-800 truncate">{bk.clientName}</p>
+                        <p className="text-[11px] text-slate-500 font-medium truncate">{bk.projectName} • Unit {bk.unitNumber}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="inline-block text-[11.5px] font-extrabold text-emerald-600">
+                          {formatCurrency(bk.finalAmount)}
+                        </span>
+                        <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                          {new Date(bk.bookingDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 pt-3.5 border-t border-slate-100">
+              <Link href="/bookings" className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center justify-center gap-1.5 py-1 transition-colors">
+                <span>View All Bookings</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
 
         </div>
+
+        {/* --- Active Campaigns Details Section (Item 8 Breakdown) --- */}
+        <div className="bg-white rounded-[28px] border border-slate-200/80 p-6 shadow-sm hover:shadow-xl hover:shadow-slate-200/40 transition-all duration-300">
+          <div className="flex items-center justify-between mb-5 pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white shadow-md shadow-purple-500/20 flex items-center justify-center">
+                <Megaphone className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">8. Active Campaigns Detail</h3>
+                <p className="text-xs text-slate-500 font-medium">Live Meta / Lead Gen Ads connected to CRM</p>
+              </div>
+            </div>
+            <span className="text-xs font-extrabold px-3.5 py-1.5 bg-purple-100 text-purple-700 rounded-full border border-purple-200/60">
+              {activeCampaignsData.count} Active
+            </span>
+          </div>
+
+          {activeCampaignsData.campaigns.length === 0 ? (
+            <p className="text-xs text-slate-400 py-8 text-center font-medium">No active marketing campaigns running</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeCampaignsData.campaigns.map((camp: any) => (
+                <div key={camp.id} className="p-4.5 rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50/50 via-purple-50/20 to-transparent hover:bg-purple-50 transition-colors">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-extrabold text-purple-900 truncate max-w-[180px]">
+                      {camp.campaignName}
+                    </span>
+                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200/60">
+                      LIVE
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 font-semibold">Platform: {camp.platform}</p>
+                  <p className="text-xs text-slate-500 mt-1 truncate">Form: {camp.formName}</p>
+                  <p className="text-[11px] text-slate-400 mt-2 font-bold uppercase tracking-wide">Project: {camp.projectName}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );

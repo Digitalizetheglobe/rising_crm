@@ -26,6 +26,7 @@ export interface LeadAttributes {
     budgetRange?: string;
     propertyType?: string;
     preferredLocation?: string;
+    purpose?: string;
 
     // Project & Unit Interest
     interestedProjectId?: string;
@@ -75,6 +76,7 @@ class Lead extends Model<LeadAttributes, LeadCreationAttributes> implements Lead
     public budgetRange!: string;
     public propertyType!: string;
     public preferredLocation!: string;
+    public purpose!: string;
     public interestedProjectId!: string;
     public interestedUnitId!: string;
     public assignedTo!: string;
@@ -130,6 +132,7 @@ Lead.init(
         budgetRange: { type: DataTypes.STRING, allowNull: true, validate: { isIn: [BUDGET_RANGES] } },
         propertyType: { type: DataTypes.STRING, allowNull: true, validate: { isIn: [PROPERTY_TYPES] } },
         preferredLocation: { type: DataTypes.STRING, allowNull: true },
+        purpose: { type: DataTypes.STRING, allowNull: true },
         interestedProjectId: { type: DataTypes.UUID, allowNull: true },
         interestedUnitId: { type: DataTypes.UUID, allowNull: true },
         assignedTo: {

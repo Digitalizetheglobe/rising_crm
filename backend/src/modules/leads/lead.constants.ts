@@ -18,14 +18,18 @@ export const LEAD_STATUSES = [
 export type LeadStatus = typeof LEAD_STATUSES[number];
 
 export const LEAD_SOURCES = [
+    'Facebook',
+    'Google',
     'Website',
-    'Advertisement',
-    'Referral',
     'Walk-In',
+    'MagicBricks',
+    '99acres',
+    'Referral',
     'Phone',
     'WhatsApp',
     'Email',
     'Social Media',
+    'Advertisement',
     'Other',
 ] as const;
 

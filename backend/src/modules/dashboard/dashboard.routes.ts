@@ -3,6 +3,11 @@ import { protect } from '../../middleware/auth.middleware';
 import { allowRoles } from '../../middleware/role.middleware';
 import {
   getDashboardSummary,
+  getFilteredNewLeads,
+  getFilteredFollowUps,
+  getFilteredSiteVisits,
+  getFilteredBookings,
+  getActiveCampaigns,
   getProjectInventory,
   getEmployeePerformance,
   getTopPerformers,
@@ -35,6 +40,12 @@ const managerRoles = allowRoles(
 
 // ── Core stat cards & project filter ──────────────────────────────────────────
 router.get('/summary', protect, allRoles, getDashboardSummary);
+router.get('/new-leads', protect, allRoles, getFilteredNewLeads);
+router.get('/followups-filtered', protect, allRoles, getFilteredFollowUps);
+router.get('/site-visits-filtered', protect, allRoles, getFilteredSiteVisits);
+router.get('/bookings-filtered', protect, allRoles, getFilteredBookings);
+router.get('/active-campaigns', protect, allRoles, getActiveCampaigns);
+
 router.get('/project-inventory', protect, allRoles, getProjectInventory);
 
 // ── Team & performance ────────────────────────────────────────────────────────

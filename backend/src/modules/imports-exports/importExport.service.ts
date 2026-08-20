@@ -202,6 +202,7 @@ export const importLeads = async (
       notes:             notes || undefined,
       preferredLocation: preferredLocation || undefined,
       propertyType:      propertyType || undefined,
+      purpose:           (row.purpose || '').toString().trim() || undefined,
       assignedTo,
       assignedBy:        uploaderId,
       assignedAt:        new Date(),
@@ -450,26 +451,16 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
   });
 
   sheet.columns = [
-    { header: 'Lead ID*',                key: 'leadId',            width: 15 },
-    { header: 'Lead Date*',              key: 'leadDate',          width: 15 },
-    { header: 'Lead Source*',            key: 'leadSource',        width: 20 },
-    { header: 'First Name*',             key: 'firstName',         width: 20 },
-    { header: 'Last Name',               key: 'lastName',          width: 20 },
-    { header: 'Phone Number*',           key: 'phoneNumber',       width: 15 },
-    { header: 'Alternate Phone',         key: 'alternatePhone',    width: 15 },
-    { header: 'Email ID',                key: 'emailId',           width: 25 },
-    { header: 'City',                    key: 'city',              width: 20 },
-    { header: 'Assigned Executive',      key: 'assignedExecutive', width: 25 },
-    { header: 'Lead Status*',            key: 'leadStatus',        width: 15 },
-    { header: 'Property Type Interest',  key: 'propertyType',      width: 25 },
-    { header: 'Budget Min',              key: 'budgetMin',         width: 15 },
-    { header: 'Budget Max',              key: 'budgetMax',         width: 15 },
-    { header: 'Preferred Location',      key: 'preferredLocation', width: 25 },
-    { header: 'Size Required',           key: 'sizeRequired',      width: 15 },
-    { header: 'Purpose',                 key: 'purpose',           width: 15 },
-    { header: 'Loan Required',           key: 'loanRequired',      width: 15 },
-    { header: 'Timeline to Buy',         key: 'timelineToBuy',     width: 20 },
-    { header: 'Remarks',                 key: 'remarks',           width: 35 },
+    { header: 'Lead ID',           key: 'leadId',            width: 30 },
+    { header: 'Lead Source',        key: 'leadSource',        width: 18 },
+    { header: 'Project',            key: 'project',           width: 22 },
+    { header: 'Customer Name',      key: 'customerName',      width: 25 },
+    { header: 'Mobile Number',      key: 'mobileNumber',      width: 16 },
+    { header: 'Email',              key: 'email',             width: 28 },
+    { header: 'Budget',             key: 'budget',            width: 16 },
+    { header: 'Property Type',      key: 'propertyType',      width: 18 },
+    { header: 'Preferred Location', key: 'preferredLocation', width: 22 },
+    { header: 'Purpose',            key: 'purpose',           width: 14 },
   ];
 
   const headerRow = sheet.getRow(1);
@@ -478,51 +469,30 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
     cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: 11 };
     cell.alignment = { vertical: 'middle', horizontal: 'center' };
     cell.border = { bottom: { style: 'medium', color: { argb: 'FFCCCCCC' } } };
-    if (String(cell.value).includes('*')) {
-      cell.font = { color: { argb: 'FFFFE066' }, bold: true, size: 11 };
-    }
   });
   headerRow.height = 22;
   sheet.views = [{ state: 'frozen', ySplit: 1 }];
 
   leads.forEach((lead: any, idx: number) => {
     const rowIndex = idx + 2;
-    const nameParts = (lead.name || '').trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName  = nameParts.slice(1).join(' ') || '';
 
     const row = sheet.addRow({
       leadId:            lead.id || '',
-      leadDate:          lead.createdAt ? new Date(lead.createdAt) : '',
       leadSource:        lead.source || '',
-      firstName,
-      lastName,
-      phoneNumber:       lead.phone || '',
-      alternatePhone:    '',
-      emailId:           lead.email || '',
-      city:              lead.preferredLocation || '',
-      assignedExecutive: lead.assignedUser?.name || '',
-      leadStatus:        lead.status || '',
+      project:           lead.interestedProject?.name || '',
+      customerName:      lead.name || '',
+      mobileNumber:      lead.phone || '',
+      email:             lead.email || '',
+      budget:            lead.budgetRange || '',
       propertyType:      lead.propertyType || '',
-      budgetMin:         '',
-      budgetMax:         '',
       preferredLocation: lead.preferredLocation || '',
-      sizeRequired:      '',
-      purpose:           '',
-      loanRequired:      '',
-      timelineToBuy:     '',
-      remarks:           lead.notes || '',
+      purpose:           lead.purpose || '',
     });
 
-    sheet.getCell(`C${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_SOURCES)] };
-    sheet.getCell(`K${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_STATUSES)] };
-    sheet.getCell(`L${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(PROPERTY_TYPES)] };
-    sheet.getCell(`Q${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Self Use,Investment,Rental"'] };
-    sheet.getCell(`R${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Yes,No"'] };
-    sheet.getCell(`S${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Immediate,1-3 months,6+ months"'] };
-    sheet.getCell(`B${rowIndex}`).numFmt = 'DD/MM/YYYY';
-    sheet.getCell(`M${rowIndex}`).numFmt = '₹#,##0.00';
-    sheet.getCell(`N${rowIndex}`).numFmt = '₹#,##0.00';
+    // Dropdown validation for applicable columns
+    sheet.getCell(`B${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_SOURCES)] };
+    sheet.getCell(`H${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(PROPERTY_TYPES)] };
+    sheet.getCell(`J${rowIndex}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Buy,Invest,Rental"'] };
 
     row.eachCell((cell: any) => {
       cell.fill = {
@@ -532,17 +502,12 @@ export const exportLeads = async (filters: ExportFilters): Promise<ExcelJS.Buffe
     });
   });
 
+  // Extend dropdowns for empty rows up to row 1000
   const dataEnd = leads.length + 2;
   for (let i = dataEnd; i <= 1000; i++) {
-    sheet.getCell(`C${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_SOURCES)] };
-    sheet.getCell(`K${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_STATUSES)] };
-    sheet.getCell(`L${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(PROPERTY_TYPES)] };
-    sheet.getCell(`Q${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Self Use,Investment,Rental"'] };
-    sheet.getCell(`R${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Yes,No"'] };
-    sheet.getCell(`S${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Immediate,1-3 months,6+ months"'] };
-    sheet.getCell(`B${i}`).numFmt = 'DD/MM/YYYY';
-    sheet.getCell(`M${i}`).numFmt = '₹#,##0.00';
-    sheet.getCell(`N${i}`).numFmt = '₹#,##0.00';
+    sheet.getCell(`B${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(LEAD_SOURCES)] };
+    sheet.getCell(`H${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: [toDropdown(PROPERTY_TYPES)] };
+    sheet.getCell(`J${i}`).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Buy,Invest,Rental"'] };
   }
 
   return wb.xlsx.writeBuffer();

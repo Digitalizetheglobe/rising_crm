@@ -305,7 +305,7 @@ export default function EmployeePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         {loading ? (
           <div className="col-span-full py-20 flex flex-col items-center gap-3 text-slate-400 font-semibold">
-            <span className="w-8 h-8 rounded-full border-[3px] border-slate-200 border-t-[#EB3539] animate-spin" />
+            <span className="w-8 h-8 rounded-full border-[3px] border-slate-200 border-t-[#38B6FF] animate-spin" />
             Loading employees...
           </div>
         ) : filteredEmployees.length === 0 ? (
@@ -398,7 +398,7 @@ export default function EmployeePage() {
 
               <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#EB3539] rounded-full transition-all"
+                  className="h-full bg-[#38B6FF] rounded-full transition-all"
                   style={{ width: `${Math.min(emp.stats.conversionRate, 100)}%` }}
                 />
               </div>
@@ -449,7 +449,7 @@ export default function EmployeePage() {
             <button
               key={p}
               onClick={() => setCurrentPage(p)}
-              className={`w-9 h-9 rounded-xl font-bold transition-all cursor-pointer ${currentPage === p ? "bg-[#EB3539] text-white shadow-md" : "text-slate-600 hover:bg-slate-100"}`}
+              className={`w-9 h-9 rounded-xl font-bold transition-all cursor-pointer ${currentPage === p ? "bg-[#38B6FF] text-white shadow-md shadow-[#38B6FF]/30" : "text-slate-600 hover:bg-slate-100"}`}
             >
               {p}
             </button>
@@ -478,12 +478,12 @@ export default function EmployeePage() {
               <div>
                 <label className="block text-slate-600 font-bold mb-1.5">Full Name *</label>
                 <input type="text" required placeholder="e.g. Rahul Sharma" value={newName} onChange={(e) => setNewName(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-red-200 outline-none placeholder:text-slate-400 font-medium" />
+                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-sky-200 outline-none placeholder:text-slate-400 font-medium" />
               </div>
               <div>
                 <label className="block text-slate-600 font-bold mb-1.5">Email Address *</label>
                 <input type="email" required placeholder="e.g. rahul@company.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-red-200 outline-none placeholder:text-slate-400 font-medium" />
+                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-sky-200 outline-none placeholder:text-slate-400 font-medium" />
               </div>
               <div>
                 <label className="block text-slate-600 font-bold mb-1.5">Phone</label>
@@ -499,7 +499,7 @@ export default function EmployeePage() {
                     setPhoneError(cleaned ? getPhoneError(cleaned) : null);
                   }}
                   className={`w-full border rounded-2xl px-4 py-3 bg-white focus:ring-2 outline-none placeholder:text-slate-400 font-medium ${
-                    phoneError ? "border-rose-300 focus:ring-rose-200" : "border-slate-200 focus:ring-red-200"
+                    phoneError ? "border-rose-300 focus:ring-rose-200" : "border-slate-200 focus:ring-sky-200"
                   }`}
                 />
                 <p className={`mt-1.5 text-[12px] font-medium ${phoneError ? "text-rose-500" : "text-slate-400"}`}>
@@ -509,12 +509,12 @@ export default function EmployeePage() {
               <div>
                 <label className="block text-slate-600 font-bold mb-1.5">Password *</label>
                 <input type="password" required placeholder="Min. 6 characters" value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-red-200 outline-none placeholder:text-slate-400 font-medium" />
+                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-sky-200 outline-none placeholder:text-slate-400 font-medium" />
               </div>
               <div>
                 <label className="block text-slate-600 font-bold mb-1.5">Role</label>
                 <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
-                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-red-200 outline-none font-semibold text-slate-700">
+                  className="w-full border border-slate-200 rounded-2xl px-4 py-3 bg-white focus:ring-2 focus:ring-sky-200 outline-none font-semibold text-slate-700">
                   {ROLE_OPTIONS.map((r) => (
                     <option key={r} value={r}>{ROLE_LABEL[r] || r}</option>
                   ))}
@@ -526,7 +526,7 @@ export default function EmployeePage() {
                   Cancel
                 </button>
                 <button type="submit" disabled={saving}
-                  className="px-6 py-2.5 rounded-2xl bg-[#EB3539] hover:bg-[#d42d31] text-white font-bold shadow-md shadow-red-200 cursor-pointer disabled:opacity-70">
+                  className="px-6 py-2.5 rounded-2xl bg-[#38B6FF] hover:bg-[#0284C7] text-white font-bold shadow-md shadow-sky-200 cursor-pointer disabled:opacity-70">
                   {saving ? "Saving..." : "Add Employee"}
                 </button>
               </div>

@@ -1,68 +1,133 @@
 import React from "react";
-import { ClipboardList, Sparkles, Bell, MapPin, FileCheck, Hourglass, Home as HomeIcon, TrendingUp, BarChart2, Users, DollarSign, Briefcase, CheckCircle2, Target } from "lucide-react";
+import {
+  Users,
+  Sparkles,
+  Bell,
+  MapPin,
+  FileCheck,
+  TrendingUp,
+  BarChart2,
+  DollarSign,
+  Home as HomeIcon,
+  Activity,
+  Layers,
+  ArrowUpRight,
+  ArrowDownRight,
+} from "lucide-react";
+
+interface KPICardProps {
+  title: string;
+  value: string | number;
+  subtext?: string;
+  trend?: string;
+  isUp?: boolean;
+  accentColor?: string;
+}
 
 const getCardIcon = (title: string) => {
   const t = title.toLowerCase();
-  if (t.includes('staff') || t.includes('employee') || t.includes('executive') || t.includes('manager') || t.includes('admin')) return { icon: <Users className="w-5 h-5 text-indigo-500" />, bg: 'bg-indigo-50' };
-  if (t.includes('total lead') || t.includes('total hotlead') || t.includes('total enquir') || t.includes('total client') || t.includes('total task') || t.includes('total project') || t.includes('total booking') || t.includes('total staff')) return { icon: <ClipboardList className="w-5 h-5 text-slate-600" />, bg: 'bg-slate-100' };
-  if (t.includes('new') || t.includes('hot')) return { icon: <Sparkles className="w-5 h-5 text-purple-500" />, bg: 'bg-purple-50' };
-  if (t.includes('follow') || t.includes('pending')) return { icon: <Bell className="w-5 h-5 text-orange-500" />, bg: 'bg-orange-50' };
-  if (t.includes('visit')) return { icon: <MapPin className="w-5 h-5 text-emerald-500" />, bg: 'bg-emerald-50' };
-  if (t.includes('book') || t.includes('close') || t.includes('convert') || t.includes('complet')) return { icon: <FileCheck className="w-5 h-5 text-emerald-500" />, bg: 'bg-emerald-50' };
-  if (t.includes('payment') || t.includes('overdue') || t.includes('full payment') || t.includes('instalment') || t.includes('value')) return { icon: <DollarSign className="w-5 h-5 text-amber-500" />, bg: 'bg-amber-50' };
-  if (t.includes('unit') || t.includes('available') || t.includes('sold')) return { icon: <HomeIcon className="w-5 h-5 text-blue-500" />, bg: 'bg-blue-50' };
-  if (t.includes('conversion') || t.includes('active') || t.includes('rate')) return { icon: <TrendingUp className="w-5 h-5 text-indigo-500" />, bg: 'bg-indigo-50' };
-  if (t.includes('yesterday')) return { icon: <Target className="w-5 h-5 text-violet-500" />, bg: 'bg-violet-50' };
-  return { icon: <BarChart2 className="w-5 h-5 text-slate-500" />, bg: 'bg-slate-100' };
+  if (t.includes("staff") || t.includes("employee") || t.includes("executive"))
+    return <Users className="w-5 h-5" />;
+  if (t.includes("campaign")) return <Activity className="w-5 h-5" />;
+  if (t.includes("total lead") || t.includes("total hotlead")) return <Layers className="w-5 h-5" />;
+  if (t.includes("new") || t.includes("hot")) return <Sparkles className="w-5 h-5" />;
+  if (t.includes("follow") || t.includes("pending")) return <Bell className="w-5 h-5" />;
+  if (t.includes("visit")) return <MapPin className="w-5 h-5" />;
+  if (t.includes("book") || t.includes("close")) return <FileCheck className="w-5 h-5" />;
+  if (t.includes("payment") || t.includes("revenue")) return <DollarSign className="w-5 h-5" />;
+  if (t.includes("unit")) return <HomeIcon className="w-5 h-5" />;
+  if (t.includes("dump") || t.includes("dead")) return <BarChart2 className="w-5 h-5" />;
+  return <TrendingUp className="w-5 h-5" />;
 };
 
-export const KPICard = ({ title, value, subtext = "", trend = "", isUp = true, accentColor = "#3b82f6" }: any) => {
-  const { icon, bg } = getCardIcon(title);
+export const KPICard: React.FC<KPICardProps> = ({
+  title,
+  value,
+  subtext = "",
+  trend = "",
+  isUp = true,
+  accentColor = "#38B6FF",
+}) => {
+  const icon = getCardIcon(title);
+  const hasTrend = Boolean(trend && trend !== "" && trend !== "—");
 
-  const hasTrend = trend && trend !== "" && trend !== "—";
+  // Determine theme style based on accent color
+  let iconGradient = "from-[#38B6FF] to-[#0284C7] shadow-[#38B6FF]/30";
+  let bgGlow = "from-sky-500/10 via-transparent to-transparent";
+  let hoverBorder = "hover:border-[#38B6FF]/40";
 
-  let trendColor = "text-emerald-600 bg-emerald-50";
-  let trendIcon = "▲";
-
-  if (hasTrend) {
-    if (!isUp) {
-      trendColor = "text-rose-600 bg-rose-50";
-      trendIcon = "▼";
-    } else if (trend.includes("progress") || trend.includes("open")) {
-      trendColor = "text-slate-500 bg-slate-50";
-      trendIcon = "—";
-    }
+  if (accentColor === "#10b981") {
+    iconGradient = "from-emerald-500 to-teal-600 shadow-emerald-500/30";
+    bgGlow = "from-emerald-500/10 via-transparent to-transparent";
+    hoverBorder = "hover:border-emerald-400/40";
+  } else if (accentColor === "#ef4444") {
+    iconGradient = "from-rose-500 to-red-600 shadow-rose-500/30";
+    bgGlow = "from-rose-500/10 via-transparent to-transparent";
+    hoverBorder = "hover:border-rose-400/40";
+  } else if (accentColor === "#8b5cf6") {
+    iconGradient = "from-purple-500 to-indigo-600 shadow-purple-500/30";
+    bgGlow = "from-purple-500/10 via-transparent to-transparent";
+    hoverBorder = "hover:border-purple-400/40";
+  } else if (accentColor === "#2563eb") {
+    iconGradient = "from-blue-500 to-sky-600 shadow-blue-500/30";
+    bgGlow = "from-blue-500/10 via-transparent to-transparent";
+    hoverBorder = "hover:border-blue-400/40";
   }
 
-  const displayTrend = hasTrend ? trend.replace(/^[+-]/, '').trim() : "";
-
   return (
-    <div className="bg-white rounded-[26px] p-5 shadow-sm hover:shadow-xl border border-slate-100 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1.5 group cursor-default relative overflow-hidden">
-      {/* Accent Bar */}
-      <div className="absolute top-0 left-0 right-0 h-[6px] rounded-t-full" style={{ backgroundColor: accentColor }} />
+    <div
+      className={`group relative bg-white rounded-[26px] p-6 border border-slate-200/80 ${hoverBorder} shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 transform hover:-translate-y-1 overflow-hidden cursor-default`}
+    >
+      {/* Subtle Background Glow Accent */}
+      <div
+        className={`absolute inset-0 bg-gradient-to-br ${bgGlow} opacity-50 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`}
+      />
 
-      {/* Icon + Trend Row */}
-      <div className="flex justify-between items-center mt-1 mb-4">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${bg} shadow-sm`}>
+      {/* Top Header: Floating Gradient Icon + Trend Pill */}
+      <div className="flex items-center justify-between mb-5 relative z-10">
+        <div
+          className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${iconGradient} text-white shadow-md flex items-center justify-center transition-transform duration-300 group-hover:scale-110`}
+        >
           {icon}
         </div>
-        {displayTrend ? (
-          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold ${trendColor}`}>
-            <span>{trendIcon}</span>
-            <span>{displayTrend}</span>
+
+        {hasTrend && (
+          <div
+            className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11.5px] font-bold border transition-colors ${
+              isUp
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200/80"
+                : "bg-rose-50 text-rose-700 border-rose-200/80"
+            }`}
+          >
+            {isUp ? (
+              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600" />
+            ) : (
+              <ArrowDownRight className="w-3.5 h-3.5 text-rose-600" />
+            )}
+            <span>{trend.replace(/^[+-]/, "").trim()}</span>
           </div>
-        ) : null}
+        )}
       </div>
 
-      {/* Value */}
-      <h3 className="text-[32px] font-extrabold text-[#1E293B] leading-none group-hover:scale-[1.02] transition-transform origin-left duration-300">{value}</h3>
+      {/* Main Metric Value & Title */}
+      <div className="relative z-10">
+        <h3 className="text-3xl font-black text-slate-900 tracking-tight leading-none group-hover:text-slate-950 transition-colors">
+          {value}
+        </h3>
+        <p className="text-[12px] font-bold text-slate-500 tracking-wider uppercase mt-2.5">
+          {title}
+        </p>
+      </div>
 
-      {/* Title */}
-      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-2">{title}</p>
-
-      {/* Subtext */}
+      {/* Footer Subtext */}
       {subtext && (
-        <p className="text-[12px] text-slate-400 mt-1">{subtext}</p>
+        <div className="mt-4 pt-3 border-t border-slate-100/90 flex items-center gap-2 relative z-10">
+          <span
+            className="w-1.5 h-1.5 rounded-full transition-all duration-300 group-hover:scale-125"
+            style={{ backgroundColor: accentColor }}
+          />
+          <p className="text-xs text-slate-500 font-medium truncate">{subtext}</p>
+        </div>
       )}
     </div>
   );

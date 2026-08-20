@@ -26,6 +26,7 @@ interface Lead {
   budgetRange?: string;
   propertyType?: string;
   preferredLocation?: string;
+  purpose?: string;
   assignEmployee?: string;
   notes?: string;
   createdAt?: string;
@@ -139,13 +140,16 @@ export default function LeadsPage() {
   const { searchQuery, setSearchQuery, addToast } = useDashboard();
   const { user } = useAuth();
   const [columnDefs] = useState<any[]>([
-    { field: 'name', headerName: 'Name', checkboxSelection: true, headerCheckboxSelection: true, minWidth: 150, pinned: 'left', editable: true },
-    { field: 'projectName', headerName: 'Project', minWidth: 130, editable: true },
-    { field: 'propertyType', headerName: 'Property Interest', minWidth: 150, editable: true },
-    { field: 'source', headerName: 'Source', minWidth: 120, editable: true },
-    { field: 'assignEmployee', headerName: 'Assign Employee', minWidth: 150, editable: true },
-    { field: 'status', headerName: 'Status', minWidth: 140, cellRenderer: StatusCellRenderer, editable: true },
-    { field: 'lastContacted', headerName: 'Last Contacted', minWidth: 140, editable: true },
+    { field: 'id', headerName: 'Lead ID', minWidth: 200, pinned: 'left', checkboxSelection: true, headerCheckboxSelection: true },
+    { field: 'source', headerName: 'Lead Source', minWidth: 130, editable: true },
+    { field: 'projectName', headerName: 'Project', minWidth: 140, editable: true },
+    { field: 'name', headerName: 'Customer Name', minWidth: 160, editable: true },
+    { field: 'phone', headerName: 'Mobile Number', minWidth: 140 },
+    { field: 'email', headerName: 'Email', minWidth: 200, editable: true },
+    { field: 'budgetRange', headerName: 'Budget', minWidth: 130, editable: true },
+    { field: 'propertyType', headerName: 'Property Type', minWidth: 140, editable: true },
+    { field: 'preferredLocation', headerName: 'Preferred Location', minWidth: 170, editable: true },
+    { field: 'purpose', headerName: 'Purpose', minWidth: 110, editable: true },
   ]);
 
   // Filter & Search states
@@ -169,8 +173,10 @@ export default function LeadsPage() {
   const [newLeadPhone, setNewLeadPhone] = useState("");
   const [newLeadBudget, setNewLeadBudget] = useState("");
   const [newLeadProperty, setNewLeadProperty] = useState("");
-  const [newLeadSource, setNewLeadSource] = useState("Google Ads");
+  const [newLeadSource, setNewLeadSource] = useState("Facebook");
   const [newLeadStatus, setNewLeadStatus] = useState<"Hot Lead" | "Closed" | "New lead">("New lead");
+  const [newLeadLocation, setNewLeadLocation] = useState("");
+  const [newLeadPurpose, setNewLeadPurpose] = useState("");
 
   // Detail Modal State
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -264,12 +270,13 @@ export default function LeadsPage() {
             name: l.name || (l.enquiryId ? l.enquiryId.name : "Unknown"),
             source: l.source || (l.enquiryId ? l.enquiryId.source : "Unknown"),
             platform: l.platform || (l.enquiryId ? l.enquiryId.platform : undefined),
-            metaCampaignName: l.enquiryId ? l.enquiryId.metaAdId : undefined, // Currently using AdID as fallback if campaignName is not stored directly on lead
+            metaCampaignName: l.enquiryId ? l.enquiryId.metaAdId : undefined,
             phone: l.phone || (l.enquiryId ? l.enquiryId.phone : "Unknown"),
             email: l.email || "Not provided",
             budgetRange: l.budgetRange || "Not specified",
             propertyType: l.propertyType || "Not specified",
             preferredLocation: l.preferredLocation || "Not specified",
+            purpose: l.purpose || "",
             notes: l.notes || "",
             status: l.status,
             createdAt: l.createdAt ? new Date(l.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
@@ -648,6 +655,8 @@ export default function LeadsPage() {
       if (newLeadEmail.trim()) payload.email = newLeadEmail.trim();
       if (newLeadBudget.trim()) payload.budgetRange = newLeadBudget.trim();
       if (newLeadProperty.trim()) payload.propertyType = newLeadProperty.trim();
+      if (newLeadLocation.trim()) payload.preferredLocation = newLeadLocation.trim();
+      if (newLeadPurpose.trim()) payload.purpose = newLeadPurpose.trim();
 
       const res = await fetch(`${API_URL}/v1/leads`, {
         method: "POST",
@@ -663,8 +672,10 @@ export default function LeadsPage() {
         setNewLeadPhone("");
         setNewLeadBudget("");
         setNewLeadProperty("");
-        setNewLeadSource("Google Ads");
+        setNewLeadSource("Facebook");
         setNewLeadStatus("New lead");
+        setNewLeadLocation("");
+        setNewLeadPurpose("");
         setIsAddModalOpen(false);
         fetchLeads();
         fetchStats();
@@ -768,7 +779,7 @@ export default function LeadsPage() {
 
       {/* 3 KPI Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <KPICard title="Total Hotleads" value={totalHotLeads} trend="+12.5% vs last month" isUp={true} subtext="Qualified leads" accentColor="#EB3539" />
+        <KPICard title="Total Hotleads" value={totalHotLeads} trend="+12.5% vs last month" isUp={true} subtext="Qualified leads" accentColor="#38B6FF" />
         <KPICard title="Follow-ups today" value={followUpsToday} trend="+3.5% vs last month" isUp={true} subtext="Pending tasks" accentColor="#3b82f6" />
         <KPICard title="Closed this month" value={closedThisMonth} trend="-2.5% need reviews" isUp={false} subtext="Successfully closed" accentColor="#f59e0b" />
       </div>
@@ -965,7 +976,7 @@ export default function LeadsPage() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowSourceDropdown(false)} />
                 <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-2 animate-scale-up font-medium text-[13.5px]">
-                  {["All sources", "Google Ads", "Facebook", "Referral", "Walk-In", "Website", "WhatsApp", "Other"].map((src) => (
+                  {["All sources", "Facebook", "Google", "Website", "Walk-In", "MagicBricks", "99acres", "Referral", "WhatsApp", "Other"].map((src) => (
                     <button
                       key={src}
                       onClick={() => {
@@ -1053,7 +1064,7 @@ export default function LeadsPage() {
                           <span className="block px-3 py-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Update Status</span>
                           <button
                             onClick={() => handleChangeLeadStatus(lead.id, "Hot Lead")}
-                            className="w-full text-left px-3 py-1.5 rounded-xl text-[#EB3539] hover:bg-red-50 cursor-pointer"
+                            className="w-full text-left px-3 py-1.5 rounded-xl text-[#0284C7] hover:bg-sky-50 cursor-pointer"
                           >
                             Hot Lead
                           </button>
@@ -1092,7 +1103,7 @@ export default function LeadsPage() {
 
                 <div className="mt-2.5">
                   {lead.status === "Hot Lead" && (
-                    <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11.5px] font-bold bg-[#FDF2F2] text-[#EB3539] border border-red-100">
+                    <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[11.5px] font-bold bg-sky-50 text-[#0284C7] border border-sky-200">
                       Hot Lead
                     </span>
                   )}
@@ -1208,20 +1219,48 @@ export default function LeadsPage() {
               </div>
 
               <div>
-                <label className="block text-slate-600 font-bold mb-1.5">Marketing Source</label>
+                <label className="block text-slate-600 font-bold mb-1.5">Lead Source</label>
                 <select
                   value={newLeadSource}
                   onChange={(e) => setNewLeadSource(e.target.value)}
                   className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-semibold"
                 >
-                  <option value="Google Ads">Google Ads</option>
                   <option value="Facebook">Facebook</option>
-                  <option value="Referral">Referral</option>
-                  <option value="Walk-In">Walk-In</option>
+                  <option value="Google">Google</option>
                   <option value="Website">Website</option>
+                  <option value="Walk-In">Walk-In</option>
+                  <option value="MagicBricks">MagicBricks</option>
+                  <option value="99acres">99acres</option>
+                  <option value="Referral">Referral</option>
                   <option value="WhatsApp">WhatsApp</option>
                   <option value="Other">Other</option>
                 </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5">Preferred Location</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Pune, Kolhapur"
+                    value={newLeadLocation}
+                    onChange={(e) => setNewLeadLocation(e.target.value)}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-600 font-bold mb-1.5">Purpose</label>
+                  <select
+                    value={newLeadPurpose}
+                    onChange={(e) => setNewLeadPurpose(e.target.value)}
+                    className="w-full border border-slate-200 rounded-2xl px-4 py-3 focus:ring-2 focus:ring-brand/20 outline-none text-[14.5px] font-medium bg-white"
+                  >
+                    <option value="">Select purpose</option>
+                    <option value="Buy">Buy</option>
+                    <option value="Invest">Invest</option>
+                    <option value="Rental">Rental</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -1467,6 +1506,7 @@ export default function LeadsPage() {
             if (updated.budgetRange && updated.budgetRange !== 'Not specified') payload.budgetRange = updated.budgetRange;
             if (updated.propertyType && updated.propertyType !== 'Not specified') payload.propertyType = updated.propertyType;
             if (updated.preferredLocation && updated.preferredLocation !== 'Not specified') payload.preferredLocation = updated.preferredLocation;
+            if (updated.purpose && updated.purpose.trim()) payload.purpose = updated.purpose;
 
             const res = await fetch(`${API_URL}/v1/leads/${updated.id}`, {
               method: 'PUT',

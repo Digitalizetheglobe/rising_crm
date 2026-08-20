@@ -2,6 +2,11 @@ import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth.middleware';
 import {
   getDashboardSummaryService,
+  getFilteredNewLeadsService,
+  getFilteredFollowUpsService,
+  getFilteredSiteVisitsService,
+  getFilteredBookingsService,
+  getActiveCampaignsService,
   getProjectInventoryService,
   getEmployeePerformanceService,
   getTopPerformersService,
@@ -22,15 +27,88 @@ const ok = (res: Response, data: unknown, message = 'Success') =>
 const fail = (res: Response, error: any) =>
   res.status(error.statusCode || 500).json({ success: false, message: error.message });
 
-// GET /api/v1/dashboard/summary?projectId=
+// GET /api/v1/dashboard/summary?projectId=&dateRange=&startDate=&endDate=
 export const getDashboardSummary = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const data = await getDashboardSummaryService(
       req.user!.UserId,
       req.user!.role,
-      req.query.projectId as string | undefined
+      req.query.projectId as string | undefined,
+      req.query.dateRange as string | undefined,
+      req.query.startDate as string | undefined,
+      req.query.endDate as string | undefined
     );
     ok(res, data, 'Dashboard summary fetched');
+  } catch (error: any) { fail(res, error); }
+};
+
+// GET /api/v1/dashboard/new-leads?projectId=&dateRange=&startDate=&endDate=
+export const getFilteredNewLeads = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await getFilteredNewLeadsService(
+      req.user!.UserId,
+      req.user!.role,
+      req.query.projectId as string | undefined,
+      req.query.dateRange as string | undefined,
+      req.query.startDate as string | undefined,
+      req.query.endDate as string | undefined
+    );
+    ok(res, data, 'Filtered new leads fetched');
+  } catch (error: any) { fail(res, error); }
+};
+
+// GET /api/v1/dashboard/followups-filtered?projectId=&dateRange=&startDate=&endDate=
+export const getFilteredFollowUps = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await getFilteredFollowUpsService(
+      req.user!.UserId,
+      req.user!.role,
+      req.query.projectId as string | undefined,
+      req.query.dateRange as string | undefined,
+      req.query.startDate as string | undefined,
+      req.query.endDate as string | undefined
+    );
+    ok(res, data, 'Filtered follow ups fetched');
+  } catch (error: any) { fail(res, error); }
+};
+
+// GET /api/v1/dashboard/site-visits-filtered?projectId=&dateRange=&startDate=&endDate=
+export const getFilteredSiteVisits = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await getFilteredSiteVisitsService(
+      req.user!.UserId,
+      req.user!.role,
+      req.query.projectId as string | undefined,
+      req.query.dateRange as string | undefined,
+      req.query.startDate as string | undefined,
+      req.query.endDate as string | undefined
+    );
+    ok(res, data, 'Filtered site visits fetched');
+  } catch (error: any) { fail(res, error); }
+};
+
+// GET /api/v1/dashboard/bookings-filtered?projectId=&dateRange=&startDate=&endDate=
+export const getFilteredBookings = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await getFilteredBookingsService(
+      req.user!.UserId,
+      req.user!.role,
+      req.query.projectId as string | undefined,
+      req.query.dateRange as string | undefined,
+      req.query.startDate as string | undefined,
+      req.query.endDate as string | undefined
+    );
+    ok(res, data, 'Filtered bookings fetched');
+  } catch (error: any) { fail(res, error); }
+};
+
+// GET /api/v1/dashboard/active-campaigns?projectId=
+export const getActiveCampaigns = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = await getActiveCampaignsService(
+      req.query.projectId as string | undefined
+    );
+    ok(res, data, 'Active campaigns fetched');
   } catch (error: any) { fail(res, error); }
 };
 

@@ -12,10 +12,11 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Rising CRM",
-  description: "Rising Spaces Leads and CRM Dashboard",
+  title: "DTG CRM | Digitalize The Globe",
+  description: "Digitalize The Globe CRM & Real Estate Dashboard",
   icons: {
-    icon: "/logo/logo_rising.png",
+    icon: "/logo/Dtg_new_logo.png",
+    
   },
 };
 

@@ -51,7 +51,7 @@ const formatPrice = (price: number): string => {
 };
 
 const statusStyles: Record<UnitItem["status"], string> = {
-  Available: "bg-[#FFEBEB] text-[#EB3539]",
+  Available: "bg-sky-50 text-[#0284C7] border border-sky-100",
   Booked: "bg-[#E6F9EE] text-[#10B981]",
   Sold: "bg-[#EFF6FF] text-[#1d4ed8]",
 };

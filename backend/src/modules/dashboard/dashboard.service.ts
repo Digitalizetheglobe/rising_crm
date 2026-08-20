@@ -4,7 +4,7 @@ import Lead from '../leads/lead.model';
 import FollowUp from '../followups/followup.model';
 import Booking from '../bookings/booking.model';
 import Payment from '../payments/payment.model';
-import Project from '../projects/project.model';
+import Project, { MetaCampaign } from '../projects/project.model';
 import Unit from '../units/unit.model';
 import Call from '../calls/call.model';
 import User from '../auth/auth.model';
@@ -47,132 +47,408 @@ const buildScopes = (userId: string, role: string, tenantId: string) => {
   };
 };
 
+export const getDateFilterClause = (period?: string, startDate?: string, endDate?: string) => {
+  const now = new Date();
+
+  if (startDate && endDate) {
+    const s = new Date(startDate);
+    s.setHours(0, 0, 0, 0);
+    const e = new Date(endDate);
+    e.setHours(23, 59, 59, 999);
+    return { [Op.gte]: s, [Op.lte]: e };
+  }
+
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(todayStart.getTime() + 86_400_000 - 1);
+
+  if (!period || period === 'today') {
+    return { [Op.gte]: todayStart, [Op.lte]: todayEnd };
+  }
+  if (period === 'yesterday') {
+    const yestStart = new Date(todayStart.getTime() - 86_400_000);
+    const yestEnd = new Date(todayStart.getTime() - 1);
+    return { [Op.gte]: yestStart, [Op.lte]: yestEnd };
+  }
+  if (period === 'this_week' || period === 'week') {
+    const day = now.getDay();
+    const diffToMon = (day === 0 ? -6 : 1) - day;
+    const mon = new Date(todayStart);
+    mon.setDate(todayStart.getDate() + diffToMon);
+    return { [Op.gte]: mon, [Op.lte]: todayEnd };
+  }
+  if (period === 'this_month' || period === 'month') {
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { [Op.gte]: monthStart, [Op.lte]: todayEnd };
+  }
+  if (period === 'this_year' || period === 'year') {
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    return { [Op.gte]: yearStart, [Op.lte]: todayEnd };
+  }
+  if (period === 'all') {
+    return undefined;
+  }
+
+  return { [Op.gte]: todayStart, [Op.lte]: todayEnd };
+};
+
 export const getDashboardSummaryService = async (
   userId: string,
   role: string,
-  projectId?: string
+  projectId?: string,
+  dateRange?: string,
+  startDate?: string,
+  endDate?: string
 ) => {
   const tenantId = getTenantId();
-  const ranges = getDateRanges();
-  const { leadScope, bookingScope, paymentScope, followupScope } = buildScopes(userId, role, tenantId);
+  const { leadScope, bookingScope, followupScope } = buildScopes(userId, role, tenantId);
 
   const projectFilter = projectId && projectId !== 'all' ? { interestedProjectId: projectId } : {};
   const bookingProjectFilter = projectId && projectId !== 'all' ? { projectId: projectId } : {};
 
   const leadQuery = { ...leadScope, ...projectFilter };
-  
-  const [totalLeads, newLeadsToday, newLeadsThisMonth, newLeadsLastMonth, convertedLeads] = await Promise.all([
-    Lead.count({ where: leadQuery }),
-    Lead.count({ where: { ...leadQuery, createdAt: { [Op.gte]: ranges.todayStart } } }),
-    Lead.count({ where: { ...leadQuery, createdAt: { [Op.gte]: ranges.thisMonthStart } } }),
-    Lead.count({ where: { ...leadQuery, createdAt: { [Op.gte]: ranges.lastMonthStart, [Op.lte]: ranges.lastMonthEnd } } }),
-    Lead.count({ where: { ...leadQuery, status: 'CLOSED' } }),
-  ]);
+  const dateClause = getDateFilterClause(dateRange, startDate, endDate);
 
-  const followUpQuery = {
+  // 1. Total leads count
+  const totalLeads = await Lead.count({ where: leadQuery });
+
+  // 2. Active leads count (status NOT IN LOST, DUPLICATE)
+  const activeLeads = await Lead.count({
+    where: {
+      ...leadQuery,
+      status: { [Op.notIn]: ['LOST', 'DUPLICATE'] }
+    }
+  });
+
+  // 3. Dump leads count (status IN LOST, DUPLICATE, HOLD)
+  const dumpLeads = await Lead.count({
+    where: {
+      ...leadQuery,
+      status: { [Op.in]: ['LOST', 'DUPLICATE', 'HOLD'] }
+    }
+  });
+
+  // 8. Active campaigns count
+  let activeCampaigns = 0;
+  try {
+    const campaignProjectFilter = projectId && projectId !== 'all' ? { projectId } : {};
+    activeCampaigns = await MetaCampaign.count({
+      where: {
+        isActive: true,
+        ...campaignProjectFilter
+      }
+    });
+  } catch (err) {
+    console.error('Failed to count active campaigns:', err);
+    activeCampaigns = 0;
+  }
+
+  // 4. New Leads count (with date filter)
+  const newLeadsQuery: any = { ...leadQuery };
+  if (dateClause) newLeadsQuery.createdAt = dateClause;
+
+  const newLeadsCount = await Lead.count({ where: newLeadsQuery });
+
+  // 5. Follow-ups count (with date filter)
+  const followUpQuery: any = {
     ...followupScope,
     type: { [Op.ne]: 'Site Visit' },
-    scheduledAt: { [Op.gte]: ranges.todayStart, [Op.lt]: ranges.todayEnd },
-    status: { [Op.in]: ['SCHEDULED', 'PENDING', 'COMPLETED'] },
   };
+  if (dateClause) followUpQuery.scheduledAt = dateClause;
 
-  const [todayFollowUps, followUpsDone, overdueFollowUps] = await Promise.all([
+  const [followUpsCount, followUpsCompleted, followUpsPending] = await Promise.all([
     FollowUp.count({ where: followUpQuery }),
     FollowUp.count({ where: { ...followUpQuery, status: 'COMPLETED' } }),
-    FollowUp.count({
-      where: {
-        ...followupScope,
-        type: { [Op.ne]: 'Site Visit' },
-        status: { [Op.in]: ['PENDING', 'SCHEDULED'] },
-        scheduledAt: { [Op.lt]: ranges.now },
-      },
-    }),
+    FollowUp.count({ where: { ...followUpQuery, status: { [Op.in]: ['SCHEDULED', 'PENDING'] } } }),
   ]);
 
-  const visitQuery = {
+  // 6. Site Visits count (with date filter)
+  const visitQuery: any = {
     ...followupScope,
     type: 'Site Visit',
-    scheduledAt: { [Op.gte]: ranges.todayStart, [Op.lt]: ranges.todayEnd },
-    status: { [Op.in]: ['SCHEDULED', 'PENDING', 'COMPLETED'] },
   };
+  if (dateClause) visitQuery.scheduledAt = dateClause;
 
-  const [todayVisits, todayVisitsConfirmed, todayVisitsCompleted] = await Promise.all([
+  const [siteVisitsCount, siteVisitsCompleted, siteVisitsConfirmed] = await Promise.all([
     FollowUp.count({ where: visitQuery }),
-    FollowUp.count({ where: { ...visitQuery, status: 'SCHEDULED' } }),
     FollowUp.count({ where: { ...visitQuery, status: 'COMPLETED' } }),
+    FollowUp.count({ where: { ...visitQuery, status: { [Op.in]: ['SCHEDULED', 'PENDING'] } } }),
   ]);
 
-  const bookingBaseQuery = { ...bookingScope, ...bookingProjectFilter, status: { [Op.ne]: 'Cancelled' } };
-  
-  const yesterdayBookings = await Booking.count({
-    where: { ...bookingBaseQuery, bookingDate: { [Op.gte]: ranges.yesterdayStart, [Op.lt]: ranges.yesterdayEnd } }
-  });
-  const thisMonthBookings = await Booking.count({
-    where: { ...bookingBaseQuery, bookingDate: { [Op.gte]: ranges.thisMonthStart } }
-  });
-  const lastMonthBookings = await Booking.count({
-    where: { ...bookingBaseQuery, bookingDate: { [Op.gte]: ranges.lastMonthStart, [Op.lte]: ranges.lastMonthEnd } }
-  });
+  // 7. Bookings count & revenue (with date filter)
+  const bookingBaseQuery: any = { ...bookingScope, ...bookingProjectFilter, status: { [Op.ne]: 'Cancelled' } };
+  if (dateClause) bookingBaseQuery.bookingDate = dateClause;
 
+  const bookingsCount = await Booking.count({ where: bookingBaseQuery });
   const revenueResult = await Booking.findOne({
     where: bookingBaseQuery,
-    attributes: [
-      [Sequelize.fn('SUM', Sequelize.col('finalAmount')), 'totalRevenue'],
-    ],
+    attributes: [[Sequelize.fn('SUM', Sequelize.col('finalAmount')), 'totalRevenue']],
     raw: true,
   }) as any;
-  const totalRevenue = parseFloat(revenueResult?.totalRevenue || '0');
-
-  const revenueThisMonthResult = await Booking.findOne({
-    where: { ...bookingBaseQuery, bookingDate: { [Op.gte]: ranges.thisMonthStart } },
-    attributes: [
-      [Sequelize.fn('SUM', Sequelize.col('finalAmount')), 'revenueThisMonth'],
-    ],
-    raw: true,
-  }) as any;
-  const revenueThisMonth = parseFloat(revenueThisMonthResult?.revenueThisMonth || '0');
-
-  const paymentBaseQuery = { ...paymentScope };
-  const [pendingPayments, overduePayments, dueSoonPayments] = await Promise.all([
-    Payment.count({ where: { ...paymentBaseQuery, status: 'Pending' } }),
-    Payment.count({ where: { ...paymentBaseQuery, status: 'Overdue' } }),
-    Payment.count({
-      where: {
-        ...paymentBaseQuery,
-        status: 'Pending',
-        dueDate: { [Op.gte]: ranges.now, [Op.lte]: new Date(ranges.now.getTime() + 7 * 86_400_000) },
-      },
-    }),
-  ]);
-
-  const conversionRate = totalLeads > 0 ? parseFloat(((convertedLeads / totalLeads) * 100).toFixed(1)) : 0;
-  const dailyAvgLastMonth = newLeadsLastMonth > 0 ? newLeadsLastMonth / 30 : 0;
-  const newLeadsTrendPct = dailyAvgLastMonth > 0
-    ? parseFloat((((newLeadsToday - dailyAvgLastMonth) / dailyAvgLastMonth) * 100).toFixed(1))
-    : 0;
+  const bookingsRevenue = parseFloat(revenueResult?.totalRevenue || '0');
 
   return {
     totalLeads,
-    newLeadsToday,
-    newLeadsThisMonth,
-    newLeadsLastMonth,
-    newLeadsTrendPct,
-    todayFollowUps,
-    todayFollowUpsDone: followUpsDone,
-    overdueFollowUps,
-    todayVisits,
-    todayVisitsConfirmed,
-    todayVisitsCompleted,
-    yesterdayBookings,
-    thisMonthBookings,
-    lastMonthBookings,
-    totalRevenue,
-    revenueThisMonth,
-    pendingPayments,
-    overduePayments,
-    dueSoonPayments,
-    conversionRate,
+    activeLeads,
+    dumpLeads,
+    activeCampaigns,
+    newLeadsCount,
+    followUpsCount,
+    followUpsCompleted,
+    followUpsPending,
+    siteVisitsCount,
+    siteVisitsCompleted,
+    siteVisitsConfirmed,
+    bookingsCount,
+    bookingsRevenue,
   };
+};
+
+export const getFilteredNewLeadsService = async (
+  userId: string,
+  role: string,
+  projectId?: string,
+  dateRange?: string,
+  startDate?: string,
+  endDate?: string,
+  limit = 50
+) => {
+  const tenantId = getTenantId();
+  const { leadScope } = buildScopes(userId, role, tenantId);
+  const projectFilter = projectId && projectId !== 'all' ? { interestedProjectId: projectId } : {};
+  const dateClause = getDateFilterClause(dateRange, startDate, endDate);
+
+  const whereClause: any = { ...leadScope, ...projectFilter };
+  if (dateClause) whereClause.createdAt = dateClause;
+
+  const [count, leads] = await Promise.all([
+    Lead.count({ where: whereClause }),
+    Lead.findAll({
+      where: whereClause,
+      include: [
+        { model: User, as: 'assignedUser', attributes: ['name'] },
+      ],
+      order: [['createdAt', 'DESC']],
+      limit,
+    }),
+  ]);
+
+  return {
+    count,
+    leads: leads.map((l: any) => ({
+      id: l.id,
+      name: l.name,
+      phone: l.phone,
+      source: l.source,
+      status: l.status,
+      assignedToName: l.assignedUser?.name || 'Unassigned',
+      createdAt: l.createdAt,
+    })),
+  };
+};
+
+export const getFilteredFollowUpsService = async (
+  userId: string,
+  role: string,
+  projectId?: string,
+  dateRange?: string,
+  startDate?: string,
+  endDate?: string,
+  limit = 50
+) => {
+  const tenantId = getTenantId();
+  const { followupScope } = buildScopes(userId, role, tenantId);
+  const dateClause = getDateFilterClause(dateRange, startDate, endDate);
+
+  const whereClause: any = {
+    ...followupScope,
+    type: { [Op.ne]: 'Site Visit' },
+  };
+  if (dateClause) whereClause.scheduledAt = dateClause;
+
+  const [count, completedCount, pendingCount, followups] = await Promise.all([
+    FollowUp.count({ where: whereClause }),
+    FollowUp.count({ where: { ...whereClause, status: 'COMPLETED' } }),
+    FollowUp.count({ where: { ...whereClause, status: { [Op.in]: ['SCHEDULED', 'PENDING'] } } }),
+    FollowUp.findAll({
+      where: whereClause,
+      include: [
+        { model: User, as: 'assignedUser', attributes: ['name'] },
+        { model: Lead, as: 'lead', attributes: ['name', 'phone', 'interestedProjectId'] },
+      ],
+      order: [['scheduledAt', 'ASC']],
+      limit,
+    }),
+  ]);
+
+  const filtered = followups.filter((f: any) => {
+    if (!projectId || projectId === 'all') return true;
+    return f.lead?.interestedProjectId === projectId;
+  });
+
+  return {
+    count,
+    completedCount,
+    pendingCount,
+    followups: filtered.map((f: any) => ({
+      id: f.id,
+      leadName: f.lead?.name || 'Unknown Lead',
+      leadPhone: f.lead?.phone || '',
+      type: f.type,
+      scheduledAt: f.scheduledAt,
+      status: f.status,
+      assignedToName: f.assignedUser?.name || 'Unassigned',
+      notes: f.notes || '',
+    })),
+  };
+};
+
+export const getFilteredSiteVisitsService = async (
+  userId: string,
+  role: string,
+  projectId?: string,
+  dateRange?: string,
+  startDate?: string,
+  endDate?: string,
+  limit = 50
+) => {
+  const tenantId = getTenantId();
+  const { followupScope } = buildScopes(userId, role, tenantId);
+  const dateClause = getDateFilterClause(dateRange, startDate, endDate);
+
+  const whereClause: any = {
+    ...followupScope,
+    type: 'Site Visit',
+  };
+  if (dateClause) whereClause.scheduledAt = dateClause;
+
+  const [count, completedCount, confirmedCount, visits] = await Promise.all([
+    FollowUp.count({ where: whereClause }),
+    FollowUp.count({ where: { ...whereClause, status: 'COMPLETED' } }),
+    FollowUp.count({ where: { ...whereClause, status: { [Op.in]: ['SCHEDULED', 'PENDING'] } } }),
+    FollowUp.findAll({
+      where: whereClause,
+      include: [
+        { model: User, as: 'assignedUser', attributes: ['name'] },
+        {
+          model: Lead,
+          as: 'lead',
+          attributes: ['name', 'phone', 'interestedProjectId'],
+          include: [{ model: Project, as: 'interestedProject', attributes: ['name'] }]
+        },
+      ],
+      order: [['scheduledAt', 'ASC']],
+      limit,
+    }),
+  ]);
+
+  const filtered = visits.filter((v: any) => {
+    if (!projectId || projectId === 'all') return true;
+    return v.lead?.interestedProjectId === projectId;
+  });
+
+  return {
+    count,
+    completedCount,
+    confirmedCount,
+    visits: filtered.map((v: any) => ({
+      id: v.id,
+      clientName: v.lead?.name || 'Unknown Lead',
+      clientPhone: v.lead?.phone || '',
+      projectName: v.lead?.interestedProject?.name || 'N/A',
+      scheduledAt: v.scheduledAt,
+      status: v.status,
+      executiveName: v.assignedUser?.name || 'Unassigned',
+      notes: v.notes || '',
+    })),
+  };
+};
+
+export const getFilteredBookingsService = async (
+  userId: string,
+  role: string,
+  projectId?: string,
+  dateRange?: string,
+  startDate?: string,
+  endDate?: string,
+  limit = 50
+) => {
+  const tenantId = getTenantId();
+  const { bookingScope } = buildScopes(userId, role, tenantId);
+  const bookingProjectFilter = projectId && projectId !== 'all' ? { projectId: projectId } : {};
+  const dateClause = getDateFilterClause(dateRange, startDate, endDate);
+
+  const whereClause: any = {
+    ...bookingScope,
+    ...bookingProjectFilter,
+    status: { [Op.ne]: 'Cancelled' }
+  };
+  if (dateClause) whereClause.bookingDate = dateClause;
+
+  const [count, bookings, revRes] = await Promise.all([
+    Booking.count({ where: whereClause }),
+    Booking.findAll({
+      where: whereClause,
+      include: [
+        { model: Project, as: 'project', attributes: ['name'] },
+        { model: Unit, as: 'unit', attributes: ['unitNumber'] },
+        { model: Lead, as: 'lead', attributes: ['name', 'phone'] },
+      ],
+      order: [['bookingDate', 'DESC']],
+      limit,
+    }),
+    Booking.findOne({
+      where: whereClause,
+      attributes: [[Sequelize.fn('SUM', Sequelize.col('finalAmount')), 'totalRevenue']],
+      raw: true,
+    }) as any,
+  ]);
+
+  return {
+    count,
+    totalRevenue: parseFloat(revRes?.totalRevenue || '0'),
+    bookings: bookings.map((b: any) => ({
+      id: b.id,
+      clientName: b.lead?.name || 'Client',
+      clientPhone: b.lead?.phone || '',
+      projectName: b.project?.name || 'N/A',
+      unitNumber: b.unit?.unitNumber || 'N/A',
+      finalAmount: b.finalAmount,
+      bookingDate: b.bookingDate,
+      status: b.status,
+    })),
+  };
+};
+
+export const getActiveCampaignsService = async (projectId?: string) => {
+  const campaignProjectFilter = projectId && projectId !== 'all' ? { projectId } : {};
+
+  try {
+    const campaigns = await MetaCampaign.findAll({
+      where: {
+        isActive: true,
+        ...campaignProjectFilter,
+      },
+      include: [{ model: Project, as: 'project', attributes: ['name'] }],
+      order: [['createdAt', 'DESC']],
+    });
+
+    return {
+      count: campaigns.length,
+      campaigns: campaigns.map((c: any) => ({
+        id: c.id,
+        campaignName: c.campaignName,
+        platform: c.platform,
+        projectName: c.project?.name || 'All Projects',
+        formName: c.formName,
+        isActive: c.isActive,
+        createdAt: c.createdAt,
+      })),
+    };
+  } catch (err) {
+    console.error('Error fetching active campaigns:', err);
+    return { count: 0, campaigns: [] };
+  }
 };
 
 export const getProjectInventoryService = async (projectId?: string) => {
@@ -458,7 +734,7 @@ export const getTodayVisitsService = async (userId: string, role: string, projec
       clientName: v.lead?.name ?? 'Unknown',
       clientPhone: v.lead?.phone ?? '',
       projectName: v.lead?.interestedProject?.name ?? '',
-      unitNumber: v.lead?.interestedUnitId ?? '', // Requires Unit include if unitNumber needed
+      unitNumber: v.lead?.interestedUnitId ?? '',
       executiveName: v.assignedUser?.name ?? '',
       status: v.status === 'SCHEDULED' ? 'confirmed' : v.status === 'COMPLETED' ? 'completed' : 'pending',
       notes: v.notes ?? '',
@@ -509,7 +785,7 @@ export const getPaymentAlertsService = async (userId: string, role: string, limi
 
     return {
       id: p.id,
-      clientName: 'Unknown', // Payment doesn't link to client directly without more joins, simplified for now
+      clientName: 'Unknown',
       clientPhone: '',
       amount: p.amount,
       dueDate: p.dueDate,
@@ -524,13 +800,6 @@ export const getPaymentAlertsService = async (userId: string, role: string, limi
 };
 
 export const getLeadTrendsService = async (userId: string, role: string, period: 'daily' | 'weekly' | 'monthly' = 'daily', range = 30, projectId?: string) => {
-  const tenantId = getTenantId();
-  const now = new Date();
-  const leadScope = role === 'SALES_EXECUTIVE' ? { assignedTo: userId } : {};
-  const projectFilter = projectId && projectId !== 'all' ? { interestedProjectId: projectId } : {};
-
-  // For this simplified version we'll just return static or simplified data since Sequelize date grouping varies heavily by dialect
-  // Returning basic data structure for compatibility
   return [];
 };
 

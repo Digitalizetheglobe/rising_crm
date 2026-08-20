@@ -934,7 +934,7 @@ export default function ClientPage() {
                   {preferenceTags.map((tag) => (
                     <span
                       key={tag}
-                      className="px-3 py-1 rounded-full text-xs font-medium bg-[#FFEBEB] text-[#EB3539]"
+                      className="px-3 py-1 rounded-full text-xs font-semibold bg-sky-50 text-[#0284C7] border border-sky-100"
                     >
                       {tag}
                     </span>
